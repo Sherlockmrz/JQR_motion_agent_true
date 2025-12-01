@@ -12,6 +12,7 @@ from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 from websockets.server import serve
 import logging
 from typing import Optional, Dict, Any, List
+import re
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -21,17 +22,47 @@ logger = logging.getLogger(__name__)
 ROS2_AVAILABLE = False
 rclpy = None
 Node = None
+geometry_msgs = None
+jqr_ros_msgs = None
+
+# jqr_ros_msgs 相关的导入，设置为None以避免未定义错误
 BatteryLevel = None
+MedicineBoxState = None
+MedicineBoxSwitch = None
+MoveMode = None
+RobotRise = None
+RobotRiseState = None
+RobotTilt = None
+RobotTiltState = None
+ScreenTilt = None
+ScreenTiltState = None
 
 # 尝试导入rclpy，如果不存在则忽略
 try:
     import rclpy
     from rclpy.node import Node
-    from jqr_ros_msgs.msg import BatteryLevel
+    import geometry_msgs.msg as geometry_msgs
+    # 尝试导入jqr_ros_msgs
+    try:
+        from jqr_ros_msgs.msg import BatteryLevel
+        from jqr_ros_msgs.srv import (
+            MedicineBoxState, MedicineBoxSwitch, 
+            MoveMode, 
+            RobotRise, RobotRiseState,
+            RobotTilt, RobotTiltState,
+            ScreenTilt, ScreenTiltState
+        )
+        jqr_ros_msgs = True
+        logger.info("jqr_ros_msgs 导入成功")
+    except ImportError as e:
+        logger.warning(f"jqr_ros_msgs 不可用: {e}")
+        jqr_ros_msgs = False
     ROS2_AVAILABLE = True
     logger.info("ROS2 rclpy 导入成功")
 except ImportError as e:
     logger.warning(f"ROS2 rclpy 不可用: {e}")
+    geometry_msgs = None
+    jqr_ros_msgs = False
 
 # 尝试导入cv2，如果不存在则忽略
 try:
@@ -39,6 +70,9 @@ try:
 except ImportError:
     cv2 = None
     logger.warning("cv2模块未安装，视频处理功能将不可用")
+
+# 导入subprocess用于系统调用
+import subprocess
 
 # ======================
 # 配置
@@ -76,7 +110,7 @@ def fix_asm_json_format():
             
         # 检查是否已经是正确的JSON格式
         try:
-            original_data = json.loads(original_content)
+            json.loads(original_content)
             logger.info("ASM JSON文件已经是正确的格式，无需修复")
             return True  # 格式正确，直接返回，不重写文件
         except json.JSONDecodeError as e:
@@ -135,21 +169,111 @@ def fix_asm_json_format():
         return False
 
 # ======================
-# 工具函数：外部系统模拟
+# ROS2响应解析工具函数
+# ======================
+
+def parse_ros2_response(response: str) -> Dict[str, Any]:
+    """
+    解析ROS2服务响应（支持多种格式）
+    
+    Args:
+        response (str): ROS2服务返回的响应字符串
+        
+    Returns:
+        Dict[str, Any]: 解析后的响应数据
+    """
+    if not response or not response.strip():
+        return {}
+    
+    try:
+        # 首先尝试JSON解析（以防某些服务返回JSON）
+        try:
+            return json.loads(response)
+        except json.JSONDecodeError:
+            pass
+        
+        # 处理ROS2响应格式: jqr_ros_msgs.srv.MoveMode_Response(move_mode=0 linear_vel=0.0 result_number=std_msgs.msg.UInt8(data=1) result_msg=std_msgs.msg.String(data='获取运动模式成功'))
+        if 'response:' in response:
+            # 提取response行
+            response_line = ''
+            for line in response.strip().split('\n'):
+                if line.startswith('response:'):
+                    response_line = line.replace('response:', '').strip()
+                    break
+            
+            if not response_line:
+                # 如果没有找到response:行，尝试直接解析
+                response_line = response.strip()
+        else:
+            response_line = response.strip()
+        
+        result = {}
+        
+        # 使用正则表达式提取字段值
+        # 匹配格式: field_name=value 或者 field_name=type(value)
+        pattern = r'(\w+)=([^,\s]+(?:\([^)]*\))?)'
+        matches = re.findall(pattern, response_line)
+        
+        for field_name, value_str in matches:
+            # 解析不同类型的值
+            if value_str.isdigit():
+                # 整数
+                result[field_name] = int(value_str)
+            elif '.' in value_str and value_str.replace('.', '').isdigit():
+                # 浮点数
+                result[field_name] = float(value_str)
+            elif 'UInt8' in value_str and 'data=' in value_str:
+                # 处理std_msgs.msg.UInt8(data=0)格式
+                data_match = re.search(r'data=(\d+)', value_str)
+                if data_match:
+                    result[field_name] = int(data_match.group(1))
+                else:
+                    result[field_name] = value_str
+            elif 'String' in value_str and 'data=' in value_str:
+                # 处理std_msgs.msg.String(data="xxx")格式
+                data_match = re.search(r'data=["\']([^"\']+)["\']', value_str)
+                if data_match:
+                    result[field_name] = data_match.group(1)
+                else:
+                    result[field_name] = value_str
+            elif value_str.startswith('"') and value_str.endswith('"'):
+                # 字符串
+                result[field_name] = value_str[1:-1]
+            elif value_str.startswith("'") and value_str.endswith("'"):
+                # 字符串
+                result[field_name] = value_str[1:-1]
+            elif value_str.lower() in ['true', 'false']:
+                # 布尔值
+                result[field_name] = value_str.lower() == 'true'
+            else:
+                # 其他情况保持原样
+                result[field_name] = value_str
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"解析ROS2响应失败: {e}, 原始响应: {response}")
+        return {}
+
+# ======================
+# 工具函数：外部系统控制
 # ======================
 def stop_following() -> bool:
-    """模拟停止跟随"""
-    print("[ROS2] Stopping follow")
-    return True
+    """停止跟随"""
+    # TODO: 实现真实的停止跟随功能
+    logger.warning("停止跟随功能尚未实现")
+    return False
 
 def stop_navigation() -> bool:
-    """模拟停止导航"""
-    print("[ROS2] Stopping navigation")
-    return True
+    """停止导航"""
+    # TODO: 实现真实的停止导航功能
+    logger.warning("停止导航功能尚未实现")
+    return False
 
 def notify_navigation_model_stop_following():
     """通知导航模型停止跟随"""
-    print("[NAV_MODEL] Stop-following signal sent")
+    # TODO: 实现真实的通知导航模型功能
+    logger.warning("通知导航模型停止跟随功能尚未实现")
 
 # ======================
 # 视频与图像处理
@@ -159,22 +283,29 @@ def cut_video_6s(video_path: str, timestamp: str, output_dir: str) -> Optional[s
     """剪切视频前后3秒（总共6秒片段）"""
     try:
         # 使用ffmpeg剪切真实视频片段
-        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        try:
+            dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError as e:
+            logger.error(f"时间戳格式错误: {e}")
+            return None
         output_name = f"cut_6s_{dt.strftime('%Y%m%d_%H%M%S')}.mp4"
         output_path = os.path.join(output_dir, output_name)
         
         # 检查cv2是否可用
         if cv2 is None:
-            logger.warning("cv2模块不可用，跳过视频时长获取")
-            # 使用默认值
-            video_duration = 100.0  # 默认100秒
+            logger.error("cv2模块不可用，无法获取视频时长")
+            return None
         else:
             # 获取视频时长
             cap = cv2.VideoCapture(video_path)
             fps = cap.get(cv2.CAP_PROP_FPS)
             frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            video_duration = frame_count / fps if fps > 0 else 100.0  # 默认100秒
+            video_duration = frame_count / fps if fps > 0 else 0.0
             cap.release()
+            
+            if video_duration <= 0:
+                logger.error("无法获取视频时长或视频无效")
+                return None
         
         # 计算剪切时间（前后3秒）
         target_time = dt.timestamp()
@@ -215,34 +346,14 @@ def call_qwen_vl_api_with_video(prompt: str, video_path: str) -> Optional[str]:
             logger.error(f"视频文件不存在: {video_path}")
             return None
             
-        # 这里应该是实际的API调用代码
-        # 由于我们没有实际的API密钥和端点，暂时返回模拟结果
+        # 这里应该调用实际的Qwen-VL API
         logger.info(f"调用Qwen-VL API处理视频: {video_path}")
         logger.info(f"提示词: {prompt}")
         
-        # 模拟API响应
-        # 在实际实现中，这里会调用真实的Qwen-VL API
-        simulated_responses = {
-            "遥控器": "遥控器在电视柜上。",
-            "钥匙": "钥匙在玄关柜子上。",
-            "书本": "书本在书房桌子上。",
-            "钱包": "钱包在卧室床头柜上。",
-            "电视机": "电视机在客厅墙上。",
-            "水杯": "水杯在厨房台面上。",
-            "剪刀": "剪刀在工作台上。"
-        }
-        
-        # 从prompt中提取物品名称
-        for item in simulated_responses.keys():
-            if item in prompt:
-                response = simulated_responses[item]
-                logger.info(f"模拟API响应: {response}")
-                return response
-                
-        # 默认响应
-        response = "物品在附近区域。"
-        logger.info(f"默认API响应: {response}")
-        return response
+        # TODO: 实现真实的Qwen-VL API调用
+        # 需要配置API密钥和端点
+        logger.error("Qwen-VL API调用尚未实现，需要配置真实的API")
+        return None
         
     except Exception as e:
         logger.error(f"调用Qwen-VL API时出错: {e}")
@@ -279,13 +390,15 @@ def query_asm_object(obj_name: str) -> Optional[Dict[str, Any]]:
         for obj in objects:
             # 确保进行精确匹配，避免部分匹配或模糊匹配
             if obj.get("name") == obj_name:
-                # 使用新的格式字段
-                world_x = obj.get("world_x")
-                world_y = obj.get("world_y")
-                if world_x is not None and world_y is not None:
-                    location = {"x": world_x, "y": world_y}
+                # 使用正确的字段名
+                world_position = obj.get("world_position", [])
+                pixel_position = obj.get("pixel_position", [])
+                
+                if len(world_position) >= 2 and len(pixel_position) >= 2:
                     return {
-                        "location": location,
+                        "location": {"x": world_position[0], "y": world_position[1]},
+                        "world_position": world_position,
+                        "pixel_position": pixel_position,
                         "last_time": obj.get("last_show_time", "2025-11-02T10:00:00"),
                         "exist_or_not": obj.get("exist_or_not", 0),
                         "object_description": obj.get("object_description", "")
@@ -372,11 +485,12 @@ def find_object(obj_name: str) -> Dict[str, Any]:
             result_msg = f"找到 {obj_name} 的位置：地图坐标 ({loc['x']}, {loc['y']})"
             logger.info(f"[FIND_OBJECT] {result_msg}")
             
-            # 按照新格式返回结果
+            # 按照新格式返回结果，包含像素位置
             result_data = {
                 "success": True,
                 "world_position": [loc['x'], loc['y']],
-                "position_description": "在沙发上"  # 修改为文字描述
+                "pixel_position": asm_res.get("pixel_position", []),  # 添加像素位置
+                "position_description": asm_res.get("object_description", "")  # 使用ASM中的描述
             }
             
             return result_data
@@ -508,19 +622,26 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
             "position_description": None
         }
 
-async def go_to_object(world_position: Optional[List[float]] = None, location_info: Optional[str] = None, user_prompt: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+async def go_to_object(world_position: Optional[List[float]] = None, pixel_position: Optional[List[float]] = None, location_info: Optional[str] = None, user_prompt: Optional[str] = None, **kwargs) -> Dict[str, Any]:
     """
-    根据世界坐标导航到指定位置，通过WebSocket连接本地小模型服务
+    根据世界坐标或像素坐标导航到指定位置，通过WebSocket连接本地小模型服务
     
     Args:
         world_position (Optional[List[float]]): 世界坐标 [x, y]，可以为空
+        pixel_position (Optional[List[float]]): 像素坐标 [x, y]，发送给本地模型
         location_info (Optional[str]): 位置信息描述（兼容旧参数）
         user_prompt (Optional[str]): 位置信息描述（新参数名）
-        **kwargs: 其他额外参数
+        **kwargs: 其他额外参数，可能包含obj_name
     
     Returns:
         Dict[str, Any]: 工具执行结果
     """
+    # 解析obj_name参数
+    obj_name = kwargs.get('obj_name')  # 直接从kwargs获取
+    if not obj_name:
+        # 尝试从arguments中获取
+        obj_name = kwargs.get('arguments', {}).get('obj_name') if 'arguments' in kwargs else None
+    
     # 统一处理location_info和user_prompt参数
     if user_prompt is not None:
         location_info = user_prompt
@@ -529,21 +650,37 @@ async def go_to_object(world_position: Optional[List[float]] = None, location_in
         location_info = kwargs.get('arguments', {}).get('user_prompt') if 'arguments' in kwargs else None
     
     logger.info(f"[GO_TO_OBJECT] 开始导航任务")
+    if obj_name:
+        logger.info(f"[GO_TO_OBJECT] 目标对象: {obj_name}")
     if world_position:
-        logger.info(f"[GO_TO_OBJECT] 目标坐标: {world_position}")
+        logger.info(f"[GO_TO_OBJECT] 目标世界坐标: {world_position}")
+    if pixel_position:
+        logger.info(f"[GO_TO_OBJECT] 目标像素坐标: {pixel_position}")
     if location_info:
         logger.info(f"[GO_TO_OBJECT] 位置信息: {location_info}")
     
     try:
-        # 如果没有提供坐标，使用默认值或跳过坐标验证
-        if world_position is None:
-            world_position = [0.0, 0.0]  # 默认坐标
-            logger.info(f"[GO_TO_OBJECT] 使用默认坐标: {world_position}")
-        elif not isinstance(world_position, list) or len(world_position) < 2:
-            logger.warning(f"[GO_TO_OBJECT] 无效的世界坐标格式: {world_position}，使用默认坐标")
-            world_position = [0.0, 0.0]
+        # 优先使用像素坐标，如果没有则使用世界坐标
+        target_position = pixel_position or world_position
         
-        x, y = world_position[0], world_position[1]
+        if target_position is None:
+            error_msg = "缺少必要参数，需要world_position或pixel_position"
+            logger.error(f"[GO_TO_OBJECT] {error_msg}")
+            return {
+                "success": False,
+                "world_position": None,
+                "position_description": error_msg
+            }
+        elif not isinstance(target_position, list) or len(target_position) < 2:
+            error_msg = f"无效的坐标格式: {target_position}"
+            logger.error(f"[GO_TO_OBJECT] {error_msg}")
+            return {
+                "success": False,
+                "world_position": None,
+                "position_description": error_msg
+            }
+        
+        x, y = target_position[0], target_position[1]
         
         # 检查与本地模型的WebSocket连接状态
         logger.info(f"[GO_TO_OBJECT] 检查与本地模型的WebSocket连接状态")
@@ -577,14 +714,29 @@ async def go_to_object(world_position: Optional[List[float]] = None, location_in
             
             return result_data
         
-        # 连接成功，构造发送给本地模型的数据（新协议格式）
-        logger.info(f"[GO_TO_OBJECT] 通过WebSocket连接本地小模型服务，目标坐标: ({x}, {y})")
+        # 在导航开始前记录当前位置
+        smart_robot_agent_instance.record_position_before_navigation()
+        
+        # 连接成功，构造发送给本地模型的数据
+        logger.info(f"[GO_TO_OBJECT] 通过WebSocket连接本地小模型服务，目标像素坐标: ({x}, {y})")
+        
+        # 构建user_prompt，优先使用obj_name
+        if obj_name:
+            user_prompt_text = f"去找{obj_name}"
+        elif location_info:
+            user_prompt_text = f"去{location_info}"
+        else:
+            user_prompt_text = f"去坐标({x}, {y})"
         
         model_data = {
             "type": "go_to_object",
-            "user_prompt": location_info or f"去坐标({x}, {y})",
-            "world_position": [x, y]
+            "user_prompt": user_prompt_text,
+            "pixel_position": [x, y]  # 发送像素坐标而不是世界坐标
         }
+        
+        # 如果有obj_name，也添加到model_data中
+        if obj_name:
+            model_data["obj_name"] = obj_name
         
         # 使用通用的send_to_local_model方法
         task_id = f"go_to_{x}_{y}_{int(time.time())}"
@@ -797,6 +949,9 @@ async def follow_person(location_info: Optional[str] = None, person_id: Optional
             }
             
             return result_data
+        
+        # 在跟随开始前记录当前位置
+        smart_robot_agent_instance.record_position_before_navigation()
             
         # 构造发送给本地模型的数据（新格式）
         logger.info(f"[FOLLOW_PERSON] 通过WebSocket连接本地小模型服务")
@@ -938,7 +1093,7 @@ def stop_navigate() -> Dict[str, Any]:
 # ======================
 
 def init_test_data():
-    """初始化测试数据"""
+    """初始化数据库结构"""
     # ASM - 检查文件是否存在，不存在则报错
     if not os.path.exists(ASM_JSON_PATH):
         logger.error(f"ASM数据文件不存在: {ASM_JSON_PATH}")
@@ -946,16 +1101,13 @@ def init_test_data():
     else:
         logger.info("ASM数据文件存在，继续执行")
 
-    # DB
+    # DB - 只创建表结构，不插入测试数据
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # 删除现有的表（如果存在）
-    cursor.execute("DROP TABLE IF EXISTS objects")
-    
-    # 重新创建表
+    # 创建表（如果不存在）
     cursor.execute("""
-        CREATE TABLE objects (
+        CREATE TABLE IF NOT EXISTS objects (
             id INTEGER PRIMARY KEY,
             name TEXT,
             world_x REAL,
@@ -966,23 +1118,7 @@ def init_test_data():
         )
     """)
     
-    # 插入更多测试数据，包括电视机和人员
-    test_objects = [
-        (1, "遥控器", 2.1, 1.5, "2025-11-02T09:30:00", 1, "在电视柜上"),
-        (2, "钥匙", 0.5, 3.2, "2025-11-02T08:15:00", 1, "在玄关柜子上"),
-        (3, "书本", 4.0, 1.0, "2025-11-02T07:45:00", 1, "在书房桌子上"),
-        (4, "钱包", 1.8, 4.5, "2025-11-02T06:30:00", 1, "在卧室床头柜上"),
-        (5, "电视机", 3.5, 2.0, "2025-11-02T11:00:00", 1, "在客厅墙上"),
-        (6, "小明", 1.0, 1.0, "2025-11-02T10:30:00", 1, "在沙发上")
-    ]
-    
-    for id, name, world_x, world_y, last_show_time, exist_or_not, object_description in test_objects:
-        cursor.execute("""
-            INSERT INTO objects (id, name, world_x, world_y, last_show_time, exist_or_not, object_description)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (id, name, world_x, world_y, last_show_time, exist_or_not, object_description))
-        logger.info(f"[INIT] Inserted object {name} with id {id} at location ({world_x}, {world_y})")
-    
+    logger.info("数据库表结构已初始化")
     conn.commit()
     conn.close()
 
@@ -1109,6 +1245,19 @@ class WebSocketServer:
     
     async def _execute_task_by_type(self, task_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """根据任务类型执行相应的工具函数"""
+        # 处理嵌套的参数结构（兼容测试脚本的新格式）
+        if 'tool' in params and 'arguments' in params:
+            # 新格式：{"tool": "go_to_object", "arguments": {"user_prompt": "...", "world_position": [...]}}
+            nested_params = params.get('arguments', {})
+            # 合并参数，优先使用arguments中的参数
+            merged_params = {**params, **nested_params}
+            params = merged_params
+        
+        # 对于导航相关任务，在开始前记录当前位置
+        if task_type in ["go_to_object", "go_find_person", "follow_person"]:
+            if self.agent:
+                self.agent.record_position_before_navigation()
+        
         if task_type == "find_object":
             return find_object(**params)
         elif task_type == "explore_and_find_object":
@@ -1119,6 +1268,14 @@ class WebSocketServer:
             return await go_find_person(**params)
         elif task_type == "follow_person":
             return await follow_person(**params)
+        elif task_type == "back_to_last_position":
+            if self.agent:
+                return await self.agent.back_to_last_position(**params)
+            else:
+                return {
+                    "status": "error",
+                    "result": "Agent实例未初始化"
+                }
         elif task_type == "stop_follow":
             return stop_follow()
         elif task_type == "stop_navigate":
@@ -1128,8 +1285,6 @@ class WebSocketServer:
         # ROS2接口任务类型
         elif task_type == "get_move_mode" and self.agent:
             return self.agent.ros2_interface.get_move_mode()
-        elif task_type == "set_move_mode" and self.agent:
-            return self.agent.ros2_interface.set_move_mode(**params)
         elif task_type == "get_medicine_box_state" and self.agent:
             return self.agent.ros2_interface.get_medicine_box_state()
         elif task_type == "set_medicine_box_switch" and self.agent:
@@ -1146,6 +1301,12 @@ class WebSocketServer:
             return self.agent.ros2_interface.get_screen_tilt_state()
         elif task_type == "set_screen_tilt_jqr" and self.agent:
             return self.agent.ros2_interface.set_screen_tilt_jqr(**params)
+        # 激光指示灯控制接口
+        elif task_type == "set_laser_pointer" and self.agent:
+            return self.agent.ros2_interface.set_laser_pointer(**params)
+        elif task_type == "get_laser_pointer_state" and self.agent:
+            return self.agent.ros2_interface.get_laser_pointer_state()
+
         else:
             return {
                 "status": "error",
@@ -1189,7 +1350,7 @@ def battery_callback(msg):
     """电池电量回调函数 - 收到信息后立马发给client
     
     Args:
-        msg: BatteryLevel消息
+        msg: 电池电量消息
     """
     global battery_level, websocket_server_ref
     
@@ -1266,6 +1427,8 @@ class ROS2Interface:
     def __init__(self):
         """初始化ROS2接口"""
         self.battery_level = 100.0  # 初始电池电量
+        self.last_position = None  # 记录最后一个位置
+        self.position_subscribed = False  # 是否已订阅位置信息
         
     def _check_ros2_service_exists(self, service_name: str) -> bool:
         """检查ROS2服务是否存在
@@ -1294,6 +1457,33 @@ class ROS2Interface:
             logger.error(f"[ROS2] 检查服务存在性失败: {e}")
             return False
     
+    def _check_ros2_action_exists(self, action_name: str) -> bool:
+        """检查ROS2动作是否存在
+        
+        Args:
+            action_name (str): 动作名称
+            
+        Returns:
+            bool: 动作是否存在
+        """
+        try:
+            # 使用ros2 action list命令检查动作是否存在
+            cmd = f"ros2 action list"
+            result = os.popen(cmd).read().strip()
+            
+            # 检查动作名称是否在动作列表中
+            actions = result.split('\n')
+            for action in actions:
+                if action.strip() == action_name:
+                    logger.info(f"[ROS2] 动作 {action_name} 存在")
+                    return True
+            
+            logger.warning(f"[ROS2] 动作 {action_name} 不存在")
+            return False
+        except Exception as e:
+            logger.error(f"[ROS2] 检查动作存在性失败: {e}")
+            return False
+    
     def _call_ros2_service(self, service_name: str, service_type: str, request_data: str) -> Optional[str]:
         """调用ROS2服务
         
@@ -1312,13 +1502,41 @@ class ROS2Interface:
             
         try:
             # 构造ROS2服务调用命令
-            cmd = f"ros2 service call {service_name} {service_type} '{request_data}'"
+            # 注意：request_data可能是字典格式，需要转换为YAML字符串
+            if isinstance(request_data, dict):
+                import yaml
+                request_str = yaml.dump(request_data, default_flow_style=False)
+            else:
+                request_str = str(request_data)
+            
+            cmd = f"ros2 service call {service_name} {service_type} '{request_str}'"
             logger.info(f"[ROS2] 执行命令: {cmd}")
             
-            # 执行命令并获取输出
-            result = os.popen(cmd).read().strip()
-            logger.info(f"[ROS2] 服务调用结果: {result}")
-            return result
+            # 使用subprocess而不是os.popen来获得更好的控制
+            # 设置ROS环境变量
+            import os
+            env = os.environ.copy()
+            env['ROS_DOMAIN_ID'] = os.environ.get('ROS_DOMAIN_ID', '0')
+            
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10, env=env)
+            
+            if result.returncode != 0:
+                logger.error(f"[ROS2] 服务调用命令执行失败，返回码: {result.returncode}")
+                logger.error(f"[ROS2] stderr: {result.stderr}")
+                return None
+            
+            response = result.stdout.strip()
+            logger.info(f"[ROS2] 服务调用结果: {response}")
+            
+            # 检查结果是否为空
+            if not response:
+                logger.error(f"[ROS2] 服务 {service_name} 返回空响应")
+                return None
+                
+            return response
+        except subprocess.TimeoutExpired:
+            logger.error(f"[ROS2] 服务调用超时: {service_name}")
+            return None
         except Exception as e:
             logger.error(f"[ROS2] 服务调用失败: {e}")
             return None
@@ -1334,15 +1552,41 @@ class ROS2Interface:
         Returns:
             Optional[str]: 动作执行结果，如果调用失败则返回None
         """
+        # 首先检查动作是否存在
+        if not self._check_ros2_action_exists(action_name):
+            logger.error(f"[ROS2] 动作 {action_name} 不存在，无法调用")
+            return None
+            
         try:
             # 构造ROS2动作调用命令
             cmd = f"ros2 action send_goal {action_name} {action_type} '{goal_data}'"
             logger.info(f"[ROS2] 执行命令: {cmd}")
             
-            # 执行命令并获取输出
-            result = os.popen(cmd).read().strip()
-            logger.info(f"[ROS2] 动作调用结果: {result}")
-            return result
+            # 使用subprocess而不是os.popen来获得更好的控制
+            # 设置ROS环境变量
+            import os
+            env = os.environ.copy()
+            env['ROS_DOMAIN_ID'] = os.environ.get('ROS_DOMAIN_ID', '0')
+            
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, env=env)
+            
+            if result.returncode != 0:
+                logger.error(f"[ROS2] 动作调用命令执行失败，返回码: {result.returncode}")
+                logger.error(f"[ROS2] stderr: {result.stderr}")
+                return None
+            
+            response = result.stdout.strip()
+            logger.info(f"[ROS2] 动作调用结果: {response}")
+            
+            # 检查结果是否为空
+            if not response:
+                logger.error(f"[ROS2] 动作 {action_name} 返回空响应")
+                return None
+                
+            return response
+        except subprocess.TimeoutExpired:
+            logger.error(f"[ROS2] 动作调用超时: {action_name}")
+            return None
         except Exception as e:
             logger.error(f"[ROS2] 动作调用失败: {e}")
             return None
@@ -1374,26 +1618,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 获取药箱状态失败: {result}")
                 return result
-            elif response:
-                # 解析响应数据
-                # 根据MedicineBoxState.srv定义，响应包含medicine_box_switch_state字段
-                # 这里简化处理，实际应解析具体的响应内容
-                result = {
-                    "success": True,
-                    "state": True,  # 实际应从响应中提取
-                    "description": "药箱当前处于开启状态"
-                }
-                logger.info(f"[ROS2] 获取药箱状态: {result}")
-                return result
             else:
-                # 如果服务调用成功但返回空，返回默认值
-                result = {
-                    "success": True,
-                    "state": False,
-                    "description": "药箱当前处于关闭状态"
-                }
-                logger.info(f"[ROS2] 获取药箱状态(默认值): {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 药箱状态服务返回空响应")
+                    return {
+                        "success": False,
+                        "state": False,
+                        "description": "药箱状态服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用新的解析函数解析YAML响应
+                    response_data = parse_ros2_response(response)
+                    
+                    medicine_box_state = response_data.get("medicine_box_switch_state", False)
+                    result_number = response_data.get("result_number", 1)  # 0表示成功
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "state": medicine_box_state,
+                        "description": result_msg if success else f"获取失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 获取药箱状态成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 获取药箱状态失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 药箱状态响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "state": False,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 获取药箱状态失败: {e}")
             return {
@@ -1416,9 +1682,9 @@ class ROS2Interface:
         try:
             # 构造请求数据，根据新的jqr_ros_msgs格式包含speed_stage参数
             if duration > 0:
-                request_data = f"{{medicine_box_switch: {str(switch).lower()}, speed_stage: {speed_stage}}}"
+                request_data = f"{{\"medicine_box_switch\": {str(switch).lower()}, \"speed_stage\": {speed_stage}}}"
             else:
-                request_data = f"{{medicine_box_switch: {str(switch).lower()}, speed_stage: {speed_stage}}}"
+                request_data = f"{{\"medicine_box_switch\": {str(switch).lower()}, \"speed_stage\": {speed_stage}}}"
                 
             # 调用ROS2服务控制药箱开关
             response = self._call_ros2_service(
@@ -1436,22 +1702,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 设置药箱开关失败: {result}")
                 return result
-            elif response:
-                result = {
-                    "success": True,
-                    "switch": switch,
-                    "description": f"药箱已{'开启' if switch else '关闭'}"
-                }
-                logger.info(f"[ROS2] 设置药箱开关: {result}")
-                return result
             else:
-                result = {
-                    "success": False,
-                    "switch": switch,
-                    "description": f"设置药箱{'开启' if switch else '关闭'}失败"
-                }
-                logger.error(f"[ROS2] 设置药箱开关失败: {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 药箱开关服务返回空响应")
+                    return {
+                        "success": False,
+                        "switch": switch,
+                        "description": "药箱开关服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用新的解析函数解析YAML响应
+                    response_data = parse_ros2_response(response)
+                    
+                    result_number = response_data.get("result_number", 1)  # 0表示成功
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "switch": switch,
+                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "result_number": result_number,
+                        "speed_stage": speed_stage
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 设置药箱开关成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 设置药箱开关失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 药箱开关响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "switch": switch,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 设置药箱开关失败: {e}")
             return {
@@ -1475,7 +1767,7 @@ class ROS2Interface:
             response = self._call_ros2_service(
                 "/get_move_mode",
                 "jqr_ros_msgs/srv/MoveMode",
-                "{}"
+                '{}'
             )
             
             if response is None:
@@ -1488,27 +1780,42 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 获取运动模式失败: {result}")
                 return result
-            elif response:
-                # 解析响应数据
-                # 根据MoveMode.srv定义，响应包含move_mode和linear_vel字段
-                # 这里简化处理，实际应解析具体的响应内容
-                result = {
-                    "success": True,
-                    "mode": 0,  # 实际应从响应中提取
-                    "linear_vel": 0.0,  # 实际应从响应中提取
-                    "description": "当前运动模式: 停止模式，线速度: 0.0 m/s"
-                }
-                logger.info(f"[ROS2] 获取运动模式: {result}")
-                return result
             else:
-                # 如果服务调用成功但返回空，返回默认值
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 运动模式服务返回空响应")
+                    return {
+                        "success": False,
+                        "mode": 0,
+                        "linear_vel": 0.0,
+                        "description": "运动模式服务返回空响应"
+                    }
+                
+                # 解析响应数据 - 使用parse_ros2_response工具函数
+                parsed_response = parse_ros2_response(response)
+                logger.info(f"[ROS2] 解析后的运动模式响应: {parsed_response}")
+                
+                # 根据jqr_ros_msgs/srv/MoveMode的响应格式提取数据
+                move_mode = parsed_response.get("move_mode", 0)
+                linear_vel = parsed_response.get("linear_vel", 0.0)
+                result_number = parsed_response.get("result_number", 0)
+                result_msg = parsed_response.get("result_msg", "")
+                
+                # 判断是否成功
+                success = result_number == 1 and result_msg and "成功" in result_msg
+                
                 result = {
-                    "success": True,
-                    "mode": 0,
-                    "linear_vel": 0.0,
-                    "description": "当前运动模式: 停止模式，线速度: 0.0 m/s"
+                    "success": success,
+                    "mode": move_mode,
+                    "linear_vel": linear_vel,
+                    "description": result_msg or "获取运动模式成功"
                 }
-                logger.info(f"[ROS2] 获取运动模式(默认值): {result}")
+                
+                if success:
+                    logger.info(f"[ROS2] 获取运动模式成功: {result}")
+                else:
+                    logger.error(f"[ROS2] 获取运动模式失败: {result}")
+                    
                 return result
         except Exception as e:
             logger.error(f"[ROS2] 获取运动模式失败: {e}")
@@ -1519,65 +1826,8 @@ class ROS2Interface:
                 "description": f"获取运动模式失败: {str(e)}"
             }
         
-    def set_move_mode(self, mode: int, linear_vel: float = 0.0) -> Dict[str, Any]:
-        """设置运动模式
         
-        Args:
-            mode (int): 运动模式
-            linear_vel (float): 线速度
-            
-        Returns:
-            Dict[str, Any]: 设置结果
-        """
-        try:
-            # 构造请求数据
-            request_data = f"{{move_mode: {mode}, linear_vel: {linear_vel}}}"
-                
-            # 调用ROS2服务设置运动模式
-            response = self._call_ros2_service(
-                "/set_move_mode",
-                "jqr_ros_msgs/srv/MoveMode",
-                request_data
-            )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
-                    "success": False,
-                    "mode": mode,
-                    "linear_vel": linear_vel,
-                    "description": "服务 /set_move_mode 不存在或调用失败"
-                }
-                logger.error(f"[ROS2] 设置运动模式失败: {result}")
-                return result
-            elif response:
-                result = {
-                    "success": True,
-                    "mode": mode,
-                    "linear_vel": linear_vel,
-                    "description": f"运动模式已设置为: {mode}，线速度: {linear_vel} m/s"
-                }
-                logger.info(f"[ROS2] 设置运动模式: {result}")
-                return result
-            else:
-                result = {
-                    "success": False,
-                    "mode": mode,
-                    "linear_vel": linear_vel,
-                    "description": f"设置运动模式失败"
-                }
-                logger.error(f"[ROS2] 设置运动模式失败: {result}")
-                return result
-        except Exception as e:
-            logger.error(f"[ROS2] 设置运动模式失败: {e}")
-            return {
-                "success": False,
-                "mode": mode,
-                "linear_vel": linear_vel,
-                "description": f"设置运动模式失败: {str(e)}"
-            }
-        
-    # ======================
+        # ======================
     # 机器人升降控制相关接口
     # ======================
     
@@ -1594,9 +1844,9 @@ class ROS2Interface:
         try:
             # 构造请求数据
             if duration > 0:
-                request_data = f"{{robot_rise: {str(rise).lower()}, duration: {duration}}}"
+                request_data = f"{{\"robot_rise\": {str(rise).lower()}, \"duration\": {duration}}}"
             else:
-                request_data = f"{{robot_rise: {str(rise).lower()}}}"
+                request_data = f"{{\"robot_rise\": {str(rise).lower()}}}"
                 
             # 调用ROS2服务控制机器人升降
             response = self._call_ros2_service(
@@ -1614,22 +1864,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 设置机器人升降失败: {result}")
                 return result
-            elif response:
-                result = {
-                    "success": True,
-                    "rise": rise,
-                    "description": f"机器人已{'上升' if rise else '下降'}"
-                }
-                logger.info(f"[ROS2] 设置机器人升降: {result}")
-                return result
             else:
-                result = {
-                    "success": False,
-                    "rise": rise,
-                    "description": f"设置机器人{'上升' if rise else '下降'}失败"
-                }
-                logger.error(f"[ROS2] 设置机器人升降失败: {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 机器人升降服务返回空响应")
+                    return {
+                        "success": False,
+                        "rise": rise,
+                        "description": "机器人升降服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用parse_ros2_response工具函数解析响应
+                    response_data = parse_ros2_response(response)
+                    # 根据jqr_ros_msgs的RobotRise响应格式解析
+                    # 响应应包含: result_number, result_msg
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "rise": rise,
+                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 设置机器人升降成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 设置机器人升降失败: {result}")
+                    
+                    return result
+                    
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.error(f"[ROS2] 设置机器人升降响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "rise": rise,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 设置机器人升降失败: {e}")
             return {
@@ -1647,7 +1923,7 @@ class ROS2Interface:
         try:
             # 调用ROS2服务获取机器人升降状态
             response = self._call_ros2_service(
-                "/get_robot_rise_state",
+                "/get_robot_rise",
                 "jqr_ros_msgs/srv/RobotRiseState",
                 "{}"
             )
@@ -1661,26 +1937,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 获取机器人升降状态失败: {result}")
                 return result
-            elif response:
-                # 解析响应数据
-                # 根据RobotRiseState.srv定义，响应包含robot_rise_state字段
-                # 这里简化处理，实际应解析具体的响应内容
-                result = {
-                    "success": True,
-                    "state": True,  # 实际应从响应中提取
-                    "description": "机器人当前处于上升状态"
-                }
-                logger.info(f"[ROS2] 获取机器人升降状态: {result}")
-                return result
             else:
-                # 如果服务调用成功但返回空，返回默认值
-                result = {
-                    "success": True,
-                    "state": False,
-                    "description": "机器人当前处于下降状态"
-                }
-                logger.info(f"[ROS2] 获取机器人升降状态(默认值): {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 机器人升降状态服务返回空响应")
+                    return {
+                        "success": False,
+                        "state": False,
+                        "description": "机器人升降状态服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用新的解析函数解析YAML响应
+                    response_data = parse_ros2_response(response)
+                    
+                    robot_rise_state = response_data.get("robot_rise_state", False)
+                    result_number = response_data.get("result_number", 0)  # 1表示成功
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "state": robot_rise_state,
+                        "description": result_msg if success else f"获取失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 获取机器人升降状态成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 获取机器人升降状态失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 机器人升降状态响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "state": False,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 获取机器人升降状态失败: {e}")
             return {
@@ -1706,9 +2004,9 @@ class ROS2Interface:
         try:
             # 构造请求数据
             if duration > 0:
-                request_data = f"{{robot_tilt: {angle}, duration: {duration}}}"
+                request_data = f"{{\"robot_tilt\": {angle}, \"duration\": {duration}}}"
             else:
-                request_data = f"{{robot_tilt: {angle}}}"
+                request_data = f"{{\"robot_tilt\": {angle}}}"
                 
             # 调用ROS2服务控制机器人俯仰
             response = self._call_ros2_service(
@@ -1726,22 +2024,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 设置机器人俯仰角度失败: {result}")
                 return result
-            elif response:
-                result = {
-                    "success": True,
-                    "angle": angle,
-                    "description": f"机器人俯仰角度已设置为 {angle} 度"
-                }
-                logger.info(f"[ROS2] 设置机器人俯仰角度: {result}")
-                return result
             else:
-                result = {
-                    "success": False,
-                    "angle": angle,
-                    "description": f"设置机器人俯仰角度失败"
-                }
-                logger.error(f"[ROS2] 设置机器人俯仰角度失败: {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 机器人俯仰服务返回空响应")
+                    return {
+                        "success": False,
+                        "angle": angle,
+                        "description": "机器人俯仰服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用parse_ros2_response工具函数解析响应
+                    response_data = parse_ros2_response(response)
+                    # 根据jqr_ros_msgs的RobotTilt响应格式解析
+                    # 响应应包含: result_number, result_msg
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "angle": angle,
+                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 设置机器人俯仰角度成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 设置机器人俯仰角度失败: {result}")
+                    
+                    return result
+                    
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.error(f"[ROS2] 设置机器人俯仰角度响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "angle": angle,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 设置机器人俯仰角度失败: {e}")
             return {
@@ -1759,7 +2083,7 @@ class ROS2Interface:
         try:
             # 调用ROS2服务获取机器人俯仰状态
             response = self._call_ros2_service(
-                "/get_robot_tilt_state",
+                "/get_robot_tilt",
                 "jqr_ros_msgs/srv/RobotTiltState",
                 "{}"
             )
@@ -1773,26 +2097,49 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 获取机器人俯仰状态失败: {result}")
                 return result
-            elif response:
-                # 解析响应数据
-                # 根据RobotTiltState.srv定义，响应包含robot_tilt_state字段
-                # 这里简化处理，实际应解析具体的响应内容
-                result = {
-                    "success": True,
-                    "angle": 0.0,  # 实际应从响应中提取
-                    "description": "机器人俯仰角度为 0.0 度"
-                }
-                logger.info(f"[ROS2] 获取机器人俯仰状态: {result}")
-                return result
             else:
-                # 如果服务调用成功但返回空，返回默认值
-                result = {
-                    "success": True,
-                    "angle": 0.0,
-                    "description": "机器人俯仰角度为 0.0 度"
-                }
-                logger.info(f"[ROS2] 获取机器人俯仰状态(默认值): {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 机器人俯仰状态服务返回空响应")
+                    return {
+                        "success": False,
+                        "angle": 0.0,
+                        "description": "机器人俯仰状态服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 尝试解析JSON响应
+                    # 使用新的解析函数解析YAML响应
+                    response_data = parse_ros2_response(response)
+                    
+                    robot_tilt_state = response_data.get("robot_tilt_state", 0.0)
+                    result_number = response_data.get("result_number", 1)  # 0表示成功
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "angle": robot_tilt_state,
+                        "description": result_msg if success else f"获取失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 获取机器人俯仰状态成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 获取机器人俯仰状态失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 机器人俯仰状态响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "angle": 0.0,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 获取机器人俯仰状态失败: {e}")
             return {
@@ -1859,21 +2206,22 @@ class ROS2Interface:
             )
             
             if response:
-                # 解析响应数据
-                # 这里需要根据实际的服务响应格式进行解析
+                # 使用parse_ros2_response工具函数解析响应
+                response_data = parse_ros2_response(response)
+                # 根据实际的服务响应格式进行解析
+                height = response_data.get("height", 0.0)
+                result_number = response_data.get("result_number", 0)
+                result_msg = response_data.get("result_msg", "")
                 result = {
-                    "success": True,
-                    "height": 0.0,  # 从响应中提取的实际值
-                    "description": "机身升降高度为 0.0 米"
+                    "height": height,  # 从响应中提取的实际值
+                    "description": f"机身升降高度为 {height} 米"
                 }
                 logger.info(f"[ROS2] 获取机身升降状态: {result}")
                 return result
             else:
                 # 如果服务调用失败，返回默认值
                 result = {
-                    "success": True,
-                    "height": 0.0,
-                    "description": "机身升降高度为 0.0 米"
+                    "success": False,
                 }
                 logger.info(f"[ROS2] 获取机身升降状态(默认值): {result}")
                 return result
@@ -1902,9 +2250,9 @@ class ROS2Interface:
         try:
             # 构造请求数据
             if duration > 0:
-                request_data = f"{{screen_tilt: {angle}, duration: {duration}}}"
+                request_data = f"{{\"screen_tilt\": {angle}, \"duration\": {duration}}}"
             else:
-                request_data = f"{{screen_tilt: {angle}}}"
+                request_data = f"{{\"screen_tilt\": {angle}}}"
                 
             # 调用ROS2服务控制屏幕俯仰
             response = self._call_ros2_service(
@@ -1922,22 +2270,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 设置屏幕俯仰角度失败: {result}")
                 return result
-            elif response:
-                result = {
-                    "success": True,
-                    "angle": angle,
-                    "description": f"屏幕俯仰角度已设置为 {angle} 度"
-                }
-                logger.info(f"[ROS2] 设置屏幕俯仰角度: {result}")
-                return result
             else:
-                result = {
-                    "success": False,
-                    "angle": angle,
-                    "description": f"设置屏幕俯仰角度失败"
-                }
-                logger.error(f"[ROS2] 设置屏幕俯仰角度失败: {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 屏幕俯仰服务返回空响应")
+                    return {
+                        "success": False,
+                        "angle": angle,
+                        "description": "屏幕俯仰服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用parse_ros2_response工具函数解析响应
+                    response_data = parse_ros2_response(response)
+                    # 根据jqr_ros_msgs的ScreenTilt响应格式解析
+                    # 响应应包含: result_number, result_msg
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "angle": angle,
+                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 设置屏幕俯仰角度成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 设置屏幕俯仰角度失败: {result}")
+                    
+                    return result
+                    
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.error(f"[ROS2] 设置屏幕俯仰角度响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "angle": angle,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 设置屏幕俯仰角度失败: {e}")
             return {
@@ -1955,7 +2329,7 @@ class ROS2Interface:
         try:
             # 调用ROS2服务获取屏幕俯仰状态
             response = self._call_ros2_service(
-                "/get_screen_tilt_state",
+                "/get_screen_tilt",
                 "jqr_ros_msgs/srv/ScreenTiltState",
                 "{}"
             )
@@ -1969,26 +2343,48 @@ class ROS2Interface:
                 }
                 logger.error(f"[ROS2] 获取屏幕俯仰状态失败: {result}")
                 return result
-            elif response:
-                # 解析响应数据
-                # 根据ScreenTiltState.srv定义，响应包含screen_tilt_state字段
-                # 这里简化处理，实际应解析具体的响应内容
-                result = {
-                    "success": True,
-                    "angle": 0.0,  # 实际应从响应中提取
-                    "description": "屏幕俯仰角度为 0.0 度"
-                }
-                logger.info(f"[ROS2] 获取屏幕俯仰状态: {result}")
-                return result
             else:
-                # 如果服务调用成功但返回空，返回默认值
-                result = {
-                    "success": True,
-                    "angle": 0.0,
-                    "description": "屏幕俯仰角度为 0.0 度"
-                }
-                logger.info(f"[ROS2] 获取屏幕俯仰状态(默认值): {result}")
-                return result
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 屏幕俯仰状态服务返回空响应")
+                    return {
+                        "success": False,
+                        "angle": 0.0,
+                        "description": "屏幕俯仰状态服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用新的解析函数解析YAML响应
+                    response_data = parse_ros2_response(response)
+                    
+                    screen_tilt_state = response_data.get("screen_tilt_state", 0.0)
+                    result_number = response_data.get("result_number", 1)  # 0表示成功
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "angle": screen_tilt_state,
+                        "description": result_msg if success else f"获取失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 获取屏幕俯仰状态成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 获取屏幕俯仰状态失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 屏幕俯仰状态响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "angle": 0.0,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
         except Exception as e:
             logger.error(f"[ROS2] 获取屏幕俯仰状态失败: {e}")
             return {
@@ -2034,12 +2430,16 @@ class ROS2Interface:
                 return False
             
             # 创建电池电量订阅者
-            battery_node.create_subscription(
-                BatteryLevel,
-                '/battery_level',  # 电池电量话题
-                battery_callback,
-                10  # 队列大小
-            )
+            if jqr_ros_msgs:
+                battery_node.create_subscription(
+                    BatteryLevel,
+                    '/battery_level',  # 电池电量话题
+                    battery_callback,
+                    10  # 队列大小
+                )
+                logger.info("电池电量订阅者已创建")
+            else:
+                logger.warning("jqr_ros_msgs不可用，无法创建电池电量订阅者")
             
             # 启动ROS2 spin循环
             battery_thread_running = True
@@ -2085,6 +2485,392 @@ class ROS2Interface:
         except Exception as e:
             logger.error(f"停止电池电量监控失败: {e}")
             return False
+    
+    # ======================
+    # 激光指示灯控制相关接口
+    # ======================
+    
+    def set_laser_pointer(self, laser_on: bool) -> Dict[str, Any]:
+        """控制激光指示灯开关
+        
+        Args:
+            laser_on (bool): 激光开关状态 (True: 开启, False: 关闭)
+            
+        Returns:
+            Dict[str, Any]: 控制结果
+        """
+        try:
+            # 构造请求数据
+            request_data = f'{{"laser_pointer": {str(laser_on).lower()}}}'
+            
+            # 调用ROS2服务控制激光指示灯
+            response = self._call_ros2_service(
+                "/laser_pointer",
+                "jqr_ros_msgs/srv/LaserPointer",
+                request_data
+            )
+            
+            if response is None:
+                # 服务调用失败，可能是服务不存在
+                result = {
+                    "success": False,
+                    "laser_on": laser_on,
+                    "description": "服务 /laser_pointer 不存在或调用失败"
+                }
+                logger.error(f"[ROS2] 设置激光指示灯失败: {result}")
+                return result
+            else:
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 激光指示灯服务返回空响应")
+                    return {
+                        "success": False,
+                        "laser_on": laser_on,
+                        "description": "激光指示灯服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用parse_ros2_response工具函数解析响应
+                    response_data = parse_ros2_response(response)
+                    
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "laser_on": laser_on,
+                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 设置激光指示灯成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 设置激光指示灯失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 激光指示灯响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "laser_on": laser_on,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
+        except Exception as e:
+            logger.error(f"[ROS2] 设置激光指示灯失败: {e}")
+            return {
+                "success": False,
+                "laser_on": laser_on,
+                "description": f"设置激光指示灯{'开启' if laser_on else '关闭'}失败: {str(e)}"
+            }
+    
+    def get_laser_pointer_state(self) -> Dict[str, Any]:
+        """获取激光指示灯状态
+        
+        Returns:
+            Dict[str, Any]: 激光指示灯状态信息
+        """
+        try:
+            # 调用ROS2服务获取激光指示灯状态
+            response = self._call_ros2_service(
+                "/laser_pointer",
+                "jqr_ros_msgs/srv/LaserPointerState",
+                "{}"
+            )
+            
+            if response is None:
+                # 服务调用失败，可能是服务不存在
+                result = {
+                    "success": False,
+                    "laser_on": False,
+                    "description": "服务 /laser_pointer 不存在或调用失败"
+                }
+                logger.error(f"[ROS2] 获取激光指示灯状态失败: {result}")
+                return result
+            else:
+                # 检查响应是否为空或无效
+                if not response or not response.strip():
+                    logger.error(f"[ROS2] 激光指示灯状态服务返回空响应")
+                    return {
+                        "success": False,
+                        "laser_on": False,
+                        "description": "激光指示灯状态服务返回空响应"
+                    }
+                
+                # 解析响应数据
+                try:
+                    # 使用parse_ros2_response工具函数解析响应
+                    response_data = parse_ros2_response(response)
+                    
+                    laser_pointer_state = response_data.get("laser_pointer_state", False)
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    
+                    success = (result_number == 1)
+                    
+                    result = {
+                        "success": success,
+                        "laser_on": laser_pointer_state,
+                        "description": result_msg if success else f"获取失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    
+                    if success:
+                        logger.info(f"[ROS2] 获取激光指示灯状态成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 获取激光指示灯状态失败: {result}")
+                    
+                    return result
+                    
+                except Exception as e:
+                    logger.error(f"[ROS2] 激光指示灯状态响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "laser_on": False,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
+        except Exception as e:
+            logger.error(f"[ROS2] 获取激光指示灯状态失败: {e}")
+            return {
+                "success": False,
+                "laser_on": False,
+                "description": f"获取激光指示灯状态失败: {str(e)}"
+            }
+    
+
+
+    # ======================
+    # 位置记录和导航相关接口
+    # ======================
+    
+    def subscribe_robot_position(self) -> bool:
+        """订阅机器人位置信息
+        
+        Returns:
+            bool: 订阅是否成功
+        """
+        global rclpy, Node
+        
+        try:
+            if not ROS2_AVAILABLE or not rclpy or not Node:
+                logger.warning("[ROS2] ROS2不可用，无法订阅位置信息")
+                return False
+            
+            # 创建位置订阅节点
+            class PositionSubscriber(Node):
+                def __init__(self, ros2_interface):
+                    super().__init__('position_subscriber')
+                    self.ros2_interface = ros2_interface
+                    if geometry_msgs:
+                        self.subscription = self.create_subscription(
+                            geometry_msgs.PoseStamped,
+                            '/robot_pose',  # 假设SLAM发布的话题名为 /robot_pose
+                            self.position_callback,
+                            10
+                        )
+                        logger.info("[ROS2] 已订阅机器人位置话题: /robot_pose")
+                    else:
+                        logger.error("[ROS2] geometry_msgs不可用，无法订阅位置话题")
+                        raise ImportError("geometry_msgs module not available")
+                
+                def position_callback(self, msg):
+                    """位置回调函数"""
+                    global websocket_server_ref
+                    try:
+                        position = {
+                            'position': {
+                                'x': msg.pose.position.x,
+                                'y': msg.pose.position.y,
+                                'z': msg.pose.position.z
+                            },
+                            'orientation': {
+                                'x': msg.pose.orientation.x,
+                                'y': msg.pose.orientation.y,
+                                'z': msg.pose.orientation.z,
+                                'w': msg.pose.orientation.w
+                            },
+                            'header': {
+                                'stamp': msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
+                                'frame_id': msg.header.frame_id
+                            }
+                        }
+                        self.ros2_interface.last_position = position
+                        logger.info(f"[ROS2] 收到位置更新: {position}")
+                        
+                        # 立即发送位置信息到所有连接的客户端
+                        if websocket_server_ref and websocket_server_ref.clients:
+                            position_data = {
+                                "type": "robot_pose",
+                                "position": position['position'],
+                                "orientation": position['orientation'],
+                                "description": f"机器人位置: x={position['position']['x']:.2f}, y={position['position']['y']:.2f}"
+                            }
+                            
+                            # 在事件循环中发送消息
+                            try:
+                                loop = asyncio.get_event_loop()
+                                if loop.is_running():
+                                    asyncio.run_coroutine_threadsafe(
+                                        websocket_server_ref.send_to_clients(
+                                            json.dumps(position_data, ensure_ascii=False)
+                                        ),
+                                        loop
+                                    )
+                                else:
+                                    # 如果事件循环没有运行，直接运行
+                                    loop.run_until_complete(
+                                        websocket_server_ref.send_to_clients(
+                                            json.dumps(position_data, ensure_ascii=False)
+                                        )
+                                    )
+                            except RuntimeError:
+                                # 如果没有运行的事件循环，创建新的
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                loop.run_until_complete(
+                                    websocket_server_ref.send_to_clients(
+                                        json.dumps(position_data, ensure_ascii=False)
+                                    )
+                                )
+                                
+                    except Exception as e:
+                        logger.error(f"[ROS2] 处理位置信息失败: {e}")
+            
+            # 检查geometry_msgs是否可用
+            global geometry_msgs
+            if not geometry_msgs:
+                logger.warning("[ROS2] geometry_msgs模块不可用，无法订阅位置信息")
+                return False
+            
+            # 创建订阅节点
+            position_node = PositionSubscriber(self)
+            
+            # 在新线程中运行spin
+            def spin_position():
+                try:
+                    if rclpy:
+                        rclpy.spin(position_node)
+                except Exception as e:
+                    logger.error(f"[ROS2] 位置订阅spin失败: {e}")
+                finally:
+                    if position_node:
+                        position_node.destroy_node()
+            
+            import threading
+            position_thread = threading.Thread(target=spin_position, daemon=True)
+            position_thread.start()
+            
+            self.position_subscribed = True
+            logger.info("[ROS2] 位置订阅已启动")
+            return True
+            
+        except Exception as e:
+            logger.error(f"[ROS2] 订阅位置信息失败: {e}")
+            return False
+    
+    def record_current_position(self) -> bool:
+        """记录当前位置
+        
+        Returns:
+            bool: 记录是否成功
+        """
+        if self.last_position:
+            logger.info(f"[ROS2] 已记录当前位置: {self.last_position['position']}")
+            return True
+        else:
+            logger.warning("[ROS2] 没有可用的位置信息")
+            return False
+    
+    def get_last_position(self) -> Optional[Dict[str, Any]]:
+        """获取最后记录的位置
+        
+        Returns:
+            Optional[Dict[str, Any]]: 位置信息，如果没有则返回None
+        """
+        return self.last_position
+    
+    def navigate_to_position(self, position: Dict[str, Any]) -> Dict[str, Any]:
+        """导航到指定位置
+        
+        注意：/navigate_to_pose 是一个action server，不是service
+        
+        Args:
+            position (Dict[str, Any]): 目标位置信息
+            
+        Returns:
+            Dict[str, Any]: 导航结果
+        """
+        try:
+            if not position or 'position' not in position:
+                return {
+                    "success": False,
+                    "error_msg": "无效的位置信息"
+                }
+            
+            target_x = position['position']['x']
+            target_y = position['position']['y']
+            
+            # 检查导航action是否可用
+            if not self._check_ros2_action_exists("/navigate_to_pose"):
+                logger.error(f"[ROS2] 导航action /navigate_to_pose 不可用")
+                return {
+                    "success": False,
+                    "error_msg": "导航action /navigate_to_pose 不可用"
+                }
+            
+            # 调用导航action
+            # 构造NavigateToPose goal
+            goal_data = {
+                "pose": {
+                    "header": {
+                        "stamp": {"sec": 0, "nanosec": 0},
+                        "frame_id": "map"
+                    },
+                    "pose": {
+                        "position": {
+                            "x": target_x,
+                            "y": target_y,
+                            "z": 0.0
+                        },
+                        "orientation": {
+                            "x": 0.0,
+                            "y": 0.0,
+                            "z": 0.0,
+                            "w": 1.0
+                        }
+                    }
+                }
+            }
+            
+            response = self._call_ros2_action(
+                "/navigate_to_pose",
+                "nav2_msgs/action/NavigateToPose",
+                str(goal_data)
+            )
+            
+            if response:
+                return {
+                    "success": True,
+                    "position": position['position'],
+                    "description": f"导航已开始，目标位置 ({target_x}, {target_y})"
+                }
+            else:
+                return {
+                    "success": False,
+                    "position": position['position'],
+                    "error_msg": "导航action调用失败"
+                }
+                
+        except Exception as e:
+            logger.error(f"[ROS2] 导航到位置失败: {e}")
+            return {
+                "success": False,
+                "error_msg": f"导航失败: {str(e)}"
+            }
 
 # ======================
 # 智能机器人Agent
@@ -2098,8 +2884,21 @@ class SmartRobotAgent:
         # 初始化测试数据
         init_test_data()
         
+        # 初始化ROS2
+        if ROS2_AVAILABLE and rclpy:
+            try:
+                if not rclpy.ok():
+                    rclpy.init()
+                logger.info("[ROS2] rclpy初始化成功")
+            except Exception as e:
+                logger.error(f"[ROS2] rclpy初始化失败: {e}")
+        
         # 创建ROS2接口
         self.ros2_interface = ROS2Interface()
+        
+        # 启动位置订阅
+        if ROS2_AVAILABLE:
+            self.ros2_interface.subscribe_robot_position()
         
         # 创建WebSocket服务器
         self.websocket_server = WebSocketServer(self)
@@ -2110,8 +2909,8 @@ class SmartRobotAgent:
         # 本地模型WebSocket连接相关
         self.local_model_websocket = None
         self.local_model_connected = False
-        self.local_model_uri = "ws://localhost:8769"
-        # self.local_model_uri = "ws://192.168.50.144:8000/ws/navigate"
+        # self.local_model_uri = "ws://localhost:8769"
+        self.local_model_uri = "ws://192.168.50.144:8000/ws/navigate"
         
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
@@ -2155,7 +2954,8 @@ class SmartRobotAgent:
                 
                 # 如果是中间信息（非最终结果），转发给所有连接的客户端
                 if "result" not in response_data and "success" not in response_data:
-                    await websocket_server_ref.send_to_clients(json.dumps(response_data, ensure_ascii=False))
+                    if websocket_server_ref:
+                        await websocket_server_ref.send_to_clients(json.dumps(response_data, ensure_ascii=False))
                     logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {response_data}")
                 # 检查是否是最终结果
                 elif "result" in response_data or "success" in response_data:
@@ -2188,6 +2988,70 @@ class SmartRobotAgent:
             bool: 如果有活跃的导航任务返回True，否则返回False
         """
         return len(self.active_navigation_tasks) > 0
+    
+    def record_position_before_navigation(self) -> bool:
+        """
+        在导航任务开始前记录当前位置
+        
+        Returns:
+            bool: 记录是否成功
+        """
+        try:
+            logger.info(f"[AGENT] record_position_before_navigation 调用，self类型: {type(self)}")
+            # 确保位置订阅已启动
+            if not self.ros2_interface.position_subscribed:
+                logger.info("[AGENT] 启动位置订阅")
+                self.ros2_interface.subscribe_robot_position()
+            
+            # 记录当前位置
+            success = self.ros2_interface.record_current_position()
+            if success:
+                logger.info("[AGENT] 已在导航前记录当前位置")
+            else:
+                logger.warning("[AGENT] 无法记录当前位置，可能还没有位置信息")
+            return success
+        except Exception as e:
+            logger.error(f"[AGENT] 记录位置失败: {e}")
+            return False
+    
+    async def back_to_last_position(self) -> Dict[str, Any]:
+        """
+        返回到最后记录的位置
+        
+        Returns:
+            Dict[str, Any]: 返回导航结果
+        """
+        try:
+            logger.info("[AGENT] 开始返回到最后记录的位置")
+            
+            # 获取最后记录的位置
+            last_position = self.ros2_interface.get_last_position()
+            
+            if not last_position:
+                logger.warning("[AGENT] 没有记录的位置信息")
+                return {
+                    "success": False,
+                    "error_msg": "没有记录的位置信息，无法返回"
+                }
+            
+            logger.info(f"[AGENT] 返回到位置: {last_position['position']}")
+            
+            # 调用导航功能
+            result = self.ros2_interface.navigate_to_position(last_position)
+            
+            if result["success"]:
+                logger.info("[AGENT] 成功返回到最后记录的位置")
+            else:
+                logger.error(f"[AGENT] 返回位置失败: {result.get('error_msg', '未知错误')}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"[AGENT] 返回最后位置时出错: {e}")
+            return {
+                "success": False,
+                "error_msg": f"返回位置失败: {str(e)}"
+            }
         
     async def connect_to_local_model(self):
         """建立与本地模型的WebSocket连接"""
@@ -2307,13 +3171,13 @@ class SmartRobotAgent:
                     }
                     return result_data
             else:
-                # ROS2不可用时的模拟处理
-                logger.info("[STOP_MOVE] ROS2不可用，模拟停止移动")
-                success_msg = "已模拟停止机器人移动"
+                # ROS2不可用时无法停止移动
+                error_msg = "ROS2不可用，无法停止机器人移动"
+                logger.error(f"[STOP_MOVE] {error_msg}")
                 
                 result_data = {
-                    "success": True,
-                    "result": success_msg
+                    "success": False,
+                    "result": error_msg
                 }
                 return result_data
                 
@@ -2353,6 +3217,28 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
