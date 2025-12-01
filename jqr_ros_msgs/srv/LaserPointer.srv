@@ -1,0 +1,5 @@
+#request
+bool laser_pointer   #true 表示开启，false表示关闭
+---
+std_msgs/UInt8 result_number   #0表示开启或关闭失败；1表示开启或关闭成功
+std_msgs/String result_msg

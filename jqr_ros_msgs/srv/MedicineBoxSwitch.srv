@@ -1,0 +1,6 @@
+#request
+bool medicine_box_switch
+uint8 speed_stage #执行速度  1是慢档 2是快档
+---
+std_msgs/UInt8 result_number
+std_msgs/String result_msg

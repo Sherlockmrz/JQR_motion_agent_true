@@ -1,0 +1,5 @@
+#request
+---
+bool laser_pointer_state    #true 表示开启，false表示关闭
+std_msgs/UInt8 result_number
+std_msgs/String result_msg

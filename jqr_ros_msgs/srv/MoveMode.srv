@@ -1,0 +1,6 @@
+#request
+---
+uint8 move_mode
+float64 linear_vel
+std_msgs/UInt8 result_number
+std_msgs/String result_msg

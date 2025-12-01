@@ -1,0 +1,5 @@
+#request
+---
+bool medicine_box_switch_state
+std_msgs/UInt8 result_number
+std_msgs/String result_msg

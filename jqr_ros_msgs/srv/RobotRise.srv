@@ -1,0 +1,6 @@
+#request
+bool robot_rise
+uint32 duration #执行时间，（单位0.1s），缺省表示希望以最快的速度执行
+---
+std_msgs/UInt8 result_number
+std_msgs/String result_msg
