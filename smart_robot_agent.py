@@ -231,7 +231,7 @@ def parse_ros2_response(response: str) -> Dict[str, Any]:
                     result[field_name] = value_str
             elif 'String' in value_str and 'data=' in value_str:
                 # 处理std_msgs.msg.String(data="xxx")格式
-                data_match = re.search(r'data=["\']([^"\']+)["\']', value_str)
+                data_match = re.search(r'data=\["\']([^"\']+)["\']', value_str)
                 if data_match:
                     result[field_name] = data_match.group(1)
                 else:
@@ -396,7 +396,7 @@ def query_asm_object(obj_name: str) -> Optional[Dict[str, Any]]:
                 
                 if len(world_position) >= 2 and len(pixel_position) >= 2:
                     return {
-                        "location": {"x": world_position[0], "y": world_position[1]},
+                        "location": {"x": pixel_position[0], "y": pixel_position[1]},
                         "world_position": world_position,
                         "pixel_position": pixel_position,
                         "last_time": obj.get("last_show_time", "2025-11-02T10:00:00"),
@@ -478,17 +478,19 @@ def find_object(obj_name: str) -> Dict[str, Any]:
         # Step 1: ASM查询（最高优先级）
         asm_res = query_asm_object(obj_name)
         if asm_res:
+            #打印asm_res
+            print(asm_res)
             loc = asm_res["location"]
             logger.info(f"[FIND_OBJECT] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
             
             # ASM找到：返回位置信息，询问用户是否需要导航
-            result_msg = f"找到 {obj_name} 的位置：地图坐标 ({loc['x']}, {loc['y']})"
+            result_msg = f"找到 {obj_name} 的位置：像素坐标 ({loc['x']}, {loc['y']})"
             logger.info(f"[FIND_OBJECT] {result_msg}")
             
             # 按照新格式返回结果，包含像素位置
             result_data = {
+                "type": "find_object",
                 "success": True,
-                "world_position": [loc['x'], loc['y']],
                 "pixel_position": asm_res.get("pixel_position", []),  # 添加像素位置
                 "position_description": asm_res.get("object_description", "")  # 使用ASM中的描述
             }
@@ -500,6 +502,7 @@ def find_object(obj_name: str) -> Dict[str, Any]:
         if not db_res:
             # DB没有找到：返回失败结果
             result_data = {
+                "type": "find_object",
                 "success": False,
                 "world_position": None,
                 "position_description": None
@@ -511,6 +514,7 @@ def find_object(obj_name: str) -> Dict[str, Any]:
         
         # DB找到：直接反馈结果，不询问导航
         result_data = {
+            "type": "find_object",
             "success": True,
             "world_position": [db_res["world_x"], db_res["world_y"]],
             "position_description": db_res["object_description"]
@@ -519,6 +523,7 @@ def find_object(obj_name: str) -> Dict[str, Any]:
         return result_data
     except Exception as e:
         result_data = {
+            "type": "find_object",
             "success": False,
             "world_position": None,
             "position_description": None
@@ -540,6 +545,7 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
         error_msg = "缺少必要参数obj_name"
         logger.error(f"[EXPLORE_AND_FIND_OBJECT] {error_msg}")
         return {
+            "type": "explore_and_find_object",
             "success": False,
             "object_name": "",
             "world_position": None,
@@ -555,6 +561,7 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
             error_msg = "SmartRobotAgent实例未初始化"
             logger.error(f"[EXPLORE_AND_FIND_OBJECT] {error_msg}")
             return {
+                "type": "explore_and_find_object",
                 "success": False,
                 "object_name": obj_name,
                 "world_position": None,
@@ -566,6 +573,7 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
         if not connection_success:
             logger.error("[EXPLORE_AND_FIND_OBJECT] 连接本地模型服务器失败")
             return {
+                "type": "explore_and_find_object",
                 "success": False,
                 "object_name": obj_name,
                 "world_position": None,
@@ -588,6 +596,7 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
         
         if not model_result["success"]:
             return {
+                "type": "explore_and_find_object",
                 "success": False,
                 "error_msg": model_result["error_msg"]
             }
@@ -595,9 +604,10 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
         model_response = model_result["response"]
 
         # 处理模型返回结果
-        if model_response and model_response.get("success"):
+        if model_response and model_response.get("result"):
             logger.info(f"[EXPLORE_AND_FIND_OBJECT] 本地模型成功返回结果 for {obj_name}")
             return {
+                "type": "explore_and_find_object",
                 "success": True,
                 "object_name": obj_name,
                 "world_position": model_response.get("world_position"),
@@ -607,7 +617,9 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
             err = model_response.get("error_msg") if isinstance(model_response, dict) else None
             logger.error(f"[EXPLORE_AND_FIND_OBJECT] 本地模型探索查找执行失败: {err}")
             return {
+                "type": "explore_and_find_object",
                 "success": False,
+                "error_msg": err or "探索查找失败",
                 "object_name": obj_name,
                 "world_position": None,
                 "position_description": None
@@ -616,6 +628,7 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"[EXPLORE_AND_FIND_OBJECT] 探索查找失败: {e}")
         return {
+            "type": "explore_and_find_object",
             "success": False,
             "object_name": obj_name,
             "world_position": None,
@@ -624,7 +637,7 @@ async def explore_and_find_object(**kwargs) -> Dict[str, Any]:
 
 async def go_to_object(world_position: Optional[List[float]] = None, pixel_position: Optional[List[float]] = None, location_info: Optional[str] = None, user_prompt: Optional[str] = None, **kwargs) -> Dict[str, Any]:
     """
-    根据世界坐标或像素坐标导航到指定位置，通过WebSocket连接本地小模型服务
+    导航到指定位置或对象，通过WebSocket连接本地小模型服务
     
     Args:
         world_position (Optional[List[float]]): 世界坐标 [x, y]，可以为空
@@ -660,27 +673,15 @@ async def go_to_object(world_position: Optional[List[float]] = None, pixel_posit
         logger.info(f"[GO_TO_OBJECT] 位置信息: {location_info}")
     
     try:
-        # 优先使用像素坐标，如果没有则使用世界坐标
-        target_position = pixel_position or world_position
-        
-        if target_position is None:
-            error_msg = "缺少必要参数，需要world_position或pixel_position"
+        # 检查是否有导航参数
+        if not obj_name and not location_info and not world_position and not pixel_position:
+            error_msg = "缺少导航参数，需要提供obj_name、location_info、world_position或pixel_position中的至少一个"
             logger.error(f"[GO_TO_OBJECT] {error_msg}")
             return {
+                "type": "go_to_object",
                 "success": False,
-                "world_position": None,
-                "position_description": error_msg
+                "error_msg": error_msg
             }
-        elif not isinstance(target_position, list) or len(target_position) < 2:
-            error_msg = f"无效的坐标格式: {target_position}"
-            logger.error(f"[GO_TO_OBJECT] {error_msg}")
-            return {
-                "success": False,
-                "world_position": None,
-                "position_description": error_msg
-            }
-        
-        x, y = target_position[0], target_position[1]
         
         # 检查与本地模型的WebSocket连接状态
         logger.info(f"[GO_TO_OBJECT] 检查与本地模型的WebSocket连接状态")
@@ -690,14 +691,11 @@ async def go_to_object(world_position: Optional[List[float]] = None, pixel_posit
         if smart_robot_agent_instance is None:
             error_msg = "SmartRobotAgent实例未初始化"
             logger.error(f"[GO_TO_OBJECT] {error_msg}")
-            
-            result_data = {
+            return {
+                "type": "go_to_object",
                 "success": False,
-                "world_position": [x, y],
-                "position_description": location_info or f"坐标 ({x}, {y})"
+                "error_msg": error_msg
             }
-            
-            return result_data
         
         connection_success = await smart_robot_agent_instance.connect_to_local_model()
         
@@ -705,80 +703,122 @@ async def go_to_object(world_position: Optional[List[float]] = None, pixel_posit
         if not connection_success:
             error_msg = "连接本地模型服务器失败"
             logger.error(f"[GO_TO_OBJECT] {error_msg}")
-            
-            result_data = {
+            return {
+                "type": "go_to_object",
                 "success": False,
-                "world_position": [x, y],
-                "position_description": location_info or f"坐标 ({x}, {y})"
+                "error_msg": error_msg
             }
-            
-            return result_data
         
         # 在导航开始前记录当前位置
         smart_robot_agent_instance.record_position_before_navigation()
-        
-        # 连接成功，构造发送给本地模型的数据
-        logger.info(f"[GO_TO_OBJECT] 通过WebSocket连接本地小模型服务，目标像素坐标: ({x}, {y})")
         
         # 构建user_prompt，优先使用obj_name
         if obj_name:
             user_prompt_text = f"去找{obj_name}"
         elif location_info:
             user_prompt_text = f"去{location_info}"
+        elif world_position:
+            user_prompt_text = f"去坐标位置({world_position[0]}, {world_position[1]})"
+        elif pixel_position:
+            user_prompt_text = f"去像素位置({pixel_position[0]}, {pixel_position[1]})"
         else:
-            user_prompt_text = f"去坐标({x}, {y})"
+            user_prompt_text = "执行导航任务"
         
-        model_data = {
+        # 构造发送给本地模型的数据
+        model_data: Dict[str, Any] = {
             "type": "go_to_object",
-            "user_prompt": user_prompt_text,
-            "pixel_position": [x, y]  # 发送像素坐标而不是世界坐标
+            "user_prompt": user_prompt_text
         }
         
-        # 如果有obj_name，也添加到model_data中
+        # 添加可选参数到model_data中
         if obj_name:
             model_data["obj_name"] = obj_name
+        if world_position:
+            model_data["world_position"] = world_position
+        if pixel_position:
+            model_data["pixel_position"] = pixel_position
+        if location_info:
+            model_data["location_info"] = location_info
+        
+        logger.info(f"[GO_TO_OBJECT] 通过WebSocket连接本地小模型服务，任务: {user_prompt_text}")
         
         # 使用通用的send_to_local_model方法
-        task_id = f"go_to_{x}_{y}_{int(time.time())}"
+        task_id = f"go_to_{int(time.time())}"
         model_result = await smart_robot_agent_instance.send_to_local_model(model_data, task_id)
         
         if not model_result["success"]:
             return {
+                "type": "go_to_object",
                 "success": False,
-                "world_position": [x, y],
-                "position_description": location_info or f"坐标 ({x}, {y})"
+                "error_msg": model_result.get("error_msg", "模型调用失败")
             }
         
         model_response = model_result["response"]
+        logger.info(f"[GO_TO_OBJECT] 模型响应: {model_response}")
         
-        # 检查响应格式并转换为统一格式
-        if "result" in model_response:
-            # 新协议格式
-            model_response = {
-                "success": model_response.get("result", False),
-                "error_msg": model_response.get("error_msg", "")
-            }
-        # 旧协议格式直接使用
-        # 检查连接状态并返回相应结果
-        if model_response["success"]:
-            success_msg = f"已通过本地模型成功导航到坐标: ({x}, {y})"
-            logger.info(f"[GO_TO_OBJECT] {success_msg}")
+        # 根据实际的模型响应格式来解析结果
+        # 初始化变量
+        success_result = False
+        error_result = None
+        world_pos = None
+        pixel_pos = None
+        pos_desc = None
+        
+        if not isinstance(model_response, dict):
+            # 如果响应不是字典，尝试解析字符串
+            try:
+                if isinstance(model_response, str):
+                    # 如果是简单的成功/失败字符串
+                    if "成功" in model_response or "success" in model_response.lower():
+                        success_result = True
+                        error_result = None
+                    else:
+                        success_result = False
+                        error_result = model_response
+                else:
+                    success_result = False
+                    error_result = f"未知的响应格式: {model_response}"
+            except Exception as parse_error:
+                success_result = False
+                error_result = f"解析响应失败: {parse_error}"
+        else:
+            # 如果是字典格式，根据实际字段解析
+            success_result = bool(model_response.get("success") or model_response.get("result", False))
+            error_result = model_response.get("error_msg") or model_response.get("error") or model_response.get("message")
             
-            result_data = {
+            # 如果有位置信息，也提取出来
+            world_pos = model_response.get("world_position")
+            pixel_pos = model_response.get("pixel_position") 
+            pos_desc = model_response.get("position_description")
+        
+        # 构造返回结果
+        if success_result:
+            result_data: Dict[str, Any] = {
+                "type": "go_to_object",
                 "success": True,
-                "world_position": [x, y],
-                "position_description": location_info or f"坐标 ({x}, {y})"
             }
             
+            # 如果有位置信息，添加到结果中
+            if world_pos is not None:
+                result_data["world_position"] = world_pos
+            if pixel_pos is not None:
+                result_data["pixel_position"] = pixel_pos
+            if pos_desc is not None:
+                result_data["position_description"] = pos_desc
+            
+            success_msg = "导航执行成功"
+            logger.info(f"[GO_TO_OBJECT] {success_msg}")
             return result_data
         else:
-            error_msg = f"本地模型导航执行失败: {model_response['error_msg']}"
+            error_msg = f"本地模型导航执行失败: {error_result}"
             logger.error(f"[GO_TO_OBJECT] {error_msg}")
             
-            result_data = {
+            result_data: Dict[str, Any] = {
+                "type": "go_to_object",
                 "success": False,
-                "world_position": [x, y],
-                "position_description": location_info or f"坐标 ({x}, {y})"
+                "error_msg": error_result or error_msg,
+                "world_position": world_position,
+                "position_description": location_info
             }
             
             return result_data
@@ -788,8 +828,10 @@ async def go_to_object(world_position: Optional[List[float]] = None, pixel_posit
         logger.error(f"[GO_TO_OBJECT] {error_msg}")
         
         result_data = {
+            "type": "go_to_object",
             "success": False,
-            "world_position": world_position if 'world_position' in locals() else None,
+            "error_msg": error_msg,
+            "world_position": world_position,
             "position_description": location_info
         }
         
@@ -800,25 +842,41 @@ async def go_find_person(**kwargs) -> Dict[str, Any]:
     查找指定人员，通过WebSocket连接本地小模型服务
     
     Args:
-        person_id (str): 人员ID
+        obj_name (str): 要查找的人员名称
+        location_info (str): 位置信息描述（可选）
+        pixel_position (List[float]): 像素坐标（可选）
+        user_prompt (str): 用户指令（可选）
         
     Returns:
-        Dict[str, Any]: 工具执行结果
+        Dict[str, Any]: 工具执行结果，包含type字段标识任务类型
     """
-    # 处理参数格式:
-    if "person_id" in kwargs:
+    # 处理参数格式，优先使用obj_name作为人员标识
+    person_id = kwargs.get("obj_name", "")
+    if not person_id:
+        # 如果没有obj_name，尝试从其他字段获取
         person_id = kwargs.get("person_id", "")
-    else:
-        error_msg = "缺少必要参数person_id"
+    
+    if not person_id:
+        error_msg = "缺少必要参数obj_name或person_id"
         logger.error(f"[GO_FIND_PERSON] {error_msg}")
         return {
+            "type": "go_find_person",
             "success": False,
-            "person_id": "",
-            "world_position": None,
-            "position_description": error_msg
+            "error_msg": error_msg
         }
     
+    # 获取其他可选参数
+    location_info = kwargs.get("location_info")
+    pixel_position = kwargs.get("pixel_position")
+    user_prompt = kwargs.get("user_prompt")
+    
     logger.info(f"[GO_FIND_PERSON] 开始查找人员: {person_id}")
+    if location_info:
+        logger.info(f"[GO_FIND_PERSON] 位置信息: {location_info}")
+    if pixel_position:
+        logger.info(f"[GO_FIND_PERSON] 像素位置: {pixel_position}")
+    if user_prompt:
+        logger.info(f"[GO_FIND_PERSON] 用户指令: {user_prompt}")
 
     try:
         # 获取全局SmartRobotAgent实例并校验
@@ -827,10 +885,9 @@ async def go_find_person(**kwargs) -> Dict[str, Any]:
             error_msg = "SmartRobotAgent实例未初始化"
             logger.error(f"[GO_FIND_PERSON] {error_msg}")
             return {
+                "type": "go_find_person",
                 "success": False,
-                "person_id": person_id,
-                "world_position": None,
-                "position_description": None
+                "error_msg": error_msg
             }
 
         # 建立或确认与本地模型的连接
@@ -838,61 +895,66 @@ async def go_find_person(**kwargs) -> Dict[str, Any]:
         if not connection_success:
             logger.error("[GO_FIND_PERSON] 连接本地模型服务器失败")
             return {
+                "type": "go_find_person",
                 "success": False,
-                "person_id": person_id,
-                "world_position": None,
-                "position_description": None
+                "error_msg": "连接本地模型服务器失败"
             }
 
         # 构造发送给本地模型的数据
-        task_description = f"去找这个人"
+        task_description = user_prompt or f"去找{person_id}"
         logger.info(f"[GO_FIND_PERSON] 通过WebSocket连接本地小模型服务，任务描述: {task_description}")
 
         model_data = {
-            "instruction": task_description,
+            "type": "go_find_person",
+            "user_prompt": task_description,
             "person_id": person_id
         }
+        
+        # 添加可选参数
+        if location_info:
+            model_data["location_info"] = location_info
+        if pixel_position:
+            model_data["pixel_position"] = pixel_position
 
         # 使用通用的send_to_local_model方法
-        task_id = f"find_person_{person_id}_{int(time.time())}"
+        task_id = f"go_find_person_{person_id}_{int(time.time())}"
         model_result = await smart_robot_agent_instance.send_to_local_model(model_data, task_id)
         
         if not model_result["success"]:
             return {
+                "type": "go_find_person",
                 "success": False,
-                "person_id": person_id,
-                "world_position": None,
-                "position_description": None
+                "error_msg": model_result["error_msg"]
             }
         
         model_response = model_result["response"]
 
         # 处理模型返回结果
-        if model_response and model_response.get("success"):
+        if model_response and model_response.get("result"):
             logger.info(f"[GO_FIND_PERSON] 本地模型成功返回结果 for {person_id}")
             return {
+                "type": "go_find_person",
                 "success": True,
-                "person_id": person_id,
                 "world_position": model_response.get("world_position"),
                 "position_description": model_response.get("position_description") or f"找到{person_id}"
             }
         else:
             err = model_response.get("error_msg") if isinstance(model_response, dict) else None
+            error_msg = err or "目标人没找到"
             logger.error(f"[GO_FIND_PERSON] 本地模型查找执行失败: {err}")
             return {
+                "type": "go_find_person",
                 "success": False,
-                "person_id": person_id,
-                "world_position": None,
-                "position_description": None
+                "error_msg": error_msg
             }
 
     except Exception as e:
-        logger.error(f"[GO_FIND_PERSON] 查找失败: {e}")
+        error_msg = f"查找失败: {e}"
+        logger.error(f"[GO_FIND_PERSON] {error_msg}")
         return {
+            "type": "go_find_person",
             "success": False,
-            "person_id": person_id,
-            "world_position": None,
-            "position_description": None
+            "error_msg": error_msg
         }
 
 async def follow_person(location_info: Optional[str] = None, person_id: Optional[str] = None, user_prompt: Optional[str] = None, **kwargs) -> Dict[str, Any]:
@@ -931,6 +993,7 @@ async def follow_person(location_info: Optional[str] = None, person_id: Optional
             logger.error(f"[FOLLOW_PERSON] {error_msg}")
             
             result_data = {
+                "type": "follow_person",
                 "success": False,
                 "result": error_msg
             }
@@ -944,6 +1007,7 @@ async def follow_person(location_info: Optional[str] = None, person_id: Optional
             logger.error(f"[FOLLOW_PERSON] {error_msg}")
             
             result_data = {
+                "type": "follow_person",
                 "success": False,
                 "result": error_msg
             }
@@ -980,6 +1044,7 @@ async def follow_person(location_info: Optional[str] = None, person_id: Optional
         
         if not model_result["success"]:
             return {
+                "type": "follow_person",
                 "success": False,
                 "result": model_result["error_msg"]
             }
@@ -990,14 +1055,16 @@ async def follow_person(location_info: Optional[str] = None, person_id: Optional
         if model_response and model_response.get("result"):
             logger.info(f"[FOLLOW_PERSON] 本地模型成功返回结果")
             return {
+                "type": "follow_person",
                 "success": True,
                 "result": "跟随人员成功"
             }
         else:
             err = model_response.get("error_msg") if isinstance(model_response, dict) else None
-            error_msg = f"本地模型跟随执行失败: {err}"
+            error_msg = err or "跟随人员失败"
             logger.error(f"[FOLLOW_PERSON] {error_msg}")
             return {
+                "type": "follow_person",
                 "success": False,
                 "result": error_msg
             }
@@ -1007,6 +1074,7 @@ async def follow_person(location_info: Optional[str] = None, person_id: Optional
         logger.error(f"[FOLLOW_PERSON] {error_msg}")
         
         result_data = {
+            "type": "follow_person",
             "success": False,
             "result": error_msg
         }
@@ -1027,7 +1095,8 @@ def stop_follow() -> Dict[str, Any]:
             success_msg = "已停止跟随"
             
             result_data = {
-                "status": "success",
+                "type": "stop_follow",
+                "success": True,
                 "result": success_msg
             }
             
@@ -1036,7 +1105,8 @@ def stop_follow() -> Dict[str, Any]:
             error_msg = "停止跟随失败"
             
             result_data = {
-                "status": "error",
+                "type": "stop_follow",
+                "success": False,
                 "result": error_msg
             }
             
@@ -1045,7 +1115,8 @@ def stop_follow() -> Dict[str, Any]:
         error_msg = f"停止跟随失败: {str(e)}"
         
         result_data = {
-            "status": "error",
+            "type": "stop_follow",
+            "success": False,
             "result": error_msg
         }
         
@@ -1064,7 +1135,8 @@ def stop_navigate() -> Dict[str, Any]:
             success_msg = "已停止导航"
             
             result_data = {
-                "status": "success",
+                "type": "stop_navigate",
+                "success": True,
                 "result": success_msg
             }
             
@@ -1073,7 +1145,8 @@ def stop_navigate() -> Dict[str, Any]:
             error_msg = "停止导航失败"
             
             result_data = {
-                "status": "error",
+                "type": "stop_navigate",
+                "success": False,
                 "result": error_msg
             }
             
@@ -1082,7 +1155,8 @@ def stop_navigate() -> Dict[str, Any]:
         error_msg = f"停止导航失败: {str(e)}"
         
         result_data = {
-            "status": "error",
+            "type": "stop_navigate",
+            "success": False,
             "result": error_msg
         }
         
@@ -1169,21 +1243,21 @@ class WebSocketServer:
                     result = await self.execute_task(task)
                     results.append(result)
                 
-                # 发送响应给客户端
-                response = {
-                    "type": "task_results",
-                    "results": results
-                }
-                response_str = json.dumps(response, ensure_ascii=False)
-                await websocket.send(response_str)
-                
-                # 广播给其他客户端（不包括当前客户端）
-                other_clients = [client for client in self.clients if client != websocket]
-                if other_clients:
-                    await asyncio.gather(
-                        *[client.send(response_str) for client in other_clients],
-                        return_exceptions=True
-                    )
+                # 分别发送每个任务的响应给客户端（适配client期望的格式）
+                for result in results:
+                    # 根据agent内部每个方法返回的实际结果格式进行处理
+                    client_response = self._convert_agent_result_to_client_response(result)
+                    
+                    response_str = json.dumps(client_response, ensure_ascii=False)
+                    await websocket.send(response_str)
+                    
+                    # 广播给其他客户端（不包括当前客户端）
+                    other_clients = [client for client in self.clients if client != websocket]
+                    if other_clients:
+                        await asyncio.gather(
+                            *[client.send(response_str) for client in other_clients],
+                            return_exceptions=True
+                        )
             else:
                 # 其他类型的消息
                 response = {
@@ -1242,6 +1316,67 @@ class WebSocketServer:
                 "status": "error",
                 "result": f"执行任务时出错: {str(e)}"
             }
+
+    def _convert_agent_result_to_client_response(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将agent内部的执行结果转换为客户端期望的响应格式
+        
+        Args:
+            result (Dict[str, Any]): agent内部工具函数的返回结果
+            
+        Returns:
+            Dict[str, Any]: 客户端期望的响应格式
+        """
+        # 判断任务是否成功 - 兼容多种返回格式
+        success = False
+        error_msg = ""
+        
+        # 1. 检查标准格式
+        if result.get("success") is not None:
+            success = bool(result.get("success"))
+        # 2. 检查status格式
+        elif result.get("status") == "error":
+            success = False
+        # 3. 检查result字段是否包含错误信息
+        elif isinstance(result.get("result"), str) and any(word in result.get("result", "").lower() for word in ["error", "失败", "异常", "failed"]):
+            success = False
+        else:
+            # 默认情况下，如果没有明确的错误标识，认为成功
+            success = True
+        
+        # 提取错误信息
+        if not success:
+            # 优先使用error_msg字段
+            if result.get("error_msg"):
+                error_msg = result.get("error_msg")
+            # 其次使用result字段（如果是字符串）
+            elif isinstance(result.get("result"), str):
+                error_msg = result.get("result")
+            # 最后使用status字段
+            elif result.get("status") == "error":
+                error_msg = "任务执行失败"
+            else:
+                error_msg = "未知错误"
+        
+        # 构建客户端响应
+        client_response = {
+            "result": success,
+            "error_msg": error_msg,
+            "type": result.get("type", "unknown")
+        }
+        
+        # 保留原始result中的所有其他字段（除了已处理的字段）
+        # 注意：这里我们排除"result"字段，因为我们已经设置了布尔值
+        excluded_keys = {"success", "status", "error_msg", "type", "result"}
+        for key, value in result.items():
+            if key not in excluded_keys:
+                client_response[key] = value
+        
+        # 只有当原始result字段不是错误字符串时，才保留非字符串类型的result值
+        if "result" in result and not isinstance(result["result"], str):
+            client_response["result"] = result["result"]
+        
+        return client_response
     
     async def _execute_task_by_type(self, task_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """根据任务类型执行相应的工具函数"""
@@ -1270,9 +1405,12 @@ class WebSocketServer:
             return await follow_person(**params)
         elif task_type == "back_to_last_position":
             if self.agent:
-                return await self.agent.back_to_last_position(**params)
+                result = await self.agent.back_to_last_position(**params)
+                result["type"] = task_type
+                return result
             else:
                 return {
+                    "type": task_type,
                     "status": "error",
                     "result": "Agent实例未初始化"
                 }
@@ -1281,38 +1419,63 @@ class WebSocketServer:
         elif task_type == "stop_navigate":
             return stop_navigate()
         elif task_type == "stop_move" and self.agent:
-            return await self.agent.stop_move()
-        # ROS2接口任务类型
+            result = await self.agent.stop_move()
+            result["type"] = task_type
+            return result
+        # ROS2接口任务类型 - 确保返回结果包含type字段
         elif task_type == "get_move_mode" and self.agent:
-            return self.agent.ros2_interface.get_move_mode()
+            result = self.agent.ros2_interface.get_move_mode()
+            result["type"] = task_type
+            return result
         elif task_type == "get_medicine_box_state" and self.agent:
-            return self.agent.ros2_interface.get_medicine_box_state()
+            result = self.agent.ros2_interface.get_medicine_box_state()
+            result["type"] = task_type
+            return result
         elif task_type == "set_medicine_box_switch" and self.agent:
-            return self.agent.ros2_interface.set_medicine_box_switch(**params)
+            result = self.agent.ros2_interface.set_medicine_box_switch(**params)
+            result["type"] = task_type
+            return result
         elif task_type == "get_robot_rise_state" and self.agent:
-            return self.agent.ros2_interface.get_robot_rise_state()
+            result = self.agent.ros2_interface.get_robot_rise_state()
+            result["type"] = task_type
+            return result
         elif task_type == "set_robot_rise_jqr" and self.agent:
-            return self.agent.ros2_interface.set_robot_rise_jqr(**params)
+            result = self.agent.ros2_interface.set_robot_rise_jqr(**params)
+            result["type"] = task_type
+            return result
         elif task_type == "get_robot_tilt_state" and self.agent:
-            return self.agent.ros2_interface.get_robot_tilt_state()
+            result = self.agent.ros2_interface.get_robot_tilt_state()
+            result["type"] = task_type
+            return result
         elif task_type == "set_robot_tilt_jqr" and self.agent:
-            return self.agent.ros2_interface.set_robot_tilt_jqr(**params)
+            result = self.agent.ros2_interface.set_robot_tilt_jqr(**params)
+            result["type"] = task_type
+            return result
         elif task_type == "get_screen_tilt_state" and self.agent:
-            return self.agent.ros2_interface.get_screen_tilt_state()
+            result = self.agent.ros2_interface.get_screen_tilt_state()
+            result["type"] = task_type
+            return result
         elif task_type == "set_screen_tilt_jqr" and self.agent:
-            return self.agent.ros2_interface.set_screen_tilt_jqr(**params)
+            result = self.agent.ros2_interface.set_screen_tilt_jqr(**params)
+            result["type"] = task_type
+            return result
         # 激光指示灯控制接口
         elif task_type == "set_laser_pointer" and self.agent:
-            return self.agent.ros2_interface.set_laser_pointer(**params)
+            result = self.agent.ros2_interface.set_laser_pointer(**params)
+            result["type"] = task_type
+            return result
         elif task_type == "get_laser_pointer_state" and self.agent:
-            return self.agent.ros2_interface.get_laser_pointer_state()
+            result = self.agent.ros2_interface.get_laser_pointer_state()
+            result["type"] = task_type
+            return result
 
         else:
             return {
+                "type": task_type,
                 "status": "error",
                 "result": f"未知的任务类型: {task_type}"
             }
-            
+
     async def websocket_handler(self, websocket):
         """WebSocket处理函数"""
         # 注册客户端
@@ -1682,9 +1845,9 @@ class ROS2Interface:
         try:
             # 构造请求数据，根据新的jqr_ros_msgs格式包含speed_stage参数
             if duration > 0:
-                request_data = f"{{\"medicine_box_switch\": {str(switch).lower()}, \"speed_stage\": {speed_stage}}}"
+                request_data = f'{{"medicine_box_switch": {str(switch).lower()}, "speed_stage": {speed_stage}}}'
             else:
-                request_data = f"{{\"medicine_box_switch\": {str(switch).lower()}, \"speed_stage\": {speed_stage}}}"
+                request_data = f'{{"medicine_box_switch": {str(switch).lower()}, "speed_stage": {speed_stage}}}'
                 
             # 调用ROS2服务控制药箱开关
             response = self._call_ros2_service(
@@ -1844,9 +2007,9 @@ class ROS2Interface:
         try:
             # 构造请求数据
             if duration > 0:
-                request_data = f"{{\"robot_rise\": {str(rise).lower()}, \"duration\": {duration}}}"
+                request_data = f'{{"robot_rise": {str(rise).lower()}, "duration": {duration}}}'
             else:
-                request_data = f"{{\"robot_rise\": {str(rise).lower()}}}"
+                request_data = f'{{"robot_rise": {str(rise).lower()}}}'
                 
             # 调用ROS2服务控制机器人升降
             response = self._call_ros2_service(
@@ -2004,9 +2167,9 @@ class ROS2Interface:
         try:
             # 构造请求数据
             if duration > 0:
-                request_data = f"{{\"robot_tilt\": {angle}, \"duration\": {duration}}}"
+                request_data = f'{{"robot_tilt": {angle}, "duration": {duration}}}'
             else:
-                request_data = f"{{\"robot_tilt\": {angle}}}"
+                request_data = f'{{"robot_tilt": {angle}}}'
                 
             # 调用ROS2服务控制机器人俯仰
             response = self._call_ros2_service(
@@ -2250,9 +2413,9 @@ class ROS2Interface:
         try:
             # 构造请求数据
             if duration > 0:
-                request_data = f"{{\"screen_tilt\": {angle}, \"duration\": {duration}}}"
+                request_data = f'{{"screen_tilt": {angle}, "duration": {duration}}}'
             else:
-                request_data = f"{{\"screen_tilt\": {angle}}}"
+                request_data = f'{{"screen_tilt": {angle}}}'
                 
             # 调用ROS2服务控制屏幕俯仰
             response = self._call_ros2_service(
@@ -2909,12 +3072,15 @@ class SmartRobotAgent:
         # 本地模型WebSocket连接相关
         self.local_model_websocket = None
         self.local_model_connected = False
-        # self.local_model_uri = "ws://localhost:8769"
-        self.local_model_uri = "ws://192.168.50.144:8000/ws/navigate"
+        self.local_model_uri = "ws://localhost:8769"
+        # self.local_model_uri = "ws://192.168.50.144:8000/ws/navigate"
         
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
         self.task_execution_lock = asyncio.Lock()  # 任务执行锁
+        
+        # 本地模型连接锁
+        self.local_model_lock = asyncio.Lock()
         
     async def send_to_local_model(self, model_data: Dict[str, Any], task_id: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -2927,58 +3093,75 @@ class SmartRobotAgent:
         Returns:
             Dict[str, Any]: 本地模型的响应结果
         """
-        try:
-            # 检查WebSocket连接是否存在
-            if self.local_model_websocket is None:
+        async with self.local_model_lock:  # 使用锁避免并发访问
+            try:
+                # 检查并建立连接（带重试机制）
+                connection_success = False
+                max_retries = 2
+                for attempt in range(max_retries):
+                    connection_success = await self.connect_to_local_model()
+                    if connection_success:
+                        break
+                    else:
+                        logger.warning(f"连接本地模型服务器失败，重试第{attempt + 1}次")
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(1)
+                
+                if not connection_success:
+                    return {
+                        "success": False,
+                        "error_msg": "无法连接到本地模型服务器，已重试多次"
+                    }
+                
+                # 如果提供了任务ID，添加到活跃任务集合
+                if task_id:
+                    async with self.task_execution_lock:
+                        self.active_navigation_tasks.add(task_id)
+                    logger.info(f"[LOCAL_MODEL] 添加任务 {task_id} 到活跃任务集合")
+                
+                # 发送数据到本地模型
+                await self.local_model_websocket.send(json.dumps(model_data, ensure_ascii=False))
+                logger.info(f"[LOCAL_MODEL] 已发送数据: {model_data}")
+                
+                # 持续接收响应，直到收到最终结果
+                final_response = None
+                while True:
+                    response_str = await self.local_model_websocket.recv()
+                    response_data = json.loads(response_str)
+                    logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
+                    
+                    # 检查是否是最终结果（包含success字段或result字段）
+                    if ("success" in response_data or "result" in response_data) and "command" not in response_data:
+                        final_response = response_data
+                        break
+                    else:
+                        # 中间信息（包含command或其他中间状态），需要添加任务类型后转发给所有连接的客户端
+                        intermediate_data = response_data.copy()
+                        # 从原始model_data中获取任务类型
+                        task_type = model_data.get("type", "unknown")
+                        intermediate_data["type"] = task_type
+                        
+                        if websocket_server_ref:
+                            await websocket_server_ref.send_to_clients(json.dumps(intermediate_data, ensure_ascii=False))
+                        logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
+                
+                return {
+                    "success": True,
+                    "response": final_response
+                }
+                
+            except Exception as e:
+                logger.error(f"[LOCAL_MODEL] 与本地模型通信失败: {e}")
                 return {
                     "success": False,
-                    "error_msg": "本地模型WebSocket连接未建立"
+                    "error_msg": f"与本地模型通信失败: {str(e)}"
                 }
-            
-            # 如果提供了任务ID，添加到活跃任务集合
-            if task_id:
-                async with self.task_execution_lock:
-                    self.active_navigation_tasks.add(task_id)
-                logger.info(f"[LOCAL_MODEL] 添加任务 {task_id} 到活跃任务集合")
-            
-            # 发送数据到本地模型
-            await self.local_model_websocket.send(json.dumps(model_data, ensure_ascii=False))
-            logger.info(f"[LOCAL_MODEL] 已发送数据: {model_data}")
-            
-            # 持续接收响应，直到收到最终结果（包含result字段）
-            final_response = None
-            while True:
-                response_str = await self.local_model_websocket.recv()
-                response_data = json.loads(response_str)
-                logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
-                
-                # 如果是中间信息（非最终结果），转发给所有连接的客户端
-                if "result" not in response_data and "success" not in response_data:
-                    if websocket_server_ref:
-                        await websocket_server_ref.send_to_clients(json.dumps(response_data, ensure_ascii=False))
-                    logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {response_data}")
-                # 检查是否是最终结果
-                elif "result" in response_data or "success" in response_data:
-                    final_response = response_data
-                    break
-            
-            return {
-                "success": True,
-                "response": final_response
-            }
-            
-        except Exception as e:
-            logger.error(f"[LOCAL_MODEL] 与本地模型通信失败: {e}")
-            return {
-                "success": False,
-                "error_msg": f"与本地模型通信失败: {str(e)}"
-            }
-        finally:
-            # 如果提供了任务ID，从活跃任务集合中移除
-            if task_id:
-                async with self.task_execution_lock:
-                    self.active_navigation_tasks.discard(task_id)
-                logger.info(f"[LOCAL_MODEL] 从活跃任务集合中移除任务 {task_id}")
+            finally:
+                # 如果提供了任务ID，从活跃任务集合中移除
+                if task_id:
+                    async with self.task_execution_lock:
+                        self.active_navigation_tasks.discard(task_id)
+                    logger.info(f"[LOCAL_MODEL] 从活跃任务集合中移除任务 {task_id}")
     
     def has_active_navigation_tasks(self) -> bool:
         """
@@ -3038,6 +3221,9 @@ class SmartRobotAgent:
             
             # 调用导航功能
             result = self.ros2_interface.navigate_to_position(last_position)
+            
+            # 确保返回结果包含type字段
+            result["type"] = "back_to_last_position"
             
             if result["success"]:
                 logger.info("[AGENT] 成功返回到最后记录的位置")
@@ -3156,6 +3342,7 @@ class SmartRobotAgent:
                     logger.info(f"[STOP_MOVE] {success_msg}")
                     
                     result_data = {
+                        "type": "stop_move",
                         "success": True,
                         "result": success_msg
                     }
@@ -3166,6 +3353,7 @@ class SmartRobotAgent:
                     logger.error(f"[STOP_MOVE] {error_msg}")
                     
                     result_data = {
+                        "type": "stop_move",
                         "success": False,
                         "result": error_msg
                     }
@@ -3176,6 +3364,7 @@ class SmartRobotAgent:
                 logger.error(f"[STOP_MOVE] {error_msg}")
                 
                 result_data = {
+                    "type": "stop_move",
                     "success": False,
                     "result": error_msg
                 }
@@ -3186,6 +3375,7 @@ class SmartRobotAgent:
             logger.error(f"[STOP_MOVE] {error_msg}")
             
             result_data = {
+                "type": "stop_move",
                 "success": False,
                 "result": error_msg
             }
@@ -3207,13 +3397,54 @@ async def main():
     smart_robot_agent_instance = agent
     
     # 启动电池电量监控
-    agent.ros2_interface.start_battery_monitoring(agent.websocket_server)
+    try:
+        agent.ros2_interface.start_battery_monitoring(agent.websocket_server)
+    except Exception as e:
+        logger.warning(f"启动电池监控失败: {e}")
     
-    # 启动WebSocket服务器
-    ws_server = await agent.start_websocket_server()
+    # 连接到本地模型（带重试机制）
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"尝试连接本地模型服务器 (第{attempt + 1}次)...")
+            connected = await agent.connect_to_local_model()
+            if connected:
+                logger.info("成功连接到本地模型服务器")
+                break
+            else:
+                logger.warning(f"连接本地模型服务器失败 (第{attempt + 1}次)")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+        except Exception as e:
+            logger.error(f"连接本地模型服务器时出错 (第{attempt + 1}次): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)
     
-    # 等待服务器关闭
-    await ws_server.wait_closed()
+    # 启动WebSocket服务器（带异常处理）
+    try:
+        ws_server = await agent.start_websocket_server()
+        logger.info("WebSocket服务器启动成功")
+        
+        # 等待服务器关闭（带异常处理）
+        try:
+            await ws_server.wait_closed()
+        except KeyboardInterrupt:
+            logger.info("收到键盘中断信号，正在关闭...")
+        except Exception as e:
+            logger.error(f"WebSocket服务器运行时出错: {e}")
+        finally:
+            logger.info("Smart Robot Agent 正在关闭...")
+            
+    except Exception as e:
+        logger.error(f"启动WebSocket服务器失败: {e}")
+    finally:
+        # 清理资源
+        try:
+            if agent.local_model_websocket:
+                await agent.local_model_websocket.close()
+            logger.info("资源清理完成")
+        except Exception as e:
+            logger.error(f"清理资源时出错: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
