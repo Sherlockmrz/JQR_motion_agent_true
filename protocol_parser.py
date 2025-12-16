@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 class CommandType(IntEnum):
     """命令字定义"""
     CMD_JSON_DATA = 0x01
+    CMD_JSON_RESPONSE = 0x81
     CMD_STATUS_QUERY = 0x02
     CMD_PARAM_SET = 0x03
 
@@ -170,7 +171,7 @@ class ProtocolParser:
     
     def extract_json_from_frame(self) -> Optional[str]:
         """从帧中提取JSON数据"""
-        if self.current_frame.command != CommandType.CMD_JSON_DATA:
+        if self.current_frame.command != CommandType.CMD_JSON_DATA and self.current_frame.command != CommandType.CMD_JSON_RESPONSE:
             logger.warning(f"不是JSON命令，命令字: 0x{self.current_frame.command:02X}")
             return None
         

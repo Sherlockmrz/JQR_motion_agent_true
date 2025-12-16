@@ -89,8 +89,8 @@ class SerialManager:
                     continue
             
             # 如果没有找到可用串口，创建虚拟串口用于测试
-            logger.warning("未找到物理串口设备，使用虚拟模式进行测试")
-            self.serial_port = VirtualSerialPort()
+            # logger.warning("未找到物理串口设备，使用虚拟模式进行测试")
+            # self.serial_port = VirtualSerialPort()
             return True
             
         except ImportError as e:
@@ -299,8 +299,8 @@ class SerialManager:
             # 记录发送的消息用于过滤自发自收
             self._record_sent_message(json_str)
             
-            # 创建协议帧
-            frame = self.parser.create_response_frame(CommandType.CMD_JSON_DATA, json_str)
+            # 创建协议帧 (地瓜S100应答使用0x81)
+            frame = self.parser.create_response_frame(CommandType.CMD_JSON_RESPONSE, json_str)
             
             # 发送数据
             if hasattr(self.serial_port, 'write'):
@@ -456,7 +456,7 @@ class VirtualSerialPort:
         
         # 创建一些测试消息
         test_messages = [
-            {"type": "test", "message": "hello"},
+            {"type": "test", "message": ""},
             {"type": "status", "value": "ok"},
             {"command": "test_command", "result": "success"},
         ]

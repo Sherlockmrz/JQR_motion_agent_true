@@ -38,6 +38,10 @@ RobotTilt = None
 RobotTiltState = None
 ScreenTilt = None
 ScreenTiltState = None
+RgbLightStrip = None
+RgbLightStripState = None
+LaserPointer = None
+LaserPointerState = None
 
 # 电池监控相关全局变量
 battery_node = None
@@ -94,11 +98,11 @@ import subprocess
 # 配置
 # ======================
 ASM_JSON_PATH = "asm_data.json"
-VIDEO_BASE_DIR = "/tmp/videos/"
-DB_PATH = "/tmp/history.db"
+VIDEO_BASE_DIR = "videos"
+DB_PATH = "history.db"
 
 os.makedirs(VIDEO_BASE_DIR, exist_ok=True)
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+# os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # USB串口配置
 USB_SERIAL_PORT = "/dev/ttyACM0"
@@ -322,155 +326,116 @@ class ROS2Interface:
         # 如果ROS2可用，初始化rclpy
         if ROS2_AVAILABLE:
             self._initialize_ros2()
-    def set_laser_pointer(self, laser_on: bool) -> Dict[str, Any]:
-        """控制激光指示灯开关
+    def set_laser_pointer(self, laser_pointer: int) -> Dict[str, Any]:
+        """控制激光笔开关/查询状态 (jqr_ros_msgs版本)
         
         Args:
-            laser_on (bool): 激光开关状态 (True: 开启, False: 关闭)
+            laser_pointer (int): 0=关闭, 1=开启, 2=获取当前状态
             
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
-            # 构造请求数据
-            request_data = f'{{"laser_pointer": {str(laser_on).lower()}}}'
-            
-            # 调用ROS2服务控制激光指示灯
+            request_data = f'{{"laser_pointer": {laser_pointer}}}'
             response = self._call_ros2_service(
-                "/laser_pointer",
+                "/set_laser_pointer",
                 "jqr_ros_msgs/srv/LaserPointer",
                 request_data
             )
-            
             if response is None:
-                # 服务调用失败，可能是服务不存在
                 result = {
                     "success": False,
-                    "laser_on": laser_on,
-                    "description": "服务 /laser_pointer 不存在或调用失败"
+                    "description": "服务 /set_laser_pointer 不存在或调用失败"
                 }
-                logger.error(f"[ROS2] 设置激光指示灯失败: {result}")
+                logger.error(f"[ROS2] 设置激光笔失败: {result}")
                 return result
             else:
-                # 检查响应是否为空或无效
                 if not response or not response.strip():
-                    logger.error(f"[ROS2] 激光指示灯服务返回空响应")
                     return {
                         "success": False,
-                        "laser_on": laser_on,
-                        "description": "激光指示灯服务返回空响应"
+                        "description": "激光笔服务返回空响应"
                     }
-                
-                # 解析响应数据
                 try:
-                    # 使用parse_ros2_response工具函数解析响应
                     response_data = parse_ros2_response(response)
-                    
                     result_number = response_data.get("result_number", 0)
                     result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
+                    success = (result_number in [1, 2, 3])
                     result = {
                         "success": success,
-                        "laser_on": laser_on,
-                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "description": result_msg,
                         "result_number": result_number
                     }
-                    
                     if success:
-                        logger.info(f"[ROS2] 设置激光指示灯成功: {result}")
+                        logger.info(f"[ROS2] 激光笔控制成功: {result}")
                     else:
-                        logger.error(f"[ROS2] 设置激光指示灯失败: {result}")
-                    
+                        logger.error(f"[ROS2] 激光笔控制失败: {result}")
                     return result
-                    
                 except Exception as e:
-                    logger.error(f"[ROS2] 激光指示灯响应解析失败: {e}, 原始响应: {response}")
+                    logger.error(f"[ROS2] 激光笔响应解析失败: {e}, 原始响应: {response}")
                     return {
                         "success": False,
-                        "laser_on": laser_on,
                         "description": f"响应解析失败: {str(e)}"
                     }
         except Exception as e:
-            logger.error(f"[ROS2] 设置激光指示灯失败: {e}")
+            logger.error(f"[ROS2] 设置激光笔失败: {e}")
             return {
                 "success": False,
-                "laser_on": laser_on,
-                "description": f"设置激光指示灯{'开启' if laser_on else '关闭'}失败: {str(e)}"
+                "description": f"设置激光笔失败: {str(e)}"
             }
     
     def get_laser_pointer_state(self) -> Dict[str, Any]:
-        """获取激光指示灯状态
+        """获取激光笔状态
         
         Returns:
-            Dict[str, Any]: 激光指示灯状态信息
+            Dict[str, Any]: 激光笔状态信息
         """
         try:
-            # 调用ROS2服务获取激光指示灯状态
             response = self._call_ros2_service(
-                "/laser_pointer",
+                "/get_laser_pointer_state",
                 "jqr_ros_msgs/srv/LaserPointerState",
                 "{}"
             )
-            
             if response is None:
-                # 服务调用失败，可能是服务不存在
                 result = {
                     "success": False,
-                    "laser_on": False,
-                    "description": "服务 /laser_pointer 不存在或调用失败"
+                    "description": "服务 /get_laser_pointer_state 不存在或调用失败"
                 }
-                logger.error(f"[ROS2] 获取激光指示灯状态失败: {result}")
+                logger.error(f"[ROS2] 获取激光笔状态失败: {result}")
                 return result
             else:
-                # 检查响应是否为空或无效
                 if not response or not response.strip():
-                    logger.error(f"[ROS2] 激光指示灯状态服务返回空响应")
                     return {
                         "success": False,
-                        "laser_on": False,
-                        "description": "激光指示灯状态服务返回空响应"
+                        "description": "激光笔状态服务返回空响应"
                     }
-                
-                # 解析响应数据
                 try:
-                    # 使用parse_ros2_response工具函数解析响应
                     response_data = parse_ros2_response(response)
-                    
                     laser_pointer_state = response_data.get("laser_pointer_state", False)
                     result_number = response_data.get("result_number", 0)
                     result_msg = response_data.get("result_msg", "")
-                    
                     success = (result_number == 1)
-                    
                     result = {
                         "success": success,
-                        "laser_on": laser_pointer_state,
+                        "laser_pointer_state": laser_pointer_state,
                         "description": result_msg if success else f"获取失败: {result_msg}",
                         "result_number": result_number
                     }
-                    
                     if success:
-                        logger.info(f"[ROS2] 获取激光指示灯状态成功: {result}")
+                        logger.info(f"[ROS2] 获取激光笔状态成功: {result}")
                     else:
-                        logger.error(f"[ROS2] 获取激光指示灯状态失败: {result}")
-                    
+                        logger.error(f"[ROS2] 获取激光笔状态失败: {result}")
                     return result
-                    
                 except Exception as e:
-                    logger.error(f"[ROS2] 激光指示灯状态响应解析失败: {e}, 原始响应: {response}")
+                    logger.error(f"[ROS2] 激光笔状态响应解析失败: {e}, 原始响应: {response}")
                     return {
                         "success": False,
-                        "laser_on": False,
                         "description": f"响应解析失败: {str(e)}"
                     }
         except Exception as e:
-            logger.error(f"[ROS2] 获取激光指示灯状态失败: {e}")
+            logger.error(f"[ROS2] 获取激光笔状态失败: {e}")
             return {
                 "success": False,
-                "laser_on": False,
-                "description": f"获取激光指示灯状态失败: {str(e)}"
+                "description": f"获取激光笔状态失败: {str(e)}"
             }
 
     def start_battery_monitoring(self) -> bool:
@@ -754,13 +719,13 @@ class ROS2Interface:
             # 使用主节点创建位置订阅，订阅的回调由主spin循环处理
             self.position_subscription = self.node.create_subscription(
                 geometry_msgs.PoseStamped,
-                '/robot_pose',  # 假设SLAM发布的话题名为 /robot_pose
+                '/tracked_pose',  # 假设SLAM发布的话题名为 /tracked_pose
                 self._position_callback,
                 10
             )
             
             self.position_subscribed = True
-            logger.info("[ROS2] 已使用主节点订阅机器人位置话题: /robot_pose")
+            logger.info("[ROS2] 已使用主节点订阅机器人位置话题: /tracked_pose")
             return True
             
         except Exception as e:
@@ -1297,18 +1262,19 @@ class ROS2Interface:
     # 药箱控制相关接口
     # ======================
     
-    def set_medicine_box_switch(self, state: bool) -> Dict[str, Any]:
+    def set_medicine_box_switch(self, switch: bool, speed_stage: int) -> Dict[str, Any]:
         """控制药箱开关
         
         Args:
-            state (bool): 药箱开关状态 (True: 打开, False: 关闭)
+            switch (bool): 药箱开关状态 (True: 打开, False: 关闭)
+            speed_stage (int): 速度档位 (1: 慢档, 2: 快档)
             
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
             # 构造请求数据
-            request_data = f'{{"medicine_box_switch": {str(state).lower()}}}'
+            request_data = f'{{"medicine_box_switch": {str(switch).lower()}, "speed_stage": {speed_stage}}}'
             
             # 调用ROS2服务控制药箱开关
             response = self._call_ros2_service(
@@ -1320,60 +1286,61 @@ class ROS2Interface:
             if response is None:
                 # 服务调用失败，可能是服务不存在
                 result = {
+                    "type": "set_medicine_box_switch",
                     "success": False,
-                    "state": state,
-                    "description": "服务 /set_medicine_box_switch 不存在或调用失败"
+                    "error_msg": "服务 /set_medicine_box_switch 不存在或调用失败"
                 }
                 logger.error(f"[ROS2] 设置药箱开关失败: {result}")
                 return result
-            else:
-                # 检查响应是否为空或无效
-                if not response or not response.strip():
-                    logger.error(f"[ROS2] 药箱开关服务返回空响应")
-                    return {
-                        "success": False,
-                        "state": state,
-                        "description": "药箱开关服务返回空响应"
-                    }
+
+            # 检查响应是否为空或无效
+            if not response or not response.strip():
+                logger.error(f"[ROS2] 药箱开关服务返回空响应")
+                result = {
+                    "type": "set_medicine_box_switch",
+                    "success": False,
+                    "error_msg": "药箱开关服务返回空响应"
+                }
+                return result
+
+            # 解析响应数据
+            try:
+                # 使用parse_ros2_response工具函数解析响应
+                response_data = parse_ros2_response(response)
+                # 根据jqr_ros_msgs的MedicineBoxSwitch响应格式解析
+                # 响应应包含: result_number, result_msg
+                result_number = response_data.get("result_number", 0)
+                result_msg = response_data.get("result_msg", "")
                 
-                # 解析响应数据
-                try:
-                    # 使用parse_ros2_response工具函数解析响应
-                    response_data = parse_ros2_response(response)
-                    # 根据jqr_ros_msgs的MedicineBoxSwitch响应格式解析
-                    # 响应应包含: result_number, result_msg
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
-                    result = {
-                        "success": success,
-                        "state": state,
-                        "description": result_msg if success else f"设置失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    
-                    if success:
-                        logger.info(f"[ROS2] 设置药箱开关成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 设置药箱开关失败: {result}")
-                    
-                    return result
-                    
-                except (json.JSONDecodeError, KeyError) as e:
-                    logger.error(f"[ROS2] 设置药箱开关响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "state": state,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                success = (result_number == 1)
+                
+                result = {
+                    "type": "set_medicine_box_switch",
+                    "success": success
+                }
+                if not success:
+                    result["error_msg"] = result_msg or "服务异常"
+                
+                if success:
+                    logger.info(f"[ROS2] 设置药箱开关成功: {result}")
+                else:
+                    logger.error(f"[ROS2] 设置药箱开关失败: {result}")
+                
+                return result
+                
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.error(f"[ROS2] 设置药箱开关响应解析失败: {e}, 原始响应: {response}")
+                return {
+                    "type": "set_medicine_box_switch",
+                    "success": False,
+                    "error_msg": f"响应解析失败: {str(e)}"
+                }
         except Exception as e:
             logger.error(f"[ROS2] 设置药箱开关失败: {e}")
             return {
+                "type": "set_medicine_box_switch",
                 "success": False,
-                "state": state,
-                "description": f"设置药箱{'打开' if state else '关闭'}失败: {str(e)}"
+                "error_msg": f"设置药箱{'打开' if switch else '关闭'}失败: {str(e)}"
             }
     
     def get_medicine_box_state(self) -> Dict[str, Any]:
@@ -1447,6 +1414,127 @@ class ROS2Interface:
                 "success": False,
                 "state": False,
                 "description": f"获取药箱状态失败: {str(e)}"
+            }
+
+    def set_rgb_light_strip(self, red: int, green: int, blue: int, brightness: int = 255) -> Dict[str, Any]:
+        """控制RGB灯带颜色与亮度 (jqr_ros_msgs版本)
+        
+        Args:
+            red (int): 红色分量 0~255
+            green (int): 绿色分量 0~255
+            blue (int): 蓝色分量 0~255
+            brightness (int): 亮度 0~255，默认255
+            
+        Returns:
+            Dict[str, Any]: 控制结果
+        """
+        try:
+            request_data = f'{{"red": {red}, "green": {green}, "blue": {blue}, "brightness": {brightness}}}'
+            response = self._call_ros2_service(
+                "/set_rgb_light_strip",
+                "jqr_ros_msgs/srv/RgbLightStrip",
+                request_data
+            )
+            if response is None:
+                result = {
+                    "success": False,
+                    "description": "服务 /set_rgb_light_strip 不存在或调用失败"
+                }
+                logger.error(f"[ROS2] 设置RGB灯带失败: {result}")
+                return result
+            else:
+                if not response or not response.strip():
+                    return {
+                        "success": False,
+                        "description": "RGB灯带服务返回空响应"
+                    }
+                try:
+                    response_data = parse_ros2_response(response)
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    success = (result_number == 1)
+                    result = {
+                        "success": success,
+                        "description": result_msg if success else f"设置失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    if success:
+                        logger.info(f"[ROS2] 设置RGB灯带成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 设置RGB灯带失败: {result}")
+                    return result
+                except Exception as e:
+                    logger.error(f"[ROS2] RGB灯带响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
+        except Exception as e:
+            logger.error(f"[ROS2] 设置RGB灯带失败: {e}")
+            return {
+                "success": False,
+                "description": f"设置RGB灯带失败: {str(e)}"
+            }
+
+    def get_rgb_light_strip_state(self) -> Dict[str, Any]:
+        """获取RGB灯带状态
+        
+        Returns:
+            Dict[str, Any]: 灯带状态信息
+        """
+        try:
+            response = self._call_ros2_service(
+                "/get_rgb_light_strip_state",
+                "jqr_ros_msgs/srv/RgbLightStripState",
+                "{}"
+            )
+            if response is None:
+                result = {
+                    "success": False,
+                    "description": "服务 /get_rgb_light_strip_state 不存在或调用失败"
+                }
+                logger.error(f"[ROS2] 获取RGB灯带状态失败: {result}")
+                return result
+            else:
+                if not response or not response.strip():
+                    return {
+                        "success": False,
+                        "description": "RGB灯带状态服务返回空响应"
+                    }
+                try:
+                    response_data = parse_ros2_response(response)
+                    red = response_data.get("red", 0)
+                    green = response_data.get("green", 0)
+                    blue = response_data.get("blue", 0)
+                    brightness = response_data.get("brightness", 0)
+                    result_number = response_data.get("result_number", 0)
+                    result_msg = response_data.get("result_msg", "")
+                    success = (result_number == 1)
+                    result = {
+                        "success": success,
+                        "red": red,
+                        "green": green,
+                        "blue": blue,
+                        "brightness": brightness,
+                        "description": result_msg if success else f"获取失败: {result_msg}",
+                        "result_number": result_number
+                    }
+                    if success:
+                        logger.info(f"[ROS2] 获取RGB灯带状态成功: {result}")
+                    else:
+                        logger.error(f"[ROS2] 获取RGB灯带状态失败: {result}")
+                    return result
+                except Exception as e:
+                    logger.error(f"[ROS2] RGB灯带状态响应解析失败: {e}, 原始响应: {response}")
+                    return {
+                        "success": False,
+                        "description": f"响应解析失败: {str(e)}"
+                    }
+        except Exception as e:
+            logger.error(f"[ROS2] 获取RGB灯带状态失败: {e}")
+            return {
+                "success": False,
+                "description": f"获取RGB灯带状态失败: {str(e)}"
             }
 
     def get_robot_tilt_state(self) -> Dict[str, Any]:
@@ -2031,9 +2119,9 @@ class SmartRobotAgent:
         # 本地模型连接相关
         self.local_model_websocket = None
         self.local_model_connected = False
-        self.local_model_uri = "ws://localhost:8769"
+        # self.local_model_uri = "ws://localhost:8769"
         # self.local_model_uri = "ws://192.168.50.144:8000/ws/navigate"
-        
+        self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
         self.task_execution_lock = asyncio.Lock()  # 任务执行锁
@@ -2308,8 +2396,6 @@ class SmartRobotAgent:
         
         if task_type == "find_object":
             return await self.find_object(**params)
-        elif task_type == "explore_and_find_object":
-            return await self.explore_and_find_object(**params)
         elif task_type == "go_to_object":
             return await self.go_to_object(**params)
         elif task_type == "go_find_person":
@@ -2317,16 +2403,9 @@ class SmartRobotAgent:
         elif task_type == "follow_person":
             return await self.follow_person(**params)
         elif task_type == "back_to_last_position":
-            if hasattr(self, 'ros2_interface'):
                 result = await self.back_to_last_position(**params)
                 result["type"] = task_type
                 return result
-            else:
-                return {
-                    "type": task_type,
-                    "status": "error",
-                    "result": "Agent实例未初始化"
-                }
         elif task_type == "stop_follow":
             return stop_follow()
         elif task_type == "stop_navigate":
@@ -2372,7 +2451,6 @@ class SmartRobotAgent:
             result = self.ros2_interface.set_screen_tilt_jqr(**params)
             result["type"] = task_type
             return result
-        # 激光指示灯控制接口
         elif task_type == "set_laser_pointer" and hasattr(self, 'ros2_interface'):
             result = self.ros2_interface.set_laser_pointer(**params)
             result["type"] = task_type
@@ -2392,144 +2470,255 @@ class SmartRobotAgent:
     # ======================
     # 任务执行方法
     # ======================
-    
-    async def find_object(self, obj_name: str) -> Dict[str, Any]:
-        """查找物体"""
+    def query_asm_object(self,obj_name: str) -> Optional[Dict[str, Any]]:
+        """查询ASM中的对象信息"""
+        
+        if not os.path.exists(ASM_JSON_PATH):
+            print(f"文件 {ASM_JSON_PATH} 不存在")
+            return None
+            
+        # 只有在文件格式确实有问题时才尝试修复
         try:
-            logger.info(f"[FIND_OBJECT] 开始查找物体: {obj_name}")
+            with open(ASM_JSON_PATH, 'r', encoding='utf-8') as f:
+                json.load(f)
+        except json.JSONDecodeError:
+            logger.warning("ASM JSON文件格式错误，尝试修复...")
+            fix_asm_json_format()
+        
+        try:
+            with open(ASM_JSON_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            # 获取objects数组
+            objects = data.get("objects", [])
+            logger.info(f"找到 {len(objects)} 个对象")
             
-            # 构造发送给本地模型的数据
-            model_data = {
-                "type": "find_object",
-                "user_prompt": f"找到{obj_name}",
-                "obj_name": obj_name
-            }
-            
-            # 发送到本地模型并获取响应
-            response = await self.send_to_local_model(model_data)
-            
-            if response and response.get("result"):
+            # 遍历objects数组查找匹配的对象
+            for obj in objects:
+                # 确保进行精确匹配，避免部分匹配或模糊匹配
+                if obj.get("name") == obj_name:
+                    # 使用正确的字段名
+                    world_position = obj.get("world_position", [])
+                    pixel_position = obj.get("pixel_position", [])
+                    
+                    if len(world_position) >= 2 and len(pixel_position) >= 2:
+                        return {
+                            "location": {"x": pixel_position[0], "y": pixel_position[1]},
+                            "world_position": world_position,
+                            "pixel_position": pixel_position,
+                            "last_time": obj.get("last_show_time", "2025-11-02T10:00:00"),
+                            "exist_or_not": obj.get("exist_or_not", 0),
+                            "object_description": obj.get("object_description", "")
+                        }
+                        
+            logger.info(f"未找到名为 '{obj_name}' 的对象")
+        except Exception as e:
+            logger.error(f"[ERROR] ASM read failed: {e}")
+            import traceback
+            traceback.print_exc()
+        return None
+
+    def query_history_db(self,obj_name: str) -> Optional[Dict[str, Any]]:
+        """查询历史数据库中的对象信息"""
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS objects (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT,
+                    world_x REAL,
+                    world_y REAL,
+                    last_show_time TEXT TIMESTAMP,
+                    exist_or_not INTEGER,
+                    object_description TEXT
+                )
+            """)
+            cursor.execute(
+                "SELECT id, name, world_x, world_y, last_show_time, exist_or_not, object_description FROM objects WHERE name = ? ORDER BY last_show_time DESC LIMIT 1",
+                (obj_name,)
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                logger.info(f"[DB] Found object {obj_name} with id {row[0]} at location ({row[2]}, {row[3]})")
                 return {
-                    "type": "find_object",
-                    "success": True,
-                    "obj_name": obj_name,
-                    "pixel_position": response.get("pixel_position"),
-                    "message": f"成功找到{obj_name}"
+                    "object_id": row[0],
+                    "name": row[1],
+                    "world_x": row[2],
+                    "world_y": row[3],
+                    "last_show_time": row[4],
+                    "exist_or_not": row[5],
+                    "object_description": row[6]
                 }
             else:
-                return {
+                logger.info(f"[DB] Object {obj_name} not found in database")
+        except Exception as e:
+            logger.error(f"[ERROR] DB query failed: {e}")
+        return None
+    async def find_object(self,obj_name: str) -> Dict[str, Any]:
+        """
+        查找物品的位置信息，按照ASM→DB→探索的优先级执行
+        
+        Args:
+            obj_name (str): 物品名称
+        
+        Returns:
+            Dict[str, Any]: 工具执行结果
+        """
+        logger.info(f"[FIND_OBJECT] 开始查找物品/人员: {obj_name}")
+        try:
+            # Step 1: ASM查询（最高优先级）
+            asm_res = self.query_asm_object(obj_name)
+            if asm_res:
+                #打印asm_res
+                print(asm_res)
+                loc = asm_res["location"]
+                logger.info(f"[FIND_OBJECT] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
+                
+                # ASM找到：返回位置信息，询问用户是否需要导航
+                result_msg = f"找到 {obj_name} 的位置：像素坐标 ({loc['x']}, {loc['y']})"
+                logger.info(f"[FIND_OBJECT] {result_msg}")
+                
+                # 按照新格式返回结果，包含像素位置
+                result_data = {
+                    "type": "find_object",
+                    "success": True,
+                    "pixel_position": asm_res.get("pixel_position", []),  # 添加像素位置
+                    "position_description": asm_res.get("object_description", "")  # 使用ASM中的描述
+                }
+                
+                return result_data
+
+            # Step 2: DB查询
+            db_res = self.query_history_db(obj_name)
+            if not db_res:
+                # DB没有找到：返回失败结果
+                result_data = {
                     "type": "find_object",
                     "success": False,
-                    "obj_name": obj_name,
-                    "error_msg": response.get("error_msg", f"未找到{obj_name}")
+                    "pixel_position": None,
+                    "position_description": None
                 }
+                
+                return result_data
+
+            logger.info(f"[FIND_OBJECT] 在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
+            
+            # DB找到：直接反馈结果，不询问导航
+            result_data = {
+                "type": "find_object",
+                "success": True,
+                "pixel_position": [db_res["world_x"], db_res["world_y"]],
+                "position_description": db_res["object_description"]
+            }
+            
+            return result_data
         except Exception as e:
-            logger.error(f"[FIND_OBJECT] 查找物体失败: {e}")
-            return {
+            result_data = {
                 "type": "find_object",
                 "success": False,
-                "obj_name": obj_name,
-                "error_msg": str(e)
+                "pixel_position": None,
+                "position_description": None
             }
+        
+            return result_data
     
-    async def go_to_object(self, obj_name: str, pixel_position: Optional[List[float]] = None, 
-                          tool: Optional[str] = None, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def go_to_object(self, obj_name: str, pixel_position: Optional[List[float]] = None) -> Dict[str, Any]:
         """导航到物体位置"""
         try:
             logger.info(f"[GO_TO_OBJECT] 开始导航到物体: {obj_name}")
             
             # 检查是否有新格式的tool和arguments
-            if tool and arguments:
-                model_data = {
-                    "type": "go_to_object",
-                    "tool": tool,
-                    "arguments": arguments
-                }
-            else:
-                # 旧格式
-                model_data = {
-                    "type": "go_to_object",
-                    "user_prompt": f"去{obj_name}旁边",
-                    "obj_name": obj_name,
-                    "pixel_position": pixel_position
-                }
-            
-            # 发送到本地模型并获取响应
+            model_data = {
+                "type": "go_to_object",
+                "user_prompt": f"去{obj_name}旁边",
+                "obj_name": obj_name,
+                "pixel_position": pixel_position
+            }
+            final_sent = False
+            result_msg = {
+                        "type": "go_to_object",
+                        "success": False,
+                        "err_msg": ""}
             response = await self.send_to_local_model(model_data)
-            
-            # 检查模型返回结果
-            if response and (response.get("success") or response.get("result", False)):
-                return {
-                    "type": "go_to_object",
-                    "success": True,
-                    "obj_name": obj_name,
-                    "message": f"成功导航到{obj_name}"
-                }
-            else:
-                err = response.get("error_msg") if isinstance(response, dict) else None
-                error_msg = err or "导航失败"
-                logger.error(f"[GO_TO_OBJECT] 本地模型导航执行失败: {error_msg}")
-                return {
-                    "type": "go_to_object",
-                    "success": False,
-                    "obj_name": obj_name,
-                    "error_msg": error_msg
-                }
+            if response and response.get("error_msg") == "无法连接到本地模型服务器":
+                result_msg = {
+                        "type": "go_to_object",
+                        "success": False,
+                        "err_msg": "无法连接到本地模型服务器"}
+                return result_msg                        
+            while not final_sent:
+            # 发送到本地模型并获取响应
+                if isinstance(response, dict) and "command" in response:
+                    cmd = response["command"]
+                    logger.info(f"[GO_TO_OBJECT] 收到中间信息: {cmd}")
+                    await self.usb_manager.send_message({"type": "go_to_object", "command": cmd})
+                    continue                
+                if isinstance(response, dict) and "success" in response:
+                    success = response["success"]
+                    logger.info(f"[GO_TO_OBJECT] 收到最终结果: success={success}")
+                    if not success:
+                        result_msg["error_msg"] = response.get("error_msg", "导航失败")
+                    # 通过 USB 发给客户端
+                    result_msg["success"] = success
+                    await self.usb_manager.send_message(result_msg)
+                    final_sent = True
+                await asyncio.sleep(0.2)
+            return result_msg    
         except Exception as e:
             logger.error(f"[GO_TO_OBJECT] 导航到物体失败: {e}")
-            return {
+            result_msg = {
                 "type": "go_to_object",
                 "success": False,
                 "obj_name": obj_name,
                 "error_msg": str(e)
             }
+            return result_msg
     
-    async def follow_person(self, location_info: Optional[str] = None,
-                          tool: Optional[str] = None, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def follow_person(self, location_info: Optional[str] = None) -> Dict[str, Any]:
         """跟随人员"""
         try:
-            logger.info(f"[FOLLOW_PERSON] 开始跟随人员: {location_info or tool}")
-            
-            # 检查是否有新格式的tool和arguments
-            if tool and arguments:
-                model_data = {
-                    "type": "follow_person",
-                    "tool": tool,
-                    "arguments": arguments
-                }
-            else:
-                # 旧格式
-                model_data = {
-                    "type": "follow_person",
-                    "user_prompt": location_info or "跟随人员"
-                }
-            
+            logger.info(f"[FOLLOW_PERSON] 开始跟随人员")
+            model_data = {
+                "type": "follow_person",
+                "user_prompt": location_info or "跟随人员"
+            }
+            final_sent = False
+            result_msg = {
+                        "type": "follow_person",
+                        "success": False,
+                        "err_msg": ""}
+            response = await self.send_to_local_model(model_data)            
+            if response and response.get("error_msg") == "无法连接到本地模型服务器":
+                result_msg["err_msg"] = "无法连接到本地模型服务器"
+                return result_msg            
+            while not final_sent:
             # 发送到本地模型并获取响应
-            response = await self.send_to_local_model(model_data)
-            
-            # 处理模型返回结果
-            if response and response.get("result"):
-                return {
-                    "type": "follow_person",
-                    "success": True,
-                    "message": "开始跟随人员"
-                }
-            else:
-                err = response.get("error_msg") if isinstance(response, dict) else None
-                error_msg = err or "跟随失败"
-                logger.error(f"[FOLLOW_PERSON] 本地模型跟随执行失败: {err}")
-                return {
-                    "type": "follow_person",
-                    "success": False,
-                    "error_msg": error_msg
-                }
+                if isinstance(response, dict) and "command" in response:
+                    cmd = response["command"]
+                    logger.info(f"[follow_person] 收到中间信息: {cmd}")
+                    await self.usb_manager.send_message({"type": "follow_person", "command": cmd})
+                    continue                
+                if isinstance(response, dict) and "success" in response:
+                    success = response["success"]
+                    logger.info(f"[follow_person] 收到最终结果: success={success}")
+                    if not success:
+                        result_msg["error_msg"] = response.get("error_msg", "导航失败")
+                    # 通过 USB 发给客户端
+                    result_msg["success"] = success
+                    await self.usb_manager.send_message(result_msg)
+                    final_sent = True
+                await asyncio.sleep(0.2)
+            return result_msg    
         except Exception as e:
-            logger.error(f"[FOLLOW_PERSON] 跟随人员失败: {e}")
-            return {
+            logger.error(f"[GO_TO_OBJECT] 导航到物体失败: {e}")
+            result_msg = {
                 "type": "follow_person",
                 "success": False,
                 "error_msg": str(e)
             }
+            return result_msg
     
     async def stop_follow(self) -> Dict[str, Any]:
         """停止跟随"""
@@ -2565,123 +2754,145 @@ class SmartRobotAgent:
                 "error_msg": str(e)
             }
     
-    async def explore_and_find_object(self, obj_name: str) -> Dict[str, Any]:
-        """探索并查找物体"""
-        try:
-            logger.info(f"[EXPLORE_AND_FIND_OBJECT] 开始探索查找物体: {obj_name}")
-            
-            model_data = {
-                "type": "explore_and_find_object",
-                "user_prompt": f"探索找到{obj_name}",
-                "obj_name": obj_name
-            }
-            
-            # 发送到本地模型并获取响应
-            response = await self.send_to_local_model(model_data)
-            
-            # 处理模型返回结果
-            if response and response.get("result"):
-                logger.info(f"[EXPLORE_AND_FIND_OBJECT] 本地模型成功返回结果 for {obj_name}")
-                return {
-                    "type": "explore_and_find_object",
-                    "success": True,
-                    "object_name": obj_name,
-                    "world_position": response.get("world_position"),
-                    "position_description": response.get("position_description") or f"找到{obj_name}"
-                }
-            else:
-                err = response.get("error_msg") if isinstance(response, dict) else None
-                logger.error(f"[EXPLORE_AND_FIND_OBJECT] 本地模型探索查找执行失败: {err}")
-                return {
-                    "type": "explore_and_find_object",
-                    "success": False,
-                    "error_msg": err or "探索查找失败",
-                    "object_name": obj_name,
-                    "world_position": None,
-                    "position_description": None
-                }
-        except Exception as e:
-            logger.error(f"[EXPLORE_AND_FIND_OBJECT] 探索查找物体失败: {e}")
-            return {
-                "type": "explore_and_find_object",
-                "success": False,
-                "object_name": obj_name,
-                "error_msg": str(e)
-            }
-    
-    async def go_find_person(self, person_id: str) -> Dict[str, Any]:
+    async def go_find_person(self, obj_name: str, user_prompt: str) -> Dict[str, Any]:
         """查找人员"""
         try:
-            logger.info(f"[GO_FIND_PERSON] 开始查找人员: {person_id}")
+            logger.info(f"[GO_FIND_PERSON] 开始查找人员: {obj_name}")
             
             model_data = {
-                "type": "go_find_person",
-                "user_prompt": f"找到{person_id}",
-                "person_id": person_id
+                "type": "go_to_person",
+                "user_prompt": user_prompt,
+                "person_id": obj_name
             }
-            
-            # 发送到本地模型并获取响应
+            final_sent = False
+            result_msg = {
+                        "type": "go_find_person",
+                        "success": False,
+                        "err_msg": ""}
             response = await self.send_to_local_model(model_data)
-            
-            # 处理模型返回结果
-            if response and response.get("result"):
-                logger.info(f"[GO_FIND_PERSON] 本地模型成功返回结果 for {person_id}")
-                return {
-                    "type": "go_find_person",
-                    "success": True,
-                    "world_position": response.get("world_position"),
-                    "position_description": response.get("position_description") or f"找到{person_id}"
-                }
-            else:
-                err = response.get("error_msg") if isinstance(response, dict) else None
-                error_msg = err or "目标人没找到"
-                logger.error(f"[GO_FIND_PERSON] 本地模型查找执行失败: {err}")
-                return {
-                    "type": "go_find_person",
-                    "success": False,
-                    "error_msg": error_msg
-                }
+            if response and response.get("error_msg") == "无法连接到本地模型服务器":
+                result_msg = {
+                        "type": "go_find_person",
+                        "success": False,
+                        "err_msg": "无法连接到本地模型服务器"}
+                return result_msg
+            while not final_sent:
+                # 中间信息 command
+                if isinstance(response, dict) and "command" in response:
+                    cmd = response["command"]
+                    logger.info(f"[GO_FIND_PERSON] 收到中间信息: {cmd}")
+                    # 立即通过 USB 发给客户端
+                    await self.usb_manager.send_message({"type": "go_find_person", "command": cmd})
+                    continue
+
+                # 最终结果
+                if isinstance(response, dict) and "success" in response:
+                    success = response["success"]
+                    if not success:
+                        result_msg["error_msg"] = response.get("error_msg", "目标人没找到")
+                    logger.info(f"[GO_FIND_PERSON] 收到最终结果: success={success}")
+                    # 通过 USB 发给客户端
+                    result_msg["success"] = success
+                    await self.usb_manager.send_message(result_msg)
+                    final_sent = True
+                await asyncio.sleep(0.2)
+            return result_msg    
+
         except Exception as e:
             logger.error(f"[GO_FIND_PERSON] 查找人员失败: {e}")
-            return {
+            err_msg = {
                 "type": "go_find_person",
                 "success": False,
                 "error_msg": str(e)
             }
-    
+            await self.usb_manager.send_message(err_msg)
+            return err_msg
+
     async def stop_move(self) -> Dict[str, Any]:
-        """停止移动"""
+        """
+        停止机器人移动
+        
+        Returns:
+            Dict[str, Any]: 停止移动结果
+        """
         try:
-            logger.info("[STOP_MOVE] 停止机器人移动")
+            logger.info("[STOP_MOVE] 开始停止机器人移动")
             
-            # 中断当前任务
-            self._task_interrupted = True
+            # 1. 检查当前是否有本地模型导航任务在执行，如果有，停止模型任务
+            if self.has_active_navigation_tasks():
+                logger.info(f"[STOP_MOVE] 检测到 {len(self.active_navigation_tasks)} 个活跃导航任务，发送停止命令")
+                try:
+                    # 发送停止命令到本地模型
+                    stop_data = {
+                        "type": "stop"
+                    }
+                    response = await self.send_to_local_model(stop_data)
+                    if response and (response.get("success") == False) :
+                        return {
+                            "type": "stop_move",
+                            "success": False,
+                            "error_msg": response.get("error_msg")
+                        }
+                    # 清空活跃任务集合
+                    async with self.task_execution_lock:
+                        self.active_navigation_tasks.clear()
+                    logger.info("[STOP_MOVE] 已清空活跃任务集合")
+                        
+                except Exception as e:
+                    logger.warning(f"[STOP_MOVE] 发送停止命令到本地模型失败: {e}")
+            else:
+                logger.info("[STOP_MOVE] 当前没有活跃的导航任务")
             
-            # 向本地模型发送停止命令
-            model_data = {
-                "type": "stop_move",
-                "user_prompt": "停止移动"
-            }
-            
-            response = await self.send_to_local_model(model_data)
-            
-            # 停止所有活跃任务
-            if self.active_navigation_tasks:
-                logger.info(f"停止{len(self.active_navigation_tasks)}个活跃任务")
-                self.active_navigation_tasks.clear()
-            
-            return {
-                "type": "stop_move",
-                "success": True,
-                "message": "已停止移动"
-            }
+            # 2. 在/cmd_vel话题上发一次0
+            if ROS2_AVAILABLE:
+                try:
+                    # 使用ros2 topic publish命令发布速度为0的消息
+                    cmd = "ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'"
+                    logger.info(f"[STOP_MOVE] 执行命令: {cmd}")
+                    result = os.system(cmd)
+                    logger.info(f"[STOP_MOVE] 发布速度命令结果: {result}")
+                    
+                    success_msg = "已停止机器人移动"
+                    logger.info(f"[STOP_MOVE] {success_msg}")
+                    
+                    result_data = {
+                        "type": "stop_move",
+                        "success": True,
+                    }
+                    return result_data
+                    
+                except Exception as e:
+                    error_msg = f"发布速度命令失败: {str(e)}"
+                    logger.error(f"[STOP_MOVE] {error_msg}")
+                    
+                    result_data = {
+                        "type": "stop_move",
+                        "success": False,
+                        "result": error_msg
+                    }
+                    return result_data
+            else:
+                # ROS2不可用时无法停止移动
+                error_msg = "ROS2不可用，无法停止机器人移动"
+                logger.error(f"[STOP_MOVE] {error_msg}")
+                
+                result_data = {
+                    "type": "stop_move",
+                    "success": False,
+                    "result": error_msg
+                }
+                return result_data
+                
         except Exception as e:
-            logger.error(f"[STOP_MOVE] 停止移动失败: {e}")
-            return {
+            error_msg = f"停止移动失败: {str(e)}"
+            logger.error(f"[STOP_MOVE] {error_msg}")
+            
+            result_data = {
                 "type": "stop_move",
                 "success": False,
-                "error_msg": str(e)
+                "result": error_msg
             }
+            return result_data    
     
     def has_active_navigation_tasks(self) -> bool:
         """
@@ -2804,16 +3015,7 @@ class SmartRobotAgent:
             try:
                 # 检查并建立连接（带重试机制）
                 connection_success = False
-                max_retries = 2
-                for attempt in range(max_retries):
-                    connection_success = await self.connect_to_local_model()
-                    if connection_success:
-                        break
-                    else:
-                        logger.warning(f"连接本地模型服务器失败，重试第{attempt + 1}次")
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(1)
-                
+                connection_success = await self.connect_to_local_model()
                 if not connection_success:
                     logger.error("无法连接到本地模型服务器")
                     return {"success": False, "error_msg": "无法连接到本地模型服务器"}
