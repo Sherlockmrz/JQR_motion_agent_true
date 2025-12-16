@@ -2636,7 +2636,7 @@ class SmartRobotAgent:
                 "obj_name": obj_name,
                 "pixel_position": pixel_position
             }
-            final_sent = False
+            # final_sent = False
             result_msg = {
                         "type": "go_to_object",
                         "success": False,
@@ -2647,25 +2647,28 @@ class SmartRobotAgent:
                         "type": "go_to_object",
                         "success": False,
                         "err_msg": "无法连接到本地模型服务器"}
-                return result_msg                        
-            while not final_sent:
-            # 发送到本地模型并获取响应
-                if isinstance(response, dict) and "command" in response:
-                    cmd = response["command"]
-                    logger.info(f"[GO_TO_OBJECT] 收到中间信息: {cmd}")
-                    await self.usb_manager.send_message({"type": "go_to_object", "command": cmd})
-                    continue                
-                if isinstance(response, dict) and "success" in response:
-                    success = response["success"]
-                    logger.info(f"[GO_TO_OBJECT] 收到最终结果: success={success}")
-                    if not success:
-                        result_msg["error_msg"] = response.get("error_msg", "导航失败")
-                    # 通过 USB 发给客户端
-                    result_msg["success"] = success
-                    await self.usb_manager.send_message(result_msg)
-                    final_sent = True
-                await asyncio.sleep(0.2)
-            return result_msg    
+                return result_msg
+            result_msg["success"] = response.get("success", False)
+            result_msg["err_msg"] = response.get("error_msg", "")
+            return result_msg                        
+            # while not final_sent:
+            # # 发送到本地模型并获取响应
+            #     if isinstance(response, dict) and "command" in response:
+            #         cmd = response["command"]
+            #         logger.info(f"[GO_TO_OBJECT] 收到中间信息: {cmd}")
+            #         await self.usb_manager.send_message({"type": "go_to_object", "command": cmd})
+            #         continue                
+            #     if isinstance(response, dict) and "success" in response:
+            #         success = response["success"]
+            #         logger.info(f"[GO_TO_OBJECT] 收到最终结果: success={success}")
+            #         if not success:
+            #             result_msg["error_msg"] = response.get("error_msg", "导航失败")
+            #         # 通过 USB 发给客户端
+            #         result_msg["success"] = success
+            #         await self.usb_manager.send_message(result_msg)
+            #         final_sent = True
+            #     await asyncio.sleep(0.2)
+            # return result_msg    
         except Exception as e:
             logger.error(f"[GO_TO_OBJECT] 导航到物体失败: {e}")
             result_msg = {
@@ -2684,7 +2687,7 @@ class SmartRobotAgent:
                 "type": "follow_person",
                 "user_prompt": location_info or "跟随人员"
             }
-            final_sent = False
+            # final_sent = False
             result_msg = {
                         "type": "follow_person",
                         "success": False,
@@ -2693,24 +2696,27 @@ class SmartRobotAgent:
             if response and response.get("error_msg") == "无法连接到本地模型服务器":
                 result_msg["err_msg"] = "无法连接到本地模型服务器"
                 return result_msg            
-            while not final_sent:
-            # 发送到本地模型并获取响应
-                if isinstance(response, dict) and "command" in response:
-                    cmd = response["command"]
-                    logger.info(f"[follow_person] 收到中间信息: {cmd}")
-                    await self.usb_manager.send_message({"type": "follow_person", "command": cmd})
-                    continue                
-                if isinstance(response, dict) and "success" in response:
-                    success = response["success"]
-                    logger.info(f"[follow_person] 收到最终结果: success={success}")
-                    if not success:
-                        result_msg["error_msg"] = response.get("error_msg", "导航失败")
-                    # 通过 USB 发给客户端
-                    result_msg["success"] = success
-                    await self.usb_manager.send_message(result_msg)
-                    final_sent = True
-                await asyncio.sleep(0.2)
-            return result_msg    
+            result_msg["success"] = response.get("success", False)
+            result_msg["err_msg"] = response.get("error_msg", "")
+            return result_msg
+            # while not final_sent:
+            # # 发送到本地模型并获取响应
+            #     if isinstance(response, dict) and "command" in response:
+            #         cmd = response["command"]
+            #         logger.info(f"[follow_person] 收到中间信息: {cmd}")
+            #         await self.usb_manager.send_message({"type": "follow_person", "command": cmd})
+            #         continue                
+            #     if isinstance(response, dict) and "success" in response:
+            #         success = response["success"]
+            #         logger.info(f"[follow_person] 收到最终结果: success={success}")
+            #         if not success:
+            #             result_msg["error_msg"] = response.get("error_msg", "导航失败")
+            #         # 通过 USB 发给客户端
+            #         result_msg["success"] = success
+            #         await self.usb_manager.send_message(result_msg)
+            #         final_sent = True
+            #     await asyncio.sleep(0.2)
+            # return result_msg    
         except Exception as e:
             logger.error(f"[GO_TO_OBJECT] 导航到物体失败: {e}")
             result_msg = {
@@ -2718,8 +2724,7 @@ class SmartRobotAgent:
                 "success": False,
                 "error_msg": str(e)
             }
-            return result_msg
-    
+            return result_msg 
     async def stop_follow(self) -> Dict[str, Any]:
         """停止跟随"""
         try:
@@ -2764,7 +2769,7 @@ class SmartRobotAgent:
                 "user_prompt": user_prompt,
                 "person_id": obj_name
             }
-            final_sent = False
+            # final_sent = False
             result_msg = {
                         "type": "go_find_person",
                         "success": False,
@@ -2776,37 +2781,40 @@ class SmartRobotAgent:
                         "success": False,
                         "err_msg": "无法连接到本地模型服务器"}
                 return result_msg
-            while not final_sent:
-                # 中间信息 command
-                if isinstance(response, dict) and "command" in response:
-                    cmd = response["command"]
-                    logger.info(f"[GO_FIND_PERSON] 收到中间信息: {cmd}")
-                    # 立即通过 USB 发给客户端
-                    await self.usb_manager.send_message({"type": "go_find_person", "command": cmd})
-                    continue
+            result_msg["success"] = response.get("success", False)
+            result_msg["err_msg"] = response.get("error_msg", "")
+            return result_msg
+            # while not final_sent:
+            #     # 中间信息 command
+            #     if isinstance(response, dict) and "command" in response:
+            #         cmd = response["command"]
+            #         logger.info(f"[GO_FIND_PERSON] 收到中间信息: {cmd}")
+            #         # 立即通过 USB 发给客户端
+            #         await self.usb_manager.send_message({"type": "go_find_person", "command": cmd})
+            #         continue
 
-                # 最终结果
-                if isinstance(response, dict) and "success" in response:
-                    success = response["success"]
-                    if not success:
-                        result_msg["error_msg"] = response.get("error_msg", "目标人没找到")
-                    logger.info(f"[GO_FIND_PERSON] 收到最终结果: success={success}")
-                    # 通过 USB 发给客户端
-                    result_msg["success"] = success
-                    await self.usb_manager.send_message(result_msg)
-                    final_sent = True
-                await asyncio.sleep(0.2)
-            return result_msg    
+            #     # 最终结果
+            #     if isinstance(response, dict) and "success" in response:
+            #         success = response["success"]
+            #         if not success:
+            #             result_msg["error_msg"] = response.get("error_msg", "目标人没找到")
+            #         logger.info(f"[GO_FIND_PERSON] 收到最终结果: success={success}")
+            #         # 通过 USB 发给客户端
+            #         result_msg["success"] = success
+            #         # await self.usb_manager.send_message(result_msg)
+            #         final_sent = True
+            #         break
+            #     await asyncio.sleep(0.2)
+            # return result_msg    
 
         except Exception as e:
             logger.error(f"[GO_FIND_PERSON] 查找人员失败: {e}")
-            err_msg = {
+            result_msg = {
                 "type": "go_find_person",
                 "success": False,
                 "error_msg": str(e)
             }
-            await self.usb_manager.send_message(err_msg)
-            return err_msg
+            return result_msg
 
     async def stop_move(self) -> Dict[str, Any]:
         """
@@ -3025,7 +3033,10 @@ class SmartRobotAgent:
                 if self.local_model_websocket is not None:
                     await self.local_model_websocket.send(message_str)
                 logger.info(f"已发送到本地模型: {model_data}")
-                
+                intermediate_data = {
+                    "type": "",
+                    "command": ""
+                }
                 # 持续接收响应，直到收到最终结果
                 final_response = None
                 while self._running and self.local_model_websocket is not None:
@@ -3040,11 +3051,14 @@ class SmartRobotAgent:
                             break
                         else:
                             # 中间信息，需要添加任务类型后转发给所有连接的客户端
-                            intermediate_data = response_data.copy()
+                            # intermediate_data = response_data.copy()
                             # 从原始model_data中获取任务类型
                             task_type = model_data.get("type", "unknown")
                             intermediate_data["type"] = task_type
-                            
+                            if "message" in response_data:
+                                intermediate_data["command"] = response_data.get("message", "") 
+                            else:
+                                intermediate_data["command"] = response_data.get("command", "")
                             await self.usb_manager.send_message(intermediate_data)
                             logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
                     except asyncio.TimeoutError:
