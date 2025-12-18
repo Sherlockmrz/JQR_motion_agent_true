@@ -71,27 +71,20 @@ class SerialManager:
             import serial
             
             # 尝试连接多个可能的串口设备
-            possible_ports = [
-                "/dev/ttyACM0", "/dev/ttyACM1"]
+            possible_ports = "/dev/ttyACM0"
             
-            for port in possible_ports:
-                try:
-                    self.serial_port = serial.Serial(
-                        port=port,
-                        baudrate=self.baudrate,
-                        timeout=0.1,  # 非阻塞读取
-                        write_timeout=1.0
-                    )
-                    self.port = port
-                    logger.info(f"成功连接到串口: {port}")
-                    return True
-                except (serial.SerialException, OSError):
-                    continue
-            
-            # 如果没有找到可用串口，创建虚拟串口用于测试
-            # logger.warning("未找到物理串口设备，使用虚拟模式进行测试")
-            # self.serial_port = VirtualSerialPort()
-            return True
+            try:
+                self.serial_port = serial.Serial(
+                    port=possible_ports,
+                    baudrate=self.baudrate,
+                    timeout=0.1,  # 非阻塞读取
+                    write_timeout=1.0
+                )
+                self.port = possible_ports
+                logger.info(f"成功连接到串口: {possible_ports}")
+                return True
+            except (serial.SerialException, OSError):
+                return False
             
         except ImportError as e:
             logger.error(f"pyserial库未安装: {e}")
@@ -301,7 +294,7 @@ class SerialManager:
             
             # 创建协议帧 (地瓜S100应答使用0x81)
             frame = self.parser.create_response_frame(CommandType.CMD_JSON_RESPONSE, json_str)
-            
+            logger.info(f"创建协议帧: {frame.hex()}")
             # 发送数据
             if hasattr(self.serial_port, 'write'):
                 bytes_written = self.serial_port.write(frame)

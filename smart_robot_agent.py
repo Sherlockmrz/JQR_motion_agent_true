@@ -326,17 +326,31 @@ class ROS2Interface:
         # 如果ROS2可用，初始化rclpy
         if ROS2_AVAILABLE:
             self._initialize_ros2()
-    def set_laser_pointer(self, laser_pointer: int) -> Dict[str, Any]:
+    def set_laser_pointer(self, *args, **kwargs) -> Dict[str, Any]:
         """控制激光笔开关/查询状态 (jqr_ros_msgs版本)
         
         Args:
-            laser_pointer (int): 0=关闭, 1=开启, 2=获取当前状态
+            laser_pointer (bool): True=开启, False=关闭
             
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
-            request_data = f'{{"laser_pointer": {laser_pointer}}}'
+            # 处理参数 - 兼容错误的调用方式 set_laser_pointer(bool=True)
+            laser_pointer_value = None
+            if 'bool' in kwargs:
+                # 修复错误的参数名：bool -> laser_pointer
+                laser_pointer_value = kwargs.pop('bool')
+                kwargs['laser_pointer'] = laser_pointer_value
+            
+            if 'laser_pointer' in kwargs:
+                laser_pointer_value = kwargs['laser_pointer']
+            elif len(args) > 0:
+                laser_pointer_value = args[0]
+            else:
+                return self.get_laser_pointer_state()
+            
+            request_data = f'{{"laser_pointer": {laser_pointer_value}}}'
             response = self._call_ros2_service(
                 "/set_laser_pointer",
                 "jqr_ros_msgs/srv/LaserPointer",
@@ -2459,7 +2473,14 @@ class SmartRobotAgent:
             result = self.ros2_interface.get_laser_pointer_state()
             result["type"] = task_type
             return result
-
+        elif task_type == "set_rgb_light_strip" and hasattr(self, 'ros2_interface'):
+            result = self.ros2_interface.set_rgb_light_strip(**params)
+            result["type"] = task_type
+            return result
+        elif task_type == "get_rgb_light_strip_state" and hasattr(self, 'ros2_interface'):
+            result = self.ros2_interface.get_rgb_light_strip_state()
+            result["type"] = task_type
+            return result
         else:
             return {
                 "type": task_type,
@@ -2759,7 +2780,7 @@ class SmartRobotAgent:
                 "error_msg": str(e)
             }
     
-    async def go_find_person(self, obj_name: str, user_prompt: str) -> Dict[str, Any]:
+    async def go_find_person(self, obj_name: str, user_prompt: str, **kwargs) -> Dict[str, Any]:
         """查找人员"""
         try:
             logger.info(f"[GO_FIND_PERSON] 开始查找人员: {obj_name}")
