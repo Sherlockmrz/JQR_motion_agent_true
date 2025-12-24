@@ -34,10 +34,13 @@ MedicineBoxSwitch = None
 MoveMode = None
 RobotRise = None
 RobotRiseState = None
+GetRobotRise = None
 RobotTilt = None
 RobotTiltState = None
 ScreenTilt = None
 ScreenTiltState = None
+RgbBrightnessColorSet = None
+RgbState = None
 RgbLightStrip = None
 RgbLightStripState = None
 LaserPointer = None
@@ -70,12 +73,18 @@ try:
             MoveMode,
             RobotRise, RobotRiseState,
             RobotTilt, RobotTiltState,
-            ScreenTilt, ScreenTiltState
+            ScreenTilt, ScreenTiltState,
+            RgbLightStrip, RgbLightStripState,
+            LaserPointer, LaserPointerState
         )
         jqr_ros_msgs = True
         logger.info("jqr_ros_msgs 导入成功")
     except ImportError as e:
-        logger.warning(f"jqr_ros_msgs 不可用: {e}")
+        logger.warning(f"jqr_ros_msgs 导入失败 (ImportError): {e}")
+        logger.warning(f"请检查ROS2工作空间是否正确配置和source")
+        jqr_ros_msgs = False
+    except Exception as e:
+        logger.error(f"jqr_ros_msgs 导入失败 (未知错误): {e}")
         jqr_ros_msgs = False
     ROS2_AVAILABLE = True
     logger.info("ROS2 rclpy 导入成功")
@@ -455,33 +464,38 @@ class ROS2Interface:
     def start_battery_monitoring(self) -> bool:
         """开始电池电量监控（订阅模式）"""
         global battery_level
-        
+
         if hasattr(self, 'battery_subscribed') and self.battery_subscribed:
             logger.warning("电池电量监控已在运行")
             return True
-            
+
         try:
             # 检查ROS2和节点是否可用
-            if not ROS2_AVAILABLE or not self.initialized or not self.node:
-                logger.warning("ROS2不可用或未初始化，无法启动电池电量监控")
+            if not ROS2_AVAILABLE:
+                logger.warning("ROS2不可用，无法启动电池电量监控")
                 return False
-            
+
+            if not self.initialized or not self.node:
+                logger.warning("ROS2未初始化或节点不存在，无法启动电池电量监控")
+                return False
+
+            # 检查jqr_ros_msgs是否可用
+            if not jqr_ros_msgs:
+                logger.warning("jqr_ros_msgs模块不可用，无法创建电池电量订阅者")
+                return False
+
             # 使用主节点创建电池电量订阅
-            if jqr_ros_msgs:
-                self.battery_subscription = self.node.create_subscription(
-                    BatteryLevel,
-                    '/battery_level',  # 电池电量话题
-                    battery_callback,
-                    10  # 队列大小
-                )
-                self.battery_subscribed = True
-                logger.info("电池电量订阅者已创建")
-                logger.info("电池电量订阅监控已启动")
-                return True
-            else:
-                logger.warning("jqr_ros_msgs不可用，无法创建电池电量订阅者")
-                return False
-            
+            self.battery_subscription = self.node.create_subscription(
+                BatteryLevel,
+                '/battery_level',  # 电池电量话题
+                battery_callback,
+                10  # 队列大小
+            )
+            self.battery_subscribed = True
+            logger.info("电池电量订阅者已创建")
+            logger.info("电池电量订阅监控已启动")
+            return True
+
         except Exception as e:
             logger.error(f"启动电池电量监控失败: {e}")
             return False
@@ -1430,29 +1444,72 @@ class ROS2Interface:
                 "description": f"获取药箱状态失败: {str(e)}"
             }
 
-    def set_rgb_light_strip(self, red: int, green: int, blue: int, brightness: int = 255) -> Dict[str, Any]:
-        """控制RGB灯带颜色与亮度 (jqr_ros_msgs版本)
+    def set_rgb_light_strip(self, red: Optional[int] = None, green: Optional[int] = None, blue: Optional[int] = None, brightness: Optional[int] = None, rgb_switch: Optional[bool] = None, color: Optional[str] = None, is_incremental: bool = False) -> Dict[str, Any]:
+        """控制RGB灯带开关、颜色与亮度
         
         Args:
-            red (int): 红色分量 0~255
-            green (int): 绿色分量 0~255
-            blue (int): 蓝色分量 0~255
-            brightness (int): 亮度 0~255，默认255
+            rgb_switch (bool): RGB灯开关 (True: 开启, False: 关闭)，可选
+            brightness (int): 亮度 0-255，可选
+            color (str): 颜色名称 (red/yellow/blue/green等)，可选
+            red (int): 红色分量 0~255，已弃用，请使用color参数
+            green (int): 绿色分量 0~255，已弃用，请使用color参数
+            blue (int): 蓝色分量 0~255，已弃用，请使用color参数
+            is_incremental (bool): 是否增量调节 (True: 增量式, False: 非增量式)，默认False
             
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
-            request_data = f'{{"red": {red}, "green": {green}, "blue": {blue}, "brightness": {brightness}}}'
+            # 构造请求数据
+            request_parts = []
+            
+            # 如果传入了red/green/blue，转换为color（保持向后兼容）
+            if color is None and red is not None and green is not None and blue is not None:
+                # 根据RGB值判断颜色
+                if red > 200 and green < 100 and blue < 100:
+                    color = "red"
+                elif red > 200 and green > 200 and blue < 100:
+                    color = "yellow"
+                elif red < 100 and green < 100 and blue > 200:
+                    color = "blue"
+                elif red < 100 and green > 200 and blue < 100:
+                    color = "green"
+                else:
+                    color = "red"  # 默认红色
+                logger.info(f"将RGB值({red},{green},{blue})转换为颜色名称: {color}")
+            
+            # 添加必填参数
+            if rgb_switch is not None:
+                request_parts.append(f'"rgb_switch": {str(rgb_switch).lower()}')
+            
+            # 添加可选参数
+            if is_incremental is not None:
+                request_parts.append(f'"is_incremental": {str(is_incremental).lower()}')
+            
+            if brightness is not None:
+                request_parts.append(f'"brightness_set": {brightness}')
+            
+            if color is not None:
+                request_parts.append(f'"color": "{color}"')
+            
+            # 如果没有任何参数，返回错误
+            if not request_parts:
+                return {
+                    "success": False,
+                    "description": "请至少提供一个参数：rgb_switch, brightness, color"
+                }
+            
+            request_data = '{' + ', '.join(request_parts) + '}'
+            
             response = self._call_ros2_service(
-                "/set_rgb_light_strip",
-                "jqr_ros_msgs/srv/RgbLightStrip",
+                "/rgb_brightness_color_set",
+                "jqr_ros_msgs/srv/RgbBrightnessColorSet",
                 request_data
             )
             if response is None:
                 result = {
                     "success": False,
-                    "description": "服务 /set_rgb_light_strip 不存在或调用失败"
+                    "description": "服务 /rgb_brightness_color_set 不存在或调用失败"
                 }
                 logger.error(f"[ROS2] 设置RGB灯带失败: {result}")
                 return result
@@ -1493,19 +1550,27 @@ class ROS2Interface:
     def get_rgb_light_strip_state(self) -> Dict[str, Any]:
         """获取RGB灯带状态
         
+        根据新的服务接口 rgb_state 获取RGB灯的开关、颜色和亮度状态
+        
         Returns:
             Dict[str, Any]: 灯带状态信息
+            - rgb_switch (bool): RGB灯开关状态
+            - brightness_value (int): 亮度值 0-255
+            - color (str): 颜色名称 (red/yellow/blue/green等)
+            - success (bool): 是否获取成功
+            - description (str): 描述信息
+            - result_number (int): 结果码 (0=失败, 1=成功)
         """
         try:
             response = self._call_ros2_service(
-                "/get_rgb_light_strip_state",
-                "jqr_ros_msgs/srv/RgbLightStripState",
+                "/rgb_state",
+                "jqr_ros_msgs/srv/RgbState",
                 "{}"
             )
             if response is None:
                 result = {
                     "success": False,
-                    "description": "服务 /get_rgb_light_strip_state 不存在或调用失败"
+                    "description": "服务 /rgb_state 不存在或调用失败"
                 }
                 logger.error(f"[ROS2] 获取RGB灯带状态失败: {result}")
                 return result
@@ -1517,19 +1582,17 @@ class ROS2Interface:
                     }
                 try:
                     response_data = parse_ros2_response(response)
-                    red = response_data.get("red", 0)
-                    green = response_data.get("green", 0)
-                    blue = response_data.get("blue", 0)
-                    brightness = response_data.get("brightness", 0)
+                    rgb_switch = response_data.get("rgb_switch", False)
+                    brightness_value = response_data.get("brightness_value", 0)
+                    color = response_data.get("color", "")
                     result_number = response_data.get("result_number", 0)
                     result_msg = response_data.get("result_msg", "")
                     success = (result_number == 1)
                     result = {
                         "success": success,
-                        "red": red,
-                        "green": green,
-                        "blue": blue,
-                        "brightness": brightness,
+                        "rgb_switch": rgb_switch,
+                        "brightness_value": brightness_value,
+                        "color": color,
                         "description": result_msg if success else f"获取失败: {result_msg}",
                         "result_number": result_number
                     }
@@ -3154,13 +3217,8 @@ async def main():
     global smart_robot_agent_instance
     agent = SmartRobotAgent()
     smart_robot_agent_instance = agent
-    # 启动电池电量监控
+    # 初始化agent
     try:
-        agent.ros2_interface.start_battery_monitoring()
-    except Exception as e:
-        logger.warning(f"启动电池监控失败: {e}")    
-    try:
-        # 初始化agent
         await agent.initialize()
         logger.info("SmartRobotAgent启动成功")
         
