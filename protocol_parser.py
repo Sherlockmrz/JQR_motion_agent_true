@@ -61,7 +61,7 @@ class ProtocolParser:
     FRAME_TAIL_2 = 0x0A
     
     MAX_FRAME_SIZE = 260  # 2+1+1+255+2
-    MAX_JSON_SIZE = 256
+    MAX_JSON_SIZE = 1024
     
     def __init__(self):
         """初始化解析器"""

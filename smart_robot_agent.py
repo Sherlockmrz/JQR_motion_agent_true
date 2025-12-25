@@ -313,6 +313,119 @@ def save_to_history(command: str, response: str):
         logger.error(f"保存到数据库失败: {e}")
 
 # ======================
+# ReAct 框架核心组件
+# ======================
+
+# ======================
+# ReAct框架核心类
+# ======================
+
+class Thought:
+    """Agent思考过程"""
+    def __init__(self, content: str, reasoning_type: str = "analysis"):
+        self.content = content
+        self.reasoning_type = reasoning_type  # analysis, planning, reflection
+        self.timestamp = datetime.now()
+        
+    def __repr__(self):
+        return f"Thought({self.reasoning_type}: {self.content[:50]}...)"
+
+class AgentThought(Thought):
+    """ReAct框架中的思考结果，包含推理和下一步行动"""
+    def __init__(self, content: str, reasoning_type: str = "analysis"):
+        super().__init__(content, reasoning_type)
+        self.is_final_answer = False  # 是否是最终答案
+        self.final_answer = ""  # 最终答案内容
+        self.action_name: Optional[str] = None  # 下一步动作名称
+        self.action_args: Dict[str, Any] = {}  # 下一步动作参数
+        
+    def __repr__(self):
+        if self.is_final_answer:
+            return f"AgentThought(FINAL: {self.final_answer[:50]}...)"
+        elif self.action_name:
+            return f"AgentThought(ACTION: {self.action_name} {self.action_args})"
+        else:
+            return f"AgentThought({self.reasoning_type}: {self.content[:50]}...)"
+
+class Observation:
+    """Agent观察结果"""
+    def __init__(self, content: str, source: str, success: bool = True):
+        self.content = content
+        self.source = source  # environment, tool, internal
+        self.success = success
+        self.timestamp = datetime.now()
+        
+    def __repr__(self):
+        return f"Observation({self.source}, success={self.success}: {self.content[:50]}...)"
+
+class AgentMemory:
+    """Agent记忆系统 - 存储思考、行动、观察历史"""
+    
+    def __init__(self, max_history: int = 50):
+        self.max_history = max_history
+        self.thoughts: List[Thought] = []
+        self.actions: List[Dict[str, Any]] = []
+        self.observations: List[Observation] = []
+        self.task_history: List[Dict[str, Any]] = []
+        
+    def add_thought(self, thought: Thought):
+        """添加思考记录"""
+        self.thoughts.append(thought)
+        if len(self.thoughts) > self.max_history:
+            self.thoughts.pop(0)
+            
+    def add_action(self, action_name: str, args: Dict[str, Any]):
+        """添加行动记录"""
+        self.actions.append({"name": action_name, "args": args, "timestamp": datetime.now()})
+        if len(self.actions) > self.max_history:
+            self.actions.pop(0)
+            
+    def add_observation(self, observation: Observation):
+        """添加观察记录"""
+        self.observations.append(observation)
+        if len(self.observations) > self.max_history:
+            self.observations.pop(0)
+            
+    def add_task(self, task: Dict[str, Any], result: Dict[str, Any]):
+        """添加任务记录"""
+        self.task_history.append({
+            "task": task,
+            "result": result,
+            "timestamp": datetime.now().isoformat()
+        })
+        if len(self.task_history) > self.max_history:
+            self.task_history.pop(0)
+            
+    def get_recent_context(self, n: int = 3) -> str:
+        """获取最近的上下文，用于推理"""
+        context_lines = []
+        
+        # 最近的思考
+        for t in self.thoughts[-n:]:
+            context_lines.append(f"[THOUGHT-{t.reasoning_type}] {t.content}")
+            
+        # 最近的行动
+        for a in self.actions[-n:]:
+            context_lines.append(f"[ACTION] {a['name']} with {a['args']}")
+            
+        # 最近的观察
+        for o in self.observations[-n:]:
+            status = "✓" if o.success else "✗"
+            context_lines.append(f"[OBSERVATION {status}] {o.content}")
+            
+        return "\n".join(context_lines) if context_lines else "（暂无历史记录）"
+        
+    def get_last_observation(self) -> Optional[Observation]:
+        """获取最后一次观察"""
+        return self.observations[-1] if self.observations else None
+        
+    def clear_episode(self):
+        """清空当前episode的记忆"""
+        self.thoughts = []
+        self.actions = []
+        self.observations = []
+
+# ======================
 # ROS2接口
 # ======================
 
@@ -781,7 +894,7 @@ class ROS2Interface:
                 }
             }
             self.last_position = position
-            logger.info(f"[ROS2] 收到位置更新: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
+            # logger.info(f"[ROS2] 收到位置更新: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
             
             # 构造位置更新消息
             # position_message = {
@@ -1444,7 +1557,7 @@ class ROS2Interface:
                 "description": f"获取药箱状态失败: {str(e)}"
             }
 
-    def set_rgb_light_strip(self, red: Optional[int] = None, green: Optional[int] = None, blue: Optional[int] = None, brightness: Optional[int] = None, rgb_switch: Optional[bool] = None, color: Optional[str] = None, is_incremental: bool = False) -> Dict[str, Any]:
+    def set_rgb_light_strip(self, brightness_set: Optional[int] = None, rgb_switch: Optional[bool] = None, color: Optional[str] = None, is_incremental: bool = False) -> Dict[str, Any]:
         """控制RGB灯带开关、颜色与亮度
         
         Args:
@@ -1462,22 +1575,7 @@ class ROS2Interface:
         try:
             # 构造请求数据
             request_parts = []
-            
-            # 如果传入了red/green/blue，转换为color（保持向后兼容）
-            if color is None and red is not None and green is not None and blue is not None:
-                # 根据RGB值判断颜色
-                if red > 200 and green < 100 and blue < 100:
-                    color = "red"
-                elif red > 200 and green > 200 and blue < 100:
-                    color = "yellow"
-                elif red < 100 and green < 100 and blue > 200:
-                    color = "blue"
-                elif red < 100 and green > 200 and blue < 100:
-                    color = "green"
-                else:
-                    color = "red"  # 默认红色
-                logger.info(f"将RGB值({red},{green},{blue})转换为颜色名称: {color}")
-            
+                        
             # 添加必填参数
             if rgb_switch is not None:
                 request_parts.append(f'"rgb_switch": {str(rgb_switch).lower()}')
@@ -1486,8 +1584,8 @@ class ROS2Interface:
             if is_incremental is not None:
                 request_parts.append(f'"is_incremental": {str(is_incremental).lower()}')
             
-            if brightness is not None:
-                request_parts.append(f'"brightness_set": {brightness}')
+            if brightness_set is not None:
+                request_parts.append(f'"brightness_set": {brightness_set}')
             
             if color is not None:
                 request_parts.append(f'"color": "{color}"')
@@ -1503,7 +1601,7 @@ class ROS2Interface:
             
             response = self._call_ros2_service(
                 "/rgb_brightness_color_set",
-                "jqr_ros_msgs/srv/RgbBrightnessColorSet",
+                "jqr_ros_msgs/srv/RgbLightStrip",
                 request_data
             )
             if response is None:
@@ -1564,7 +1662,7 @@ class ROS2Interface:
         try:
             response = self._call_ros2_service(
                 "/rgb_state",
-                "jqr_ros_msgs/srv/RgbState",
+                "jqr_ros_msgs/srv/RgbLightStripState",
                 "{}"
             )
             if response is None:
@@ -2182,7 +2280,7 @@ def stop_navigate() -> Dict[str, Any]:
 # ======================
 
 class SmartRobotAgent:
-    """智能机器人Agent - USB串口版本"""
+    """智能机器人Agent - USB串口版本 (集成ReAct框架)"""
     
     def __init__(self):
         self.ros2_interface = ROS2Interface()
@@ -2211,6 +2309,26 @@ class SmartRobotAgent:
         
         # 退出控制标志
         self._running = False
+        
+        # ======================
+        # ReAct框架组件
+        # ======================
+        self.memory = AgentMemory(max_history=50)  # Agent记忆系统
+        self.react_enabled = True  # 是否启用ReAct模式
+        self.max_react_iterations = 8  # 最大思考-行动循环次数
+        self.current_react_task = None  # 当前ReAct任务
+        
+        # 已知的任务类型列表（可直接执行，无需LLM）
+        self.known_task_types = {
+            "find_object", "go_to_object", "go_find_person", "follow_person",
+            "back_to_last_position", "stop_follow", "stop_navigate", "stop_move",
+            "get_move_mode", "get_medicine_box_state", "set_medicine_box_switch",
+            "get_robot_rise_state", "set_robot_rise_jqr",
+            "get_robot_tilt_state", "set_robot_tilt_jqr",
+            "get_screen_tilt_state", "set_screen_tilt_jqr",
+            "set_laser_pointer", "get_laser_pointer_state",
+            "set_rgb_light_strip", "get_rgb_light_strip_state"
+        }
     
     async def initialize(self):
         """初始化agent"""
@@ -2289,67 +2407,72 @@ class SmartRobotAgent:
         logger.info("消息处理循环已退出")
     
     async def handle_client_message(self, message: Dict[Any, Any]):
-        """处理来自客户端的消息"""
+        """处理来自客户端消息
+        
+        智能Agent处理流程:
+        1. 简单已知任务：直接执行
+        2. 自然语言/未知任务：发给LLM分析并获取标准格式任务
+        3. LLM返回JSON: {"type": "...", "params": {...}}
+        4. Agent执行任务或直接返回答案
+        """
         try:
-            logger.info(f"收到客户端消息: {message}")
+            logger.info(f"[AGENT] 收到客户端消息: {message}")
             
-            # 检查消息格式并提取实际的任务
-            task_to_execute = None
+            # 重置任务状态
+            self.memory.clear_episode()
             
-            # 格式1: {"name": "任务名", "task": {"type": "...", "params": {...}}}
-            if "task" in message and isinstance(message["task"], dict):
-                task_to_execute = message["task"]
-                # 添加任务名称信息
-                task_to_execute["task_name"] = message.get("name", "未知任务")
-                logger.info(f"检测到格式1消息: {task_to_execute}")
-            
-            # 格式2: 直接的任务格式 {"type": "...", "params": {...}}
-            elif "type" in message:
-                task_to_execute = message
-                logger.info(f"检测到格式2消息: {task_to_execute}")
-            
-            # 格式3: 其他格式（如ping命令）
-            else:
-                # 对于不识别的格式，尝试作为简单的command处理
-                if "command" in message:
-                    result = {
-                        "type": message.get("command"),
-                        "success": True,
-                        "message": f"收到命令: {message.get('command')}",
-                        "response": message,
-                        "timestamp": int(time.time())
-                    }
-                    await self.send_response_to_client(result)
-                    return
+            # 1. type类型任务（最高优先级）
+            if isinstance(message, dict) and "type" in message:
+                task_to_execute = message.copy()
+                task_type = task_to_execute.get("type", "")
+                task_params = task_to_execute.get("params", {})
                 
-                # 无法识别的格式
-                error_response = {
-                    "type": message.get("type", "unknown"),
-                    "success": False,
-                    "error_msg": f"无法识别的消息格式: {list(message.keys())}",
-                    "timestamp": int(time.time())
-                }
-                await self.send_response_to_client(error_response)
+                # 检查是否为已知任务类型
+                if task_type in self.known_task_types:
+                    # 已知任务类型，直接执行
+                    logger.info(f"[AGENT] 已知任务类型 '{task_type}'，直接执行")
+                    result = await self.execute_task(task_to_execute)
+                    # 记录到记忆
+                    self.memory.add_task(task_to_execute, result)
+                else:
+                    # 未知任务类型，发给LLM处理
+                    logger.info(f"[AGENT] 未知任务类型 '{task_type}'，发送给LLM分析")
+                    user_prompt = f"执行任务: {task_type}，参数: {task_params}"
+                    llm_result = await self.analyze_with_llm(user_prompt, task_type)
+                    result = llm_result
+                
+                await self.send_response_to_client(result)
                 return
             
-            # 执行任务
-            if task_to_execute:
-                logger.info(f"准备执行任务: {task_to_execute}")
-                result = await self.execute_task(task_to_execute)
-                
-                # 添加任务名称到响应中
-                if "task_name" in task_to_execute:
-                    result["task_name"] = task_to_execute["task_name"]
-                
-                # 发送响应给客户端
-                await self.send_response_to_client(result)
+            # 2. 自然语言任务（不含type字段）
+            user_prompt = None
+            
+            # 情况A: 消息本身就是字符串（自然语言内容）
+            if isinstance(message, str):
+                user_prompt = message
+                logger.info(f"[AGENT] 收到自然语言字符串任务: {user_prompt}")
+            
+            # 情况B: 其他字典格式（不含type，提取第一个字符串值作为user_prompt）
+            elif isinstance(message, dict):
+                for key, value in message.items():
+                    if isinstance(value, str) and len(value.strip()) > 0:
+                        user_prompt = value
+                        logger.info(f"[AGENT] 从字段 '{key}' 中提取自然语言任务: {user_prompt}")
+                        break
+            
+            # 发送自然语言任务给LLM分析
+            if user_prompt:
+                logger.info(f"[AGENT] 发送自然语言任务给LLM分析")
+                llm_result = await self.analyze_with_llm(user_prompt, "natural_language")
+                await self.send_response_to_client(llm_result)
+                return
         
         except Exception as e:
-            logger.error(f"处理客户端消息失败: {e}")
+            logger.error(f"[AGENT] 处理客户端消息失败: {e}", exc_info=True)
             error_response = {
-                "type": message.get("type", "unknown"),
+                "type": message.get("type", "unknown") if isinstance(message, dict) else "unknown",
                 "success": False,
-                "error_msg": str(e)
+                "error_msg": str(e),
             }
             await self.send_response_to_client(error_response)
     
@@ -2364,6 +2487,212 @@ class SmartRobotAgent:
                 logger.error(f"发送响应失败: {response}")
         except Exception as e:
             logger.error(f"发送响应失败: {e}")
+
+    # ======================
+    # LLM智能分析核心方法
+    # ======================
+
+    async def analyze_with_llm(self, user_prompt: str, task_type: str) -> Dict[str, Any]:
+        """使用LLM分析用户指令，返回标准格式任务
+        
+        Args:
+            user_prompt (str): 用户指令/任务描述
+            task_type (str): 任务类型标识
+            
+        Returns:
+            Dict[str, Any]: 执行结果或回答
+        """
+        logger.info(f"[ANALYZE] ===== 开始LLM分析 =====")
+        logger.info(f"[ANALYZE] 任务类型: {task_type}")
+        logger.info(f"[ANALYZE] 用户指令: {user_prompt}")
+        
+        # 记录初始任务
+        initial_task = {
+            "type": task_type,
+            "user_prompt": user_prompt
+        }
+        self.memory.add_task(initial_task, {})
+        
+        # 构造system_prompt（包含Agent已知能力）
+        system_prompt = self._build_system_prompt()
+        
+        # 构造完整的提示词
+        full_prompt = f"""{system_prompt}
+
+用户指令: {user_prompt}
+
+请分析用户指令，判断是执行任务还是交互问答，并严格按照以下JSON格式返回：
+{{
+    "type": "任务类型",
+    "params": {{"参数名": "参数值"}}
+}}
+
+说明:
+- 如果需要执行任务，type从上面可用工具中选择，params填写对应参数
+- 如果是问答类请求（如问时间、天气、打招呼等），type使用"natural_response"，params中填写"response"字段作为回答内容
+- 必须严格返回有效JSON格式，不要包含其他文字
+"""
+        
+        # 调用LLM
+        llm_response = await self._call_llm_for_analysis(full_prompt)
+        logger.info(f"[ANALYZE] LLM响应: {llm_response}")
+        
+        # 解析LLM响应
+        try:
+            task_data = json.loads(llm_response)
+            result_type = task_data.get("type", "")
+            result_params = task_data.get("params", {})
+            
+            # 记录思考
+            thought = AgentThought(
+                content=f"分析用户指令，决定执行任务: {result_type}",
+                reasoning_type="planning"
+            )
+            self.memory.add_thought(thought)
+            
+            # 判断任务类型
+            if result_type == "natural_response":
+                # 交互问答类，直接返回回答
+                logger.info(f"[ANALYZE] 交互问答类，直接返回回答")
+                response_content = result_params.get("response", llm_response)
+                return {
+                    "type": task_type,
+                    "success": True,
+                    "result": response_content,
+                    "description": response_content
+                }
+            elif result_type in self.known_task_types:
+                # 已知任务类型，执行任务
+                logger.info(f"[ANALYZE] 执行已知任务: {result_type}")
+                task_to_execute = {
+                    "type": result_type,
+                    "params": result_params
+                }
+                result = await self.execute_task(task_to_execute)
+                
+                # 记录行动和观察
+                self.memory.add_action(result_type, result_params)
+                observation = Observation(
+                    content=result.get("result", result.get("description", str(result))),
+                    source=f"action_{result_type}",
+                    success=result.get("success", False)
+                )
+                self.memory.add_observation(observation)
+                
+                return result
+            else:
+                # 未知任务类型
+                logger.warning(f"[ANALYZE] 未知任务类型: {result_type}")
+                return {
+                    "type": task_type,
+                    "success": False,
+                    "error_msg": f"未知任务类型: {result_type}"
+                }
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"[ANALYZE] LLM响应JSON解析失败: {e}, 原始响应: {llm_response}")
+            # 如果解析失败，尝试直接作为自然语言回复
+            return {
+                "type": task_type,
+                "success": True,
+                "result": llm_response,
+                "description": llm_response
+            }
+        except Exception as e:
+            logger.error(f"[ANALYZE] 处理LLM响应失败: {e}")
+            return {
+                "type": task_type,
+                "success": False,
+                "error_msg": f"处理失败: {str(e)}"
+            }
+
+    def _build_system_prompt(self) -> str:
+        """构造system_prompt，包含Agent已知能力
+        
+        Returns:
+            str: system_prompt
+        """
+        available_tools = list(self.known_task_types)
+        
+        system_prompt = f"""你是一个智能机器人Agent的助手，负责分析用户指令并决定如何响应。
+
+Agent已知的能力（可用工具）:
+"""
+        
+        # 添加每个工具的说明
+        tool_descriptions = {
+            "find_object": "查找指定对象",
+            "go_to_object": "导航到指定对象位置",
+            "go_find_person": "去寻找指定的人",
+            "follow_person": "跟随指定的人",
+            "back_to_last_position": "返回上一个记录的位置",
+            "stop_follow": "停止跟随",
+            "stop_navigate": "停止导航",
+            "stop_move": "停止移动",
+            "get_move_mode": "获取当前运动模式",
+            "set_medicine_box_switch": "控制药箱开关",
+            "get_medicine_box_state": "获取药箱状态",
+            "get_robot_rise_state": "获取机器人升降状态",
+            "set_robot_rise_jqr": "控制机器人升降",
+            "get_robot_tilt_state": "获取机器人俯仰状态",
+            "set_robot_tilt_jqr": "控制机器人俯仰角度",
+            "get_screen_tilt_state": "获取屏幕俯仰状态",
+            "set_screen_tilt_jqr": "控制屏幕俯仰",
+            "set_laser_pointer": "控制激光笔开关",
+            "get_laser_pointer_state": "获取激光笔状态",
+            "set_rgb_light_strip": "设置RGB灯光",
+            "get_rgb_light_strip_state": "获取RGB灯光状态"
+        }
+        
+        for tool in available_tools:
+            desc = tool_descriptions.get(tool, "未知工具")
+            system_prompt += f"- {tool}: {desc}\n"
+        
+        system_prompt += """
+其他说明:
+- natural_response: 用于直接回答用户的问题或进行对话（如打招呼、问答、闲聊等）
+- 如果用户指令不匹配上述任何工具，请使用natural_response直接回复
+- 必须严格按照JSON格式返回，不要包含任何其他解释性文字
+"""
+        
+        return system_prompt
+
+    async def _call_llm_for_analysis(self, prompt: str) -> str:
+        """调用LLM进行任务分析
+        
+        Args:
+            prompt (str): 完整的提示词（包含system_prompt和user_prompt）
+            
+        Returns:
+            str: LLM的JSON格式响应
+        """
+        try:
+            # 构造LLM请求格式
+            llm_request = {
+                "type": "task_analysis",
+                "system_prompt": prompt,
+                "enable_react": False  # 不需要ReAct模式，直接返回JSON
+            }
+            
+            logger.info(f"[ANALYZE] 发送分析请求给LLM")
+            response = await self.send_to_local_model(llm_request)
+            
+            # 提取LLM的响应内容
+            if response and "result" in response:
+                return response["result"]
+            elif response and "content" in response:
+                return response["content"]
+            elif isinstance(response, str):
+                return response
+            else:
+                logger.warning(f"[ANALYZE] LLM响应格式异常: {response}")
+                # 返回默认的natural_response
+                return json.dumps({"type": "natural_response", "params": {"response": "抱歉，我无法理解您的指令"}})
+                
+        except Exception as e:
+            logger.error(f"[ANALYZE] 调用LLM失败: {e}")
+            # 返回默认的natural_response
+            return json.dumps({"type": "natural_response", "params": {"response": f"分析失败: {str(e)}"}})
     
     async def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """执行单个任务
@@ -2472,7 +2801,7 @@ class SmartRobotAgent:
             self.record_position_before_navigation()
         
         if task_type == "find_object":
-            return await self.find_object(**params)
+            return await self.go_to_object(**params)
         elif task_type == "go_to_object":
             return await self.go_to_object(**params)
         elif task_type == "go_find_person":
@@ -2640,73 +2969,73 @@ class SmartRobotAgent:
         except Exception as e:
             logger.error(f"[ERROR] DB query failed: {e}")
         return None
-    async def find_object(self,obj_name: str) -> Dict[str, Any]:
-        """
-        查找物品的位置信息，按照ASM→DB→探索的优先级执行
+    # async def find_object(self,obj_name: str) -> Dict[str, Any]:
+    #     """
+    #     查找物品的位置信息，按照ASM→DB→探索的优先级执行
         
-        Args:
-            obj_name (str): 物品名称
+    #     Args:
+    #         obj_name (str): 物品名称
         
-        Returns:
-            Dict[str, Any]: 工具执行结果
-        """
-        logger.info(f"[FIND_OBJECT] 开始查找物品/人员: {obj_name}")
-        try:
-            # Step 1: ASM查询（最高优先级）
-            asm_res = self.query_asm_object(obj_name)
-            if asm_res:
-                #打印asm_res
-                print(asm_res)
-                loc = asm_res["location"]
-                logger.info(f"[FIND_OBJECT] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
+    #     Returns:
+    #         Dict[str, Any]: 工具执行结果
+    #     """
+    #     logger.info(f"[FIND_OBJECT] 开始查找物品/人员: {obj_name}")
+    #     try:
+    #         # Step 1: ASM查询（最高优先级）
+    #         asm_res = self.query_asm_object(obj_name)
+    #         if asm_res:
+    #             #打印asm_res
+    #             print(asm_res)
+    #             loc = asm_res["location"]
+    #             logger.info(f"[FIND_OBJECT] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
                 
-                # ASM找到：返回位置信息，询问用户是否需要导航
-                result_msg = f"找到 {obj_name} 的位置：像素坐标 ({loc['x']}, {loc['y']})"
-                logger.info(f"[FIND_OBJECT] {result_msg}")
+    #             # ASM找到：返回位置信息，询问用户是否需要导航
+    #             result_msg = f"找到 {obj_name} 的位置：像素坐标 ({loc['x']}, {loc['y']})"
+    #             logger.info(f"[FIND_OBJECT] {result_msg}")
                 
-                # 按照新格式返回结果，包含像素位置
-                result_data = {
-                    "type": "find_object",
-                    "success": True,
-                    "pixel_position": asm_res.get("pixel_position", []),  # 添加像素位置
-                    "position_description": asm_res.get("object_description", "")  # 使用ASM中的描述
-                }
+    #             # 按照新格式返回结果，包含像素位置
+    #             result_data = {
+    #                 "type": "find_object",
+    #                 "success": True,
+    #                 "pixel_position": asm_res.get("pixel_position", []),  # 添加像素位置
+    #                 "position_description": asm_res.get("object_description", "")  # 使用ASM中的描述
+    #             }
                 
-                return result_data
+    #             return result_data
 
-            # Step 2: DB查询
-            db_res = self.query_history_db(obj_name)
-            if not db_res:
-                # DB没有找到：返回失败结果
-                result_data = {
-                    "type": "find_object",
-                    "success": False,
-                    "pixel_position": None,
-                    "position_description": None
-                }
+    #         # Step 2: DB查询
+    #         db_res = self.query_history_db(obj_name)
+    #         if not db_res:
+    #             # DB没有找到：返回失败结果
+    #             result_data = {
+    #                 "type": "find_object",
+    #                 "success": False,
+    #                 "pixel_position": None,
+    #                 "position_description": None
+    #             }
                 
-                return result_data
+    #             return result_data
 
-            logger.info(f"[FIND_OBJECT] 在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
+    #         logger.info(f"[FIND_OBJECT] 在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
             
-            # DB找到：直接反馈结果，不询问导航
-            result_data = {
-                "type": "find_object",
-                "success": True,
-                "pixel_position": [db_res["world_x"], db_res["world_y"]],
-                "position_description": db_res["object_description"]
-            }
+    #         # DB找到：直接反馈结果，不询问导航
+    #         result_data = {
+    #             "type": "find_object",
+    #             "success": True,
+    #             "pixel_position": [db_res["world_x"], db_res["world_y"]],
+    #             "position_description": db_res["object_description"]
+    #         }
             
-            return result_data
-        except Exception as e:
-            result_data = {
-                "type": "find_object",
-                "success": False,
-                "pixel_position": None,
-                "position_description": None
-            }
+    #         return result_data
+    #     except Exception as e:
+    #         result_data = {
+    #             "type": "find_object",
+    #             "success": False,
+    #             "pixel_position": None,
+    #             "position_description": None
+    #         }
         
-            return result_data
+    #         return result_data
     
     async def go_to_object(self, obj_name: str, pixel_position: Optional[List[float]] = None) -> Dict[str, Any]:
         """导航到物体位置"""
@@ -2716,7 +3045,7 @@ class SmartRobotAgent:
             # 检查是否有新格式的tool和arguments
             model_data = {
                 "type": "go_to_object",
-                "user_prompt": f"去{obj_name}旁边",
+                "user_prompt": f"去找{obj_name}",
                 "obj_name": obj_name,
                 "pixel_position": pixel_position
             }
@@ -3173,6 +3502,10 @@ class SmartRobotAgent:
                 except:
                     pass
                 self.local_model_connected = False
+    
+    # ======================
+    # ReAct框架核心方法
+    # ======================
     
     def interrupt(self) -> None:
         """中断当前任务执行"""
