@@ -2295,8 +2295,8 @@ class SmartRobotAgent:
         self.local_model_websocket = None
         self.local_model_connected = False
         # self.local_model_uri = "ws://localhost:8769"
-        # self.local_model_uri = "ws://192.168.50.144:8000/ws/navigate"
-        self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
+        self.local_model_uri = "ws://192.168.31.35:8000/ws/navigate"
+        # self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
         self.task_execution_lock = asyncio.Lock()  # 任务执行锁
