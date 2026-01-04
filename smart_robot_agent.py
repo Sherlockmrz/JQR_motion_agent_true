@@ -1005,15 +1005,36 @@ class ROS2Interface:
             )
             
             if response:
-                return {
-                    "success": True,
-                    "position": position['position'],
-                    "description": f"导航已开始，目标位置 ({target_x}, {target_y})"
-                }
+                # 解析action响应结果
+                # 检查是否包含成功状态
+                if "SUCCEEDED" in response:
+                    return {
+                        "success": True,
+                        "error_msg": ""
+                    }
+                else:
+                    # 提取错误信息
+                    error_msg = "导航失败"
+                    if "ABORTED" in response:
+                        error_msg = "导航被中止"
+                    elif "CANCELED" in response:
+                        error_msg = "导航被取消"
+                    elif "REJECTED" in response:
+                        error_msg = "导航目标被拒绝"
+                    
+                    # 尝试从响应中提取更多细节
+                    import re
+                    result_match = re.search(r'Result:\s*(\w+)', response)
+                    if result_match:
+                        error_msg = f"导航失败: {result_match.group(1)}"
+                    
+                    return {
+                        "success": False,
+                        "error_msg": error_msg
+                    }
             else:
                 return {
                     "success": False,
-                    "position": position['position'],
                     "error_msg": "导航action调用失败"
                 }
                 
@@ -1135,8 +1156,7 @@ class ROS2Interface:
                 # 服务调用失败，可能是服务不存在
                 result = {
                     "success": False,
-                    "rise": rise,
-                    "description": "服务 /set_robot_rise 不存在或调用失败"
+                    "err_msg": "服务 /set_robot_rise 不存在或调用失败"
                 }
                 logger.error(f"[ROS2] 设置机器人升降失败: {result}")
                 return result
@@ -1146,8 +1166,7 @@ class ROS2Interface:
                     logger.error(f"[ROS2] 机器人升降服务返回空响应")
                     return {
                         "success": False,
-                        "rise": rise,
-                        "description": "机器人升降服务返回空响应"
+                        "err_msg": "机器人升降服务返回空响应"
                     }
                 
                 # 解析响应数据
@@ -1163,14 +1182,16 @@ class ROS2Interface:
                     
                     result = {
                         "success": success,
-                        "rise": rise,
-                        "description": result_msg if success else f"设置失败: {result_msg}",
-                        "result_number": result_number
+                        "err_msg": ""
                     }
                     
                     if success:
                         logger.info(f"[ROS2] 设置机器人升降成功: {result}")
                     else:
+                        result = {
+                        "success": success,
+                        "err_msg": result_msg
+                        }
                         logger.error(f"[ROS2] 设置机器人升降失败: {result}")
                     
                     return result
@@ -1179,15 +1200,13 @@ class ROS2Interface:
                     logger.error(f"[ROS2] 设置机器人升降响应解析失败: {e}, 原始响应: {response}")
                     return {
                         "success": False,
-                        "rise": rise,
-                        "description": f"响应解析失败: {str(e)}"
+                        "err_msg": f"响应解析失败: {str(e)}"
                     }
         except Exception as e:
             logger.error(f"[ROS2] 设置机器人升降失败: {e}")
             return {
                 "success": False,
-                "rise": rise,
-                "description": f"设置机器人{'上升' if rise else '下降'}失败: {str(e)}"
+                "err_msg": f"设置机器人{'上升' if rise else '下降'}失败: {str(e)}"
             }
         
     def get_robot_rise_state(self) -> Dict[str, Any]:
@@ -1786,47 +1805,7 @@ class ROS2Interface:
                 "description": f"获取机器人俯仰状态失败: {str(e)}"
             }
         
-    def set_robot_rise(self, height: float) -> Dict[str, Any]:
-        """控制机身升降
-        
-        Args:
-            height (float): 升降高度（米）
-            
-        Returns:
-            Dict[str, Any]: 控制结果
-        """
-        try:
-            # 调用ROS2动作控制机身升降
-            # 假设有一个/set_robot_rise动作
-            response = self._call_ros2_action(
-                "/set_robot_rise",
-                "jqr_ros_msgs/action/SetRobotRise",
-                f"{{height: {height}}}"
-            )
-            
-            if response:
-                result = {
-                    "success": True,
-                    "height": height,
-                    "description": f"机身升降高度已设置为 {height} 米"
-                }
-                logger.info(f"[ROS2] 设置机身升降高度: {result}")
-                return result
-            else:
-                result = {
-                    "success": False,
-                    "height": height,
-                    "description": f"设置机身升降高度失败"
-                }
-                logger.error(f"[ROS2] 设置机身升降高度失败: {result}")
-                return result
-        except Exception as e:
-            logger.error(f"[ROS2] 设置机身升降高度失败: {e}")
-            return {
-                "success": False,
-                "height": height,
-                "description": f"设置机身升降高度失败: {str(e)}"
-            }
+
         
     def get_robot_rise(self) -> Dict[str, Any]:
         """获取机身升降状态
@@ -2158,12 +2137,7 @@ class USBCoordinateManager:
             return success
         except Exception as e:
             logger.error(f"发送USB消息异常: {e}")
-            return False
-    
-
-    
-
-    
+            return False    
 
     
     def cleanup(self):
@@ -3552,7 +3526,10 @@ async def main():
     smart_robot_agent_instance = agent
     # 初始化agent
     try:
-        await agent.initialize()
+        success = await agent.initialize()
+        if not success:
+            logger.error("SmartRobotAgent初始化失败，退出程序")
+            return
         logger.info("SmartRobotAgent启动成功")
         
         # 保持运行

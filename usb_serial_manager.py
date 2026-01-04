@@ -71,7 +71,7 @@ class SerialManager:
             import serial
             
             # 尝试连接多个可能的串口设备
-            possible_ports = "/dev/ttyACM0"
+            possible_ports = self.port
             
             try:
                 self.serial_port = serial.Serial(
@@ -415,7 +415,7 @@ class VirtualSerialPort:
         self._buffer = []
         self._index = 0
     
-    def read(self, size: int = None) -> bytes:
+    def read(self, size: Optional[int] = None) -> bytes:
         """模拟读取数据"""
         if not self._buffer:
             # 生成测试数据
