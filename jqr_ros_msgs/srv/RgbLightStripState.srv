@@ -1,0 +1,7 @@
+#request
+---
+bool rgb_switch #true 表示开启，false表示关闭
+uint8 brightness_value 
+string color
+std_msgs/UInt8 result_number
+std_msgs/String result_msg

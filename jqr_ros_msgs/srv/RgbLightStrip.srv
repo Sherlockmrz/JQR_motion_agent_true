@@ -1,0 +1,8 @@
+#request
+bool rgb_switch   #true 表示开启，false表示关闭
+bool is_incremental #true 表示增量式调亮度，false表示非增量式
+int16 brightness_set #缺省代表不调节
+string color #缺省代表不调整颜色
+---
+std_msgs/UInt8 result_number   #0表示开启或关闭失败；1表示开启或关闭成功
+std_msgs/String result_msg

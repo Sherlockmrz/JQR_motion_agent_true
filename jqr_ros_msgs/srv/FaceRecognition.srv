@@ -1,0 +1,8 @@
+# Request
+string person_id
+string[] camera_ids
+sensor_msgs/Image[] rgb_images
+---
+# Response
+string camera_id
+BoundingBox2D bbox

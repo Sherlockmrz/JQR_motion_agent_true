@@ -1,0 +1,7 @@
+# Request
+string person_id
+sensor_msgs/Image rgb_image
+---
+# Response
+bool result
+string err_msg

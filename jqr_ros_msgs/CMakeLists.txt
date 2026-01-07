@@ -21,9 +21,11 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 set(msg_files
   "msg/BatteryLevel.msg"
+  "msg/BoundingBox2D.msg"
 )
 
 set(srv_files
@@ -38,6 +40,10 @@ set(srv_files
   "srv/MedicineBoxState.srv"
   "srv/LaserPointer.srv"
   "srv/LaserPointerState.srv"
+  "srv/RgbLightStrip.srv"
+  "srv/RgbLightStripState.srv"
+  "srv/FaceRecognition.srv"
+  "srv/FaceRegistration.srv"
 )
 
 set(action_files
@@ -48,7 +54,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
   ${srv_files}
   ${action_files}
-  DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
+  DEPENDENCIES builtin_interfaces geometry_msgs std_msgs sensor_msgs
   ADD_LINTER_TESTS
 )
 
