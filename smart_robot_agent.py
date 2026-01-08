@@ -436,6 +436,7 @@ class ROS2Interface:
         """初始化ROS2接口"""
         self.battery_level = 100.0  # 初始电池电量
         self.last_position = None  # 记录最后一个位置
+        self.pre_position = None  # 任务执行前的位置
         self.position_subscribed = False  # 是否已订阅位置信息
         self.battery_subscribed = False  # 是否已订阅电池电量信息
         self.battery_subscription = None  # 电池电量订阅对象
@@ -931,7 +932,8 @@ class ROS2Interface:
             bool: 记录是否成功
         """
         if self.last_position:
-            logger.info(f"[ROS2] 已记录当前位置: {self.last_position['position']}")
+            self.pre_position = self.last_position
+            logger.info(f"[ROS2] 已记录当前位置: {self.pre_position['position']}")
             return True
         else:
             logger.warning("[ROS2] 没有可用的位置信息")
@@ -943,7 +945,7 @@ class ROS2Interface:
         Returns:
             Optional[Dict[str, Any]]: 位置信息，如果没有则返回None
         """
-        return self.last_position
+        return self.pre_position
     
     def navigate_to_position(self, position: Dict[str, Any]) -> Dict[str, Any]:
         """导航到指定位置
@@ -2269,7 +2271,7 @@ class SmartRobotAgent:
         self.local_model_websocket = None
         self.local_model_connected = False
         # self.local_model_uri = "ws://localhost:8769"
-        self.local_model_uri = "ws://192.168.31.35:8000/ws/navigate"
+        self.local_model_uri = "ws://192.168.31.180:8000/ws/navigate"
         # self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
