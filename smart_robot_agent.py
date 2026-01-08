@@ -114,7 +114,7 @@ os.makedirs(VIDEO_BASE_DIR, exist_ok=True)
 # os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # USB串口配置
-USB_SERIAL_PORT = "/dev/ttyACM0"
+USB_SERIAL_PORT = "/dev/rk"
 USB_SERIAL_BAUDRATE = 115200
 
 # ======================
@@ -2112,33 +2112,33 @@ class USBCoordinateManager:
     def _handle_received_message(self, message: Dict[Any, Any]):
         """处理接收到的消息"""
         try:
-            logger.info(f"接收到USB消息: {message}")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收到USB消息: {message}")
             
             # 将消息转发给agent处理
             if self.agent and hasattr(self.agent, 'handle_client_message'):
                 # 将消息添加到消息队列中
                 self.agent.message_queue.put_nowait(message)
-                logger.info(f"消息已添加到队列，队列大小: {self.agent.message_queue.qsize()}")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 消息已添加到队列，队列大小: {self.agent.message_queue.qsize()}")
             else:
-                logger.warning("Agent或handle_client_message方法不可用")
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Agent或handle_client_message方法不可用")
         except Exception as e:
-            logger.error(f"处理USB消息失败: {e}")
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理USB消息失败: {e}")
     
     async def send_message(self, message: Dict[Any, Any]) -> bool:
         """发送消息到客户端"""
         try:
             if not self.connected:
-                logger.warning("USB串口未连接，无法发送消息")
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口未连接，无法发送消息")
                 return False
             
             success = self.serial_manager.send_message(message)
             if success:
-                logger.info(f"已发送USB消息: {message}")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已发送USB消息: {message}")
             else:
-                logger.error(f"发送USB消息失败: {message}")
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送USB消息失败: {message}")
             return success
         except Exception as e:
-            logger.error(f"发送USB消息异常: {e}")
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送USB消息异常: {e}")
             return False    
 
     

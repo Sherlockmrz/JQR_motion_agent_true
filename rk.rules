@@ -1,0 +1,1 @@
+KERNEL=="ttyACM*",ATTRS{devpath}=="2",ATTRS{idVendor}=="2207",ATTRS{idProduct}=="0006",MODE:="0777",SYMLINK+="rk"

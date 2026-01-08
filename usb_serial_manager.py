@@ -6,6 +6,7 @@ import asyncio
 import logging
 import threading
 import time
+import datetime
 import json
 from typing import Optional, Callable, Dict, Any, List
 from protocol_parser import ProtocolParser, CommandType, ParseResult
@@ -45,7 +46,7 @@ class SerialManager:
         # 线程锁
         self.lock = threading.Lock()
         
-        logger.info(f"串口管理器初始化完成: {port}@{baudrate}")
+        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口管理器初始化完成: {port}@{baudrate}")
     
     def add_callback(self, callback: Callable[[Dict[Any, Any]], None]):
         """添加消息回调函数
@@ -81,24 +82,24 @@ class SerialManager:
                     write_timeout=1.0
                 )
                 self.port = possible_ports
-                logger.info(f"成功连接到串口: {possible_ports}")
+                logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功连接到串口: {possible_ports}")
                 return True
             except (serial.SerialException, OSError):
                 return False
             
         except ImportError as e:
-            logger.error(f"pyserial库未安装: {e}")
-            logger.info("使用虚拟串口模式进行测试")
+            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] pyserial库未安装: {e}")
+            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 使用虚拟串口模式进行测试")
             self.serial_port = VirtualSerialPort()
             return True
         except Exception as e:
-            logger.error(f"连接串口失败: {e}")
+            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 连接串口失败: {e}")
             return False
     
     def start_receiving(self):
         """开始接收数据线程"""
         if self.is_running:
-            logger.warning("接收线程已在运行")
+            logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收线程已在运行")
             return
             
         self.is_running = True
@@ -108,7 +109,7 @@ class SerialManager:
             daemon=True
         )
         self.receive_thread.start()
-        logger.info("串口接收线程已启动")
+        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收线程已启动")
     
     def stop_receiving(self):
         """停止接收数据线程"""
@@ -119,11 +120,11 @@ class SerialManager:
         if self.serial_port and hasattr(self.serial_port, 'close'):
             self.serial_port.close()
         
-        logger.info("串口接收线程已停止")
+        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收线程已停止")
     
     def _receive_loop(self):
         """接收数据循环"""
-        logger.info("串口接收循环开始")
+        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收循环开始")
         
         while self.is_running:
             try:
@@ -143,72 +144,72 @@ class SerialManager:
                     time.sleep(0.01)  # 短暂休眠，避免CPU占用过高
                     
             except Exception as e:
-                logger.error(f"接收数据时出错: {e}")
+                logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收数据时出错: {e}")
                 time.sleep(0.1)  # 出错后稍长休眠
         
-        logger.info("串口接收循环结束")
+        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收循环结束")
     
     def _process_received_data(self, data: bytes):
         """处理接收到的数据"""
         try:
-            logger.info(f"[RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
+            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
             
             # 解析协议数据
             result = self.parser.parse_buffer(data)
-            logger.info(f"[PARSER_RESULT] 解析结果: {result}")
+            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [PARSER_RESULT] 解析结果: {result}")
             
             if result == ParseResult.PARSE_OK:
-                logger.debug(f"成功解析协议帧: {self.parser.buffer.hex()}")
+                logger.debug(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功解析协议帧: {self.parser.buffer.hex()}")
                 
                 # 提取JSON数据
                 json_data = self.parser.extract_json_data()
                 if json_data:
-                    logger.info(f"[PARSER_DEBUG] 解析到JSON: {json_data}")
+                    logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [PARSER_DEBUG] 解析到JSON: {json_data}")
                     self._handle_received_message(json_data)
                 
                 # 重置解析器准备下一帧
                 self.parser.reset()
                 
             elif result == ParseResult.PARSE_ERROR_HEADER:
-                logger.warning("协议帧头错误")
+                logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 协议帧头错误")
                 self.parser.reset()
                 
             elif result == ParseResult.PARSE_ERROR_TAIL:
-                logger.warning("协议帧尾错误")
+                logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 协议帧尾错误")
                 self.parser.reset()
                 
             elif result == ParseResult.PARSE_ERROR_LENGTH:
-                logger.warning("协议长度错误")
+                logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 协议长度错误")
                 self.parser.reset()
                 
         except Exception as e:
-            logger.error(f"[RAW_DATA] 处理接收数据时出错: {e}")
+            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [RAW_DATA] 处理接收数据时出错: {e}")
             self.parser.reset()
     
     def _handle_received_message(self, message: Dict[Any, Any]):
         """处理接收到的消息"""
         try:
-            logger.info(f"处理接收到的消息: {message}")
+            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理接收到的消息: {message}")
             
             # 启用自发自收过滤
             if self._is_self_sent_message(message):
-                logger.debug(f"过滤自发自收消息: {message}")
+                logger.debug(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 过滤自发自收消息: {message}")
                 return
             
             # 调用所有回调函数
             with self.lock:
                 for callback in self.message_callbacks:
                     try:
-                        logger.info(f"调用回调函数: {callback.__name__}")
+                        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 调用回调函数: {callback.__name__}")
                         callback(message)
                     except Exception as e:
-                        logger.error(f"回调函数执行失败: {e}")
+                        logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 回调函数执行失败: {e}")
             
             # 处理任务响应
             self._handle_task_response(message)
             
         except Exception as e:
-            logger.error(f"处理消息时出错: {e}")
+            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理消息时出错: {e}")
     
     def _handle_task_response(self, message: Dict[Any, Any]):
         """处理任务响应"""
@@ -283,7 +284,7 @@ class SerialManager:
         """
         try:
             if not self.serial_port:
-                logger.error("串口未连接")
+                logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口未连接")
                 return False
             
             # 转换为JSON字符串
@@ -294,21 +295,21 @@ class SerialManager:
             
             # 创建协议帧 (地瓜S100应答使用0x81)
             frame = self.parser.create_response_frame(CommandType.CMD_JSON_RESPONSE, json_str)
-            logger.info(f"创建协议帧: {frame.hex()}")
+            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建协议帧: {frame.hex()}")
             # 发送数据
             if hasattr(self.serial_port, 'write'):
                 bytes_written = self.serial_port.write(frame)
                 if hasattr(self.serial_port, 'flush'):
                     self.serial_port.flush()
                 
-                logger.info(f"已发送USB消息: {json_str} ({bytes_written} bytes)")
+                logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已发送USB消息: {json_str} ({bytes_written} bytes)")
                 return True
             else:
-                logger.error("串口对象不支持写入操作")
+                logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口对象不支持写入操作")
                 return False
                 
         except Exception as e:
-            logger.error(f"发送消息失败: {e}")
+            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送消息失败: {e}")
             return False
     
     def register_task(self, task_id: str) -> asyncio.Future:
@@ -432,7 +433,7 @@ class VirtualSerialPort:
     
     def write(self, data: bytes) -> int:
         """模拟写入数据"""
-        logger.info(f"虚拟串口写入: {data.hex()}")
+        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 虚拟串口写入: {data.hex()}")
         return len(data)
     
     def flush(self):
