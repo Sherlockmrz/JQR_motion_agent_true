@@ -2110,15 +2110,29 @@ class USBCoordinateManager:
             return False
     
     def _handle_received_message(self, message: Dict[Any, Any]):
-        """处理接收到的消息"""
+        """处理接收到的消息 - 实时处理，不经过队列"""
         try:
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收到USB消息: {message}")
-            
+
             # 将消息转发给agent处理
             if self.agent and hasattr(self.agent, 'handle_client_message'):
-                # 将消息添加到消息队列中
-                self.agent.message_queue.put_nowait(message)
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 消息已添加到队列，队列大小: {self.agent.message_queue.qsize()}")
+                # 优先使用保存的事件循环，如果不可用则尝试获取当前运行的事件循环
+                loop = self.agent.event_loop
+                if not loop or not loop.is_running():
+                    # 尝试获取当前运行的事件循环
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 没有可用的运行中事件循环，无法调度任务")
+                        return
+
+                # 使用事件循环调度异步任务
+                future = asyncio.run_coroutine_threadsafe(
+                    self.agent.handle_client_message(message),
+                    loop
+                )
+                # 添加异常处理回调
+                future.add_done_callback(lambda f: None if f.exception() is None else logger.error(f"任务执行异常: {f.exception()}"))
             else:
                 logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Agent或handle_client_message方法不可用")
         except Exception as e:
@@ -2260,13 +2274,16 @@ class SmartRobotAgent:
     
     def __init__(self):
         self.ros2_interface = ROS2Interface()
-        
+
         # 创建USB串口通信管理器
         self.usb_manager = USBCoordinateManager(self)
-        
+
         # 任务中断标志
         self._task_interrupted = False
-        
+
+        # 事件循环引用（用于从其他线程调度任务）
+        self.event_loop: Optional[asyncio.AbstractEventLoop] = None
+
         # 本地模型连接相关
         self.local_model_websocket = None
         self.local_model_connected = False
@@ -2364,23 +2381,9 @@ class SmartRobotAgent:
             return False
     
     async def _message_processor(self):
-        """消息处理循环"""
-        logger.info("消息处理循环已启动")
-        while self._running:
-            try:
-                # ROS2回调现在由独立线程处理，这里不再需要spin_once
-                
-                # 从队列中获取消息
-                try:
-                    message = self.message_queue.get(timeout=0.1)
-                    await self.handle_client_message(message)
-                except queue.Empty:
-                    await asyncio.sleep(0.01)
-                    continue
-            except Exception as e:
-                logger.error(f"处理消息时出错: {e}")
-                await asyncio.sleep(0.1)
-        logger.info("消息处理循环已退出")
+        """消息处理循环 - 现在是空函数，消息直接通过 create_task 处理"""
+        # 不再需要队列处理循环，所有消息通过 _handle_received_message 直接异步处理
+        pass
     
     async def handle_client_message(self, message: Dict[Any, Any]):
         """处理来自客户端消息
@@ -2679,27 +2682,44 @@ Agent已知的能力（可用工具）:
         Returns:
             Dict[str, Any]: 任务执行结果
         """
+        task_type = task.get("type")
+        task_params = task.get("params", {})
+        
+        logger.info(f"[EXECUTE_TASK] 执行任务类型: {task_type}, 参数: {task_params}")
+        
+        if not task_type:
+            return {"type": task_type or "unknown", "success": False, "error_msg": "任务类型为空"}
+        
+        # 检查任务类型并发控制
+        success, error_msg = self.usb_manager.serial_manager.acquire_task_type_lock(task_type)
+        if not success:
+            logger.warning(f"[EXECUTE_TASK] {error_msg}")
+            return {
+                "type": task_type,
+                "success": False,
+                "error_msg": error_msg
+            }
+
         try:
-            task_type = task.get("type")
-            task_params = task.get("params", {})
-            
-            logger.info(f"[EXECUTE_TASK] 执行任务类型: {task_type}, 参数: {task_params}")
-            
-            if not task_type:
-                return {"status": "error", "result": "任务类型为空"}
-            
             # 直接使用params中的参数，通过_execute_task_by_type执行
             result = await self._execute_task_by_type(task_type, task_params)
-            
+
+            # 确保返回结果包含type字段
+            if "type" not in result:
+                result["type"] = task_type
+
             # 直接返回字典结果
             return result
-                
         except Exception as e:
             logger.error(f"执行任务时出错: {e}")
             return {
-                "status": "error",
-                "result": f"执行任务时出错: {str(e)}"
+                "type": task_type,
+                "success": False,
+                "error_msg": f"执行任务时出错: {str(e)}"
             }
+        finally:
+            # 任务执行完成，释放任务类型锁
+            self.usb_manager.serial_manager.release_task_type_lock(task_type)
 
     def _convert_agent_result_to_client_response(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -3362,7 +3382,7 @@ Agent已知的能力（可用工具）:
                 "error_msg": f"返回位置失败: {str(e)}"
             }
     
-    # ======================
+    # ============
     # 本地模型通信
     # ======================
     
@@ -3515,16 +3535,20 @@ async def main():
     print("Smart Robot Agent is running...")
     print(f"USB串口通信端口: {USB_SERIAL_PORT}@{USB_SERIAL_BAUDRATE}")
     print("Type 'exit' to quit.")
-    
+
+    # 保存事件循环引用
+    loop = asyncio.get_running_loop()
+
     # 初始化数据库
     init_database()
-    
+
     # 修复ASM JSON文件
     fix_asm_json_format()
-    
+
     # 创建智能机器人Agent
     global smart_robot_agent_instance
     agent = SmartRobotAgent()
+    agent.event_loop = loop  # 保存事件循环引用
     smart_robot_agent_instance = agent
     # 初始化agent
     try:
@@ -3533,7 +3557,7 @@ async def main():
             logger.error("SmartRobotAgent初始化失败，退出程序")
             return
         logger.info("SmartRobotAgent启动成功")
-        
+
         # 保持运行
         try:
             agent._running = True

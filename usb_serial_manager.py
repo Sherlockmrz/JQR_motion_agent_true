@@ -2,13 +2,11 @@
 # -*- coding: utf-8 -*-
 """USB串口通信管理器"""
 
-import asyncio
 import logging
 import threading
 import time
-import datetime
 import json
-from typing import Optional, Callable, Dict, Any, List
+from typing import Optional, Callable, Dict, Any, List, Tuple
 from protocol_parser import ProtocolParser, CommandType, ParseResult
 
 logger = logging.getLogger(__name__)
@@ -34,10 +32,12 @@ class SerialManager:
         
         # 回调函数列表
         self.message_callbacks: List[Callable[[Dict[Any, Any]], None]] = []
-        
+
         # 任务响应管理
-        self.pending_tasks: Dict[str, asyncio.Future] = {}
         self.task_responses: Dict[str, List[Dict[Any, Any]]] = {}
+        
+        # 活跃任务类型管理 - 用于防止同一类型任务并发执行
+        self.active_task_types: set = set()  # 存储正在执行的任务类型
         
         # 自发自收过滤
         self.sent_messages: List[str] = []  # 存储最近发送的消息的JSON字符串
@@ -46,7 +46,7 @@ class SerialManager:
         # 线程锁
         self.lock = threading.Lock()
         
-        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口管理器初始化完成: {port}@{baudrate}")
+        logger.info(f"串口管理器初始化完成: {port}@{baudrate}")
     
     def add_callback(self, callback: Callable[[Dict[Any, Any]], None]):
         """添加消息回调函数
@@ -73,6 +73,7 @@ class SerialManager:
             
             # 尝试连接多个可能的串口设备
             possible_ports = self.port
+            logger.info(f"即将连接到串口: {possible_ports}")
             
             try:
                 self.serial_port = serial.Serial(
@@ -82,24 +83,24 @@ class SerialManager:
                     write_timeout=1.0
                 )
                 self.port = possible_ports
-                logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功连接到串口: {possible_ports}")
+                logger.info(f"成功连接到串口: {possible_ports}")
                 return True
             except (serial.SerialException, OSError):
                 return False
             
         except ImportError as e:
-            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] pyserial库未安装: {e}")
-            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 使用虚拟串口模式进行测试")
+            logger.error(f"pyserial库未安装: {e}")
+            logger.info("使用虚拟串口模式进行测试")
             self.serial_port = VirtualSerialPort()
             return True
         except Exception as e:
-            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 连接串口失败: {e}")
+            logger.error(f"连接串口失败: {e}")
             return False
     
     def start_receiving(self):
         """开始接收数据线程"""
         if self.is_running:
-            logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收线程已在运行")
+            logger.warning("接收线程已在运行")
             return
             
         self.is_running = True
@@ -109,7 +110,7 @@ class SerialManager:
             daemon=True
         )
         self.receive_thread.start()
-        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收线程已启动")
+        logger.info("串口接收线程已启动")
     
     def stop_receiving(self):
         """停止接收数据线程"""
@@ -120,11 +121,11 @@ class SerialManager:
         if self.serial_port and hasattr(self.serial_port, 'close'):
             self.serial_port.close()
         
-        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收线程已停止")
+        logger.info("串口接收线程已停止")
     
     def _receive_loop(self):
         """接收数据循环"""
-        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收循环开始")
+        logger.info("串口接收循环开始")
         
         while self.is_running:
             try:
@@ -144,119 +145,114 @@ class SerialManager:
                     time.sleep(0.01)  # 短暂休眠，避免CPU占用过高
                     
             except Exception as e:
-                logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收数据时出错: {e}")
+                logger.error(f"接收数据时出错: {e}")
                 time.sleep(0.1)  # 出错后稍长休眠
         
-        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口接收循环结束")
+        logger.info("串口接收循环结束")
     
     def _process_received_data(self, data: bytes):
         """处理接收到的数据"""
         try:
-            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
+            logger.info(f"[RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
             
             # 解析协议数据
             result = self.parser.parse_buffer(data)
-            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [PARSER_RESULT] 解析结果: {result}")
+            logger.info(f"[PARSER_RESULT] 解析结果: {result}")
             
             if result == ParseResult.PARSE_OK:
-                logger.debug(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功解析协议帧: {self.parser.buffer.hex()}")
+                logger.debug(f"成功解析协议帧: {self.parser.buffer.hex()}")
                 
                 # 提取JSON数据
                 json_data = self.parser.extract_json_data()
                 if json_data:
-                    logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [PARSER_DEBUG] 解析到JSON: {json_data}")
+                    logger.info(f"[PARSER_DEBUG] 解析到JSON: {json_data}")
                     self._handle_received_message(json_data)
                 
                 # 重置解析器准备下一帧
                 self.parser.reset()
                 
             elif result == ParseResult.PARSE_ERROR_HEADER:
-                logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 协议帧头错误")
+                logger.warning("协议帧头错误")
                 self.parser.reset()
                 
             elif result == ParseResult.PARSE_ERROR_TAIL:
-                logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 协议帧尾错误")
+                logger.warning("协议帧尾错误")
                 self.parser.reset()
                 
             elif result == ParseResult.PARSE_ERROR_LENGTH:
-                logger.warning(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 协议长度错误")
+                logger.warning("协议长度错误")
                 self.parser.reset()
                 
         except Exception as e:
-            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] [RAW_DATA] 处理接收数据时出错: {e}")
+            logger.error(f"[RAW_DATA] 处理接收数据时出错: {e}")
             self.parser.reset()
     
     def _handle_received_message(self, message: Dict[Any, Any]):
         """处理接收到的消息"""
         try:
-            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理接收到的消息: {message}")
+            logger.info(f"处理接收到的消息: {message}")
             
             # 启用自发自收过滤
             if self._is_self_sent_message(message):
-                logger.debug(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 过滤自发自收消息: {message}")
+                logger.debug(f"过滤自发自收消息: {message}")
                 return
             
             # 调用所有回调函数
             with self.lock:
                 for callback in self.message_callbacks:
                     try:
-                        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 调用回调函数: {callback.__name__}")
+                        logger.info(f"调用回调函数: {callback.__name__}")
                         callback(message)
                     except Exception as e:
-                        logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 回调函数执行失败: {e}")
+                        logger.error(f"回调函数执行失败: {e}")
             
             # 处理任务响应
             self._handle_task_response(message)
             
         except Exception as e:
-            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理消息时出错: {e}")
+            logger.error(f"处理消息时出错: {e}")
     
     def _handle_task_response(self, message: Dict[Any, Any]):
-        """处理任务响应"""
+        """处理任务响应 - 仅存储响应，不阻塞任务执行"""
         try:
             # 从消息中提取任务信息
             task_type = message.get("type")
             task_id = message.get("task_id")
-            
+
             if not task_type:
                 return
-            
+
             # 生成任务唯一标识
             if not task_id:
                 # 从活跃任务集合中查找匹配的任务
                 task_id = self._find_matching_task_id(task_type)
-            
+
             if not task_id:
                 return
-            
+
             # 存储响应
             if task_id not in self.task_responses:
                 self.task_responses[task_id] = []
-            
+
             self.task_responses[task_id].append(message)
-            
-            # 检查是否为最终结果
+
+            # 检查是否为最终结果，如果则清除任务类型的活跃状态
             if self._is_final_result(message):
                 with self.lock:
-                    if task_id in self.pending_tasks:
-                        future = self.pending_tasks[task_id]
-                        if not future.done():
-                            future.set_result(message)
-                        del self.pending_tasks[task_id]
-        
+                    # 清除任务类型的活跃状态（通过消息响应完成的任务）
+                    if task_type and task_type in self.active_task_types:
+                        self.active_task_types.remove(task_type)
+                        logger.info(f"任务类型 '{task_type}' 已执行完成 (通过消息响应)")
+
         except Exception as e:
             logger.error(f"处理任务响应时出错: {e}")
     
 
-    
+
     def _find_matching_task_id(self, task_type: str) -> Optional[str]:
         """查找匹配的任务ID"""
-        with self.lock:
-            # 查找匹配的任务类型的第一个pending任务
-            for task_id in self.pending_tasks:
-                # 如果任务ID中包含任务类型，则认为匹配
-                if task_type.lower() in task_id.lower():
-                    return task_id
+        # 由于不再使用pending_tasks，这里返回None
+        # task_responses存储历史响应，不需要按类型查找
         return None
     
     def _is_final_result(self, message: Dict[Any, Any]) -> bool:
@@ -275,78 +271,105 @@ class SerialManager:
     
     def send_message(self, message: Dict[Any, Any]) -> bool:
         """发送消息
-        
+
         Args:
             message: 要发送的JSON消息
-            
+
         Returns:
             bool: 发送是否成功
         """
         try:
             if not self.serial_port:
-                logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口未连接")
+                logger.error("串口未连接")
                 return False
-            
+
             # 转换为JSON字符串
             json_str = json.dumps(message, ensure_ascii=False)
-            
+
             # 记录发送的消息用于过滤自发自收
             self._record_sent_message(json_str)
-            
+
             # 创建协议帧 (地瓜S100应答使用0x81)
             frame = self.parser.create_response_frame(CommandType.CMD_JSON_RESPONSE, json_str)
-            logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建协议帧: {frame.hex()}")
+            logger.info(f"创建协议帧: {frame.hex()}")
             # 发送数据
             if hasattr(self.serial_port, 'write'):
                 bytes_written = self.serial_port.write(frame)
                 if hasattr(self.serial_port, 'flush'):
                     self.serial_port.flush()
-                
-                logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已发送USB消息: {json_str} ({bytes_written} bytes)")
+
+                logger.info(f"已发送USB消息: {json_str} ({bytes_written} bytes)")
                 return True
             else:
-                logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 串口对象不支持写入操作")
+                logger.error("串口对象不支持写入操作")
                 return False
-                
+
         except Exception as e:
-            logger.error(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送消息失败: {e}")
+            logger.error(f"发送消息失败: {e}")
             return False
     
-    def register_task(self, task_id: str) -> asyncio.Future:
-        """注册任务等待响应
-        
+    def register_task(self, task_id: str, task_type: Optional[str] = None) -> Tuple[bool, str]:
+        """注册任务，立即返回不等待响应
+
         Args:
             task_id: 任务ID
-            
+            task_type: 任务类型，用于并发控制
+
         Returns:
-            asyncio.Future: 用于等待响应的Future对象
+            Tuple[bool, str]: (是否成功, 错误消息)
         """
-        loop = asyncio.get_event_loop()
-        future = loop.create_future()
-        
+        # 初始化响应列表
         with self.lock:
-            self.pending_tasks[task_id] = future
-            # 初始化响应列表
             if task_id not in self.task_responses:
                 self.task_responses[task_id] = []
+
+        logger.info(f"注册任务: {task_id} (type: {task_type})")
+        return True, ""
+    
+    def acquire_task_type_lock(self, task_type: str) -> Tuple[bool, str]:
+        """尝试获取任务类型锁
         
-        logger.debug(f"注册任务等待: {task_id}")
-        return future
+        Args:
+            task_type: 任务类型
+            
+        Returns:
+            Tuple[bool, str]: (是否成功获取, 错误消息)
+        """
+        with self.lock:
+            if task_type in self.active_task_types:
+                error_msg = f"任务类型 '{task_type}' 正在执行中，请等待当前任务完成"
+                logger.warning(error_msg)
+                return False, error_msg
+            
+            self.active_task_types.add(task_type)
+            logger.info(f"任务类型 '{task_type}' 获取锁成功")
+            return True, ""
+    
+    def release_task_type_lock(self, task_type: str):
+        """释放任务类型锁
+        
+        Args:
+            task_type: 任务类型
+        """
+        with self.lock:
+            if task_type in self.active_task_types:
+                self.active_task_types.remove(task_type)
+                logger.info(f"任务类型 '{task_type}' 释放锁成功")
     
     def get_task_responses(self, task_id: str) -> List[Dict[Any, Any]]:
         """获取任务的所有响应"""
         return self.task_responses.get(task_id, [])
     
-    def clear_task_responses(self, task_id: str):
+    def clear_task_responses(self, task_id: str, task_type: Optional[str] = None):
         """清除任务响应"""
         if task_id in self.task_responses:
             del self.task_responses[task_id]
-        
+
         with self.lock:
-            if task_id in self.pending_tasks:
-                if not self.pending_tasks[task_id].done():
-                    self.pending_tasks[task_id].cancel()
-                del self.pending_tasks[task_id]
+            # 清除任务类型的活跃状态
+            if task_type and task_type in self.active_task_types:
+                self.active_task_types.remove(task_type)
+                logger.info(f"任务类型 '{task_type}' 已执行完成")
     
     def _record_sent_message(self, json_str: str):
         """记录发送的消息用于自发自收过滤"""
@@ -433,7 +456,7 @@ class VirtualSerialPort:
     
     def write(self, data: bytes) -> int:
         """模拟写入数据"""
-        logger.info(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 虚拟串口写入: {data.hex()}")
+        logger.info(f"虚拟串口写入: {data.hex()}")
         return len(data)
     
     def flush(self):
