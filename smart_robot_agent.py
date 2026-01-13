@@ -431,7 +431,7 @@ class AgentMemory:
 
 class ROS2Interface:
     """ROS2接口类，用于与ROS2系统进行交互"""
-    
+
     def __init__(self):
         """初始化ROS2接口"""
         self.battery_level = 100.0  # 初始电池电量
@@ -445,16 +445,26 @@ class ROS2Interface:
         self.initialized = False  # ROS2是否已初始化
         self.ros2_thread = None  # ROS2处理线程
         self.ros2_thread_running = False  # ROS2线程是否运行
-        
+
+        # 并发服务调用支持
+        self.service_clients = {}  # 服务客户端缓存 {service_name: (client, callback_group)}
+        self.mutually_exclusive_callback_group = None  # 互斥回调组
+        self.reentrant_callback_group = None  # 可重入回调组
+
+        # 异步服务调用结果存储
+        self.service_call_results = {}  # {call_id: (future, event, result)}
+        self.call_id_counter = 0  # 服务调用ID计数器
+        self.service_call_lock = threading.Lock()  # 服务调用锁
+
         # 如果ROS2可用，初始化rclpy
         if ROS2_AVAILABLE:
             self._initialize_ros2()
     def set_laser_pointer(self, *args, **kwargs) -> Dict[str, Any]:
-        """控制激光笔开关/查询状态 (jqr_ros_msgs版本)
-        
+        """控制激光笔开关/查询状态 (jqr_ros_msgs版本，支持并发)
+
         Args:
             laser_pointer (bool): True=开启, False=关闭
-            
+
         Returns:
             Dict[str, Any]: 控制结果
         """
@@ -465,54 +475,50 @@ class ROS2Interface:
                 # 修复错误的参数名：bool -> laser_pointer
                 laser_pointer_value = kwargs.pop('bool')
                 kwargs['laser_pointer'] = laser_pointer_value
-            
+
             if 'laser_pointer' in kwargs:
                 laser_pointer_value = kwargs['laser_pointer']
             elif len(args) > 0:
                 laser_pointer_value = args[0]
             else:
                 return self.get_laser_pointer_state()
-            
-            request_data = f'{{"laser_pointer": {laser_pointer_value}}}'
-            response = self._call_ros2_service(
+
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/set_laser_pointer",
                 "jqr_ros_msgs/srv/LaserPointer",
-                request_data
+                {"laser_pointer": laser_pointer_value},
+                timeout=10.0
             )
-            if response is None:
-                result = {
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
-                    "description": "服务 /set_laser_pointer 不存在或调用失败"
+                    "description": error_msg
                 }
-                logger.error(f"[ROS2] 设置激光笔失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+            success = (result_number in [1, 2, 3])
+
+            if success:
+                logger.info(f"[ROS2] 激光笔控制成功: {result_msg}")
+                return {
+                    "success": True,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
             else:
-                if not response or not response.strip():
-                    return {
-                        "success": False,
-                        "description": "激光笔服务返回空响应"
-                    }
-                try:
-                    response_data = parse_ros2_response(response)
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    success = (result_number in [1, 2, 3])
-                    result = {
-                        "success": success,
-                        "description": result_msg,
-                        "result_number": result_number
-                    }
-                    if success:
-                        logger.info(f"[ROS2] 激光笔控制成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 激光笔控制失败: {result}")
-                    return result
-                except Exception as e:
-                    logger.error(f"[ROS2] 激光笔响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                logger.error(f"[ROS2] 激光笔控制失败: {result_msg}")
+                return {
+                    "success": False,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 设置激光笔失败: {e}")
             return {
@@ -521,53 +527,51 @@ class ROS2Interface:
             }
     
     def get_laser_pointer_state(self) -> Dict[str, Any]:
-        """获取激光笔状态
-        
+        """获取激光笔状态（支持并发）
+
         Returns:
             Dict[str, Any]: 激光笔状态信息
         """
         try:
-            response = self._call_ros2_service(
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/get_laser_pointer_state",
                 "jqr_ros_msgs/srv/LaserPointerState",
-                "{}"
+                {},
+                timeout=10.0
             )
-            if response is None:
-                result = {
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
-                    "description": "服务 /get_laser_pointer_state 不存在或调用失败"
+                    "description": error_msg
                 }
-                logger.error(f"[ROS2] 获取激光笔状态失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            laser_pointer_state = response_dict.get("laser_pointer_state", False)
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 获取激光笔状态成功: state={laser_pointer_state}")
+                return {
+                    "success": True,
+                    "laser_pointer_state": laser_pointer_state,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
             else:
-                if not response or not response.strip():
-                    return {
-                        "success": False,
-                        "description": "激光笔状态服务返回空响应"
-                    }
-                try:
-                    response_data = parse_ros2_response(response)
-                    laser_pointer_state = response_data.get("laser_pointer_state", False)
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    success = (result_number == 1)
-                    result = {
-                        "success": success,
-                        "laser_pointer_state": laser_pointer_state,
-                        "description": result_msg if success else f"获取失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    if success:
-                        logger.info(f"[ROS2] 获取激光笔状态成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 获取激光笔状态失败: {result}")
-                    return result
-                except Exception as e:
-                    logger.error(f"[ROS2] 激光笔状态响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                logger.error(f"[ROS2] 获取激光笔状态失败: {result_msg}")
+                return {
+                    "success": False,
+                    "laser_pointer_state": laser_pointer_state,
+                    "description": f"获取失败: {result_msg}",
+                    "result_number": result_number
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 获取激光笔状态失败: {e}")
             return {
@@ -638,18 +642,21 @@ class ROS2Interface:
                 logger.warning("[ROS2] rclpy模块不可用，跳过初始化")
                 self.initialized = False
                 return False
-            
+
             # 检查是否已经初始化
             try:
                 # 尝试获取rclpy状态来判断是否已初始化
+                # Pylance 可能不认识 get_instance，但在某些rclpy版本中存在
                 if hasattr(rclpy, 'get_instance'):
-                    instance = rclpy.get_instance()
+                    instance = rclpy.get_instance()  # type: ignore
                     if instance is not None:
                         logger.info("[ROS2] rclpy已经初始化")
                         # 如果rclpy已初始化但没有节点，创建节点
                         if self.node is None:
                             self.node = rclpy.create_node('smart_robot_agent_ros2')
                             logger.info("[ROS2] 节点创建成功: smart_robot_agent_ros2")
+                        # 创建回调组
+                        self._create_callback_groups()
                         self.initialized = True
                         # 启动ROS2处理线程
                         self._start_ros2_spin_thread()
@@ -661,20 +668,23 @@ class ROS2Interface:
                 logger.debug(f"[ROS2] 检查初始化状态时出错: {check_error}")
                 # 未初始化，进行初始化
                 pass
-            
+
             # 初始化rclpy
             rclpy.init()
             logger.info("[ROS2] rclpy初始化成功")
-            
+
             # 创建节点
             self.node = rclpy.create_node('smart_robot_agent_ros2')
             logger.info("[ROS2] 节点创建成功: smart_robot_agent_ros2")
-            
+
+            # 创建回调组
+            self._create_callback_groups()
+
             self.initialized = True
             # 启动ROS2处理线程
             self._start_ros2_spin_thread()
             return True
-            
+
         except Exception as e:
             logger.error(f"[ROS2] 初始化失败: {e}")
             self.initialized = False
@@ -691,6 +701,24 @@ class ROS2Interface:
         self.ros2_thread.start()
         logger.info("[ROS2] 独立处理线程已启动")
     
+    def _create_callback_groups(self):
+        """创建回调组以支持并发服务调用"""
+        try:
+            from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
+
+            # 创建互斥回调组（串行执行，用于需要互斥的操作）
+            self.mutually_exclusive_callback_group = MutuallyExclusiveCallbackGroup()
+            logger.info("[ROS2] 互斥回调组创建成功")
+
+            # 创建可重入回调组（并发执行，用于支持并发的服务调用）
+            self.reentrant_callback_group = ReentrantCallbackGroup()
+            logger.info("[ROS2] 可重入回调组创建成功")
+
+        except Exception as e:
+            logger.error(f"[ROS2] 创建回调组失败: {e}")
+            self.mutually_exclusive_callback_group = None
+            self.reentrant_callback_group = None
+
     def _ros2_spin_worker(self):
         """ROS2独立处理线程工作函数"""
         global rclpy
@@ -721,7 +749,11 @@ class ROS2Interface:
         try:
             # 停止处理线程
             self.stop_ros2_spin_thread()
-            
+
+            # 清理服务客户端缓存
+            self.service_clients.clear()
+            self.service_call_results.clear()
+
             if self.initialized and rclpy:
                 if self.node:
                     self.node.destroy_node()
@@ -761,10 +793,10 @@ class ROS2Interface:
     
     def _check_ros2_action_exists(self, action_name: str) -> bool:
         """检查ROS2动作是否存在
-        
+
         Args:
             action_name (str): 动作名称
-            
+
         Returns:
             bool: 动作是否存在
         """
@@ -772,19 +804,184 @@ class ROS2Interface:
             # 使用ros2 action list命令检查动作是否存在
             cmd = f"ros2 action list"
             result = os.popen(cmd).read().strip()
-            
+
             # 检查动作名称是否在动作列表中
             actions = result.split('\n')
             for action in actions:
                 if action.strip() == action_name:
                     logger.info(f"[ROS2] 动作 {action_name} 存在")
                     return True
-            
+
             logger.warning(f"[ROS2] 动作 {action_name} 不存在")
             return False
         except Exception as e:
             logger.error(f"[ROS2] 检查动作存在性失败: {e}")
             return False
+
+    def _get_or_create_service_client(self, service_name: str, service_type: str, use_concurrent: bool = True):
+        """获取或创建服务客户端
+
+        Args:
+            service_name (str): 服务名称
+            service_type (str): 服务类型字符串 (如 "jqr_ros_msgs/srv/RobotRise")
+            use_concurrent (bool): 是否使用并发回调组
+
+        Returns:
+            服务客户端对象，如果创建失败则返回None
+        """
+        try:
+            # 检查缓存中是否已有该客户端
+            if service_name in self.service_clients:
+                return self.service_clients[service_name][0]
+
+            # 解析服务类型字符串
+            # 格式: "package_name/srv/ServiceName"
+            parts = service_type.split('/')
+            if len(parts) != 3:
+                logger.error(f"[ROS2] 无效的服务类型格式: {service_type}")
+                return None
+
+            package_name = parts[0]
+            srv_name = parts[2]
+
+            # 动态导入服务类型
+            try:
+                module = __import__(f'{package_name}.srv', fromlist=[srv_name])
+                srv_class = getattr(module, srv_name)
+            except (ImportError, AttributeError) as e:
+                logger.error(f"[ROS2] 无法导入服务类型 {service_type}: {e}")
+                return None
+
+            # 选择回调组
+            callback_group = self.reentrant_callback_group if use_concurrent else self.mutually_exclusive_callback_group
+
+            # 创建服务客户端（如果node为None则返回None）
+            if self.node is None:
+                logger.error(f"[ROS2] 节点未初始化，无法创建服务客户端")
+                return None
+
+            # 创建服务客户端
+            # Pylance 类型检查可能有误，callback_group 类型是兼容的
+            client = self.node.create_client(
+                srv_class,
+                service_name,
+                callback_group=callback_group  # type: ignore
+            )
+
+            # 缓存客户端
+            self.service_clients[service_name] = (client, callback_group)
+            logger.info(f"[ROS2] 服务客户端已创建: {service_name}")
+
+            return client
+
+        except Exception as e:
+            logger.error(f"[ROS2] 创建服务客户端失败: {e}")
+            return None
+
+    def _call_ros2_service_async(self, service_name: str, service_type: str, request_data: dict, timeout: float = 10.0) -> Dict[str, Any]:
+        """异步调用ROS2服务（支持并发）
+
+        Args:
+            service_name (str): 服务名称
+            service_type (str): 服务类型
+            request_data (dict): 请求数据（字典格式）
+            timeout (float): 超时时间（秒）
+
+        Returns:
+            Dict[str, Any]: 服务响应结果
+        """
+        # 首先检查服务是否存在
+        if not self._check_ros2_service_exists(service_name):
+            logger.error(f"[ROS2] 服务 {service_name} 不存在，无法调用")
+            return {
+                "success": False,
+                "error_msg": f"服务 {service_name} 不存在或调用失败"
+            }
+
+        try:
+            # 获取或创建服务客户端（使用可重入回调组支持并发）
+            client = self._get_or_create_service_client(service_name, service_type, use_concurrent=True)
+            if not client:
+                return {
+                    "success": False,
+                    "error_msg": f"无法创建服务客户端: {service_name}"
+                }
+
+            # 等待服务可用
+            if not client.wait_for_service(timeout_sec=timeout):
+                logger.error(f"[ROS2] 服务 {service_name} 未在 {timeout} 秒内变为可用")
+                return {
+                    "success": False,
+                    "error_msg": f"服务 {service_name} 未在 {timeout} 秒内变为可用"
+                }
+
+            # 创建请求对象
+            # Pylance 类型检查可能有误，srv_type.Request 在运行时存在
+            if hasattr(client, 'srv_type'):
+                request_type = client.srv_type.Request  # type: ignore
+                if request_type is None:
+                    logger.error(f"[ROS2] 无法获取服务类型")
+                    return {
+                        "success": False,
+                        "error_msg": "无法获取服务类型"
+                    }
+                request = request_type()  # type: ignore
+            else:
+                logger.error(f"[ROS2] 客户端没有 srv_type 属性")
+                return {
+                    "success": False,
+                    "error_msg": "客户端没有 srv_type 属性"
+                }
+            for key, value in request_data.items():
+                if hasattr(request, key):
+                    setattr(request, key, value)
+                else:
+                    logger.warning(f"[ROS2] 请求类型没有属性: {key}")
+
+            # 同步调用服务（由于回调组是可重入的，多个服务调用可以并发执行）
+            # 注意：这里使用同步调用但配合可重入回调组，ROS2会在后台处理多个服务请求
+            future = client.call_async(request)
+
+            # 等待结果
+            start_time = time.time()
+            while not future.done():
+                if time.time() - start_time > timeout:
+                    logger.error(f"[ROS2] 服务调用超时: {service_name}")
+                    return {
+                        "success": False,
+                        "error_msg": f"服务调用超时: {service_name}"
+                    }
+                time.sleep(0.01)
+
+            response = future.result()
+
+            # 将响应转换为字典
+            response_dict = {}
+            if hasattr(response, 'get_fields_and_field_types'):
+                # Pylance 可能无法识别 get_fields_and_field_types，运行时它是正确的
+                for field_name in response.get_fields_and_field_types():  # type: ignore
+                    value = getattr(response, field_name)
+                    # 处理std_msgs类型
+                    if hasattr(value, 'data'):
+                        response_dict[field_name] = value.data
+                    else:
+                        response_dict[field_name] = value
+            else:
+                # 如果无法获取字段，尝试直接转换为字典
+                response_dict = vars(response) if hasattr(response, '__dict__') else {}
+
+            logger.info(f"[ROS2] 异步服务调用成功: {service_name}, 响应: {response_dict}")
+            return {
+                "success": True,
+                "response": response_dict
+            }
+
+        except Exception as e:
+            logger.error(f"[ROS2] 异步服务调用失败: {e}")
+            return {
+                "success": False,
+                "error_msg": f"服务调用失败: {str(e)}"
+            }
     
     def _call_ros2_service(self, service_name: str, service_type: str, request_data: str) -> Optional[str]:
         """调用ROS2服务
@@ -1052,76 +1249,57 @@ class ROS2Interface:
     # ======================
     
     def get_move_mode(self) -> Dict[str, Any]:
-        """获取运动模式
-        
+        """获取运动模式（支持并发）
+
         Returns:
             Dict[str, Any]: 运动模式信息
         """
         try:
-            # 调用ROS2服务获取运动模式
-            response = self._call_ros2_service(
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/get_move_mode",
                 "jqr_ros_msgs/srv/MoveMode",
-                '{}'
+                {},
+                timeout=10.0
             )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
                     "move_mode": -1,
                     "linear_vel": 0.0,
-                    "description": "服务 /get_move_mode 不存在或调用失败"
+                    "description": error_msg
                 }
-                logger.error(f"[ROS2] 获取运动模式失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            move_mode = response_dict.get("move_mode", -1)
+            linear_vel = response_dict.get("linear_vel", 0.0)
+            result_number = response_dict.get("result_number", 1)
+            result_msg = response_dict.get("result_msg", "")
+
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 获取运动模式成功: mode={move_mode}, vel={linear_vel}")
+                return {
+                    "success": True,
+                    "move_mode": move_mode,
+                    "linear_vel": linear_vel,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
             else:
-                # 检查响应是否为空或无效
-                if not response or not response.strip():
-                    logger.error(f"[ROS2] 运动模式服务返回空响应")
-                    return {
-                        "success": False,
-                        "move_mode": -1,
-                        "linear_vel": 0.0,
-                        "description": "运动模式服务返回空响应"
-                    }
-                
-                # 解析响应数据
-                try:
-                    # 使用新的解析函数解析YAML响应
-                    response_data = parse_ros2_response(response)
-                    
-                    move_mode = response_data.get("move_mode", -1)
-                    linear_vel = response_data.get("linear_vel", 0.0)
-                    result_number = response_data.get("result_number", 1)  # 0表示成功
-                    result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
-                    result = {
-                        "success": success,
-                        "move_mode": move_mode,
-                        "linear_vel": linear_vel,
-                        "description": result_msg if success else f"获取失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    
-                    if success:
-                        logger.info(f"[ROS2] 获取运动模式成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 获取运动模式失败: {result}")
-                    
-                    return result
-                    
-                except Exception as e:
-                    logger.error(f"[ROS2] 运动模式响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "move_mode": -1,
-                        "linear_vel": 0.0,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
-                    
+                logger.error(f"[ROS2] 获取运动模式失败: {result_msg}")
+                return {
+                    "success": False,
+                    "move_mode": move_mode,
+                    "linear_vel": linear_vel,
+                    "description": f"获取失败: {result_msg}",
+                    "result_number": result_number
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 获取运动模式失败: {e}")
             return {
@@ -1131,79 +1309,54 @@ class ROS2Interface:
                 "description": f"获取运动模式失败: {str(e)}"
             }
     def set_robot_rise_jqr(self, rise: bool, duration: int = 0) -> Dict[str, Any]:
-        """控制机器人升降 (jqr_ros_msgs版本)
-        
+        """控制机器人升降 (jqr_ros_msgs版本，支持并发)
+
         Args:
             rise (bool): 升降状态 (True: 上升, False: 下降)
             duration (int): 执行时间（单位0.1s），缺省表示希望以最快的速度执行
-            
+
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
             # 构造请求数据
+            request_data = {"robot_rise": rise}
             if duration > 0:
-                request_data = f'{{"robot_rise": {str(rise).lower()}, "duration": {duration}}}'
-            else:
-                request_data = f'{{"robot_rise": {str(rise).lower()}}}'
-                
-            # 调用ROS2服务控制机器人升降
-            response = self._call_ros2_service(
+                # Pylance 可能误报类型错误，duration 确实是 int 类型
+                request_data["duration"] = duration  # type: ignore
+
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/set_robot_rise",
                 "jqr_ros_msgs/srv/RobotRise",
-                request_data
+                request_data,
+                timeout=10.0
             )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
+
+            if not result.get("success"):
+                err_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
-                    "err_msg": "服务 /set_robot_rise 不存在或调用失败"
+                    "err_msg": err_msg
                 }
-                logger.error(f"[ROS2] 设置机器人升降失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 设置机器人升降成功: 上升={rise}, duration={duration}")
+                return {"success": True, "err_msg": ""}
             else:
-                # 检查响应是否为空或无效
-                if not response or not response.strip():
-                    logger.error(f"[ROS2] 机器人升降服务返回空响应")
-                    return {
-                        "success": False,
-                        "err_msg": "机器人升降服务返回空响应"
-                    }
-                
-                # 解析响应数据
-                try:
-                    # 使用parse_ros2_response工具函数解析响应
-                    response_data = parse_ros2_response(response)
-                    # 根据jqr_ros_msgs的RobotRise响应格式解析
-                    # 响应应包含: result_number, result_msg
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
-                    result = {
-                        "success": success,
-                        "err_msg": ""
-                    }
-                    
-                    if success:
-                        logger.info(f"[ROS2] 设置机器人升降成功: {result}")
-                    else:
-                        result = {
-                        "success": success,
-                        "err_msg": result_msg
-                        }
-                        logger.error(f"[ROS2] 设置机器人升降失败: {result}")
-                    
-                    return result
-                    
-                except (json.JSONDecodeError, KeyError) as e:
-                    logger.error(f"[ROS2] 设置机器人升降响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "err_msg": f"响应解析失败: {str(e)}"
-                    }
+                logger.error(f"[ROS2] 设置机器人升降失败: {result_msg}")
+                return {
+                    "success": False,
+                    "err_msg": result_msg
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 设置机器人升降失败: {e}")
             return {
@@ -1212,70 +1365,53 @@ class ROS2Interface:
             }
         
     def get_robot_rise_state(self) -> Dict[str, Any]:
-        """获取机器人升降状态
-        
+        """获取机器人升降状态（支持并发）
+
         Returns:
             Dict[str, Any]: 升降状态信息
         """
         try:
-            # 调用ROS2服务获取机器人升降状态
-            response = self._call_ros2_service(
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/get_robot_rise",
                 "jqr_ros_msgs/srv/RobotRiseState",
-                "{}"
+                {},
+                timeout=10.0
             )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
                     "state": False,
-                    "description": "服务 /get_robot_rise_state 不存在或调用失败"
+                    "description": error_msg
                 }
-                logger.error(f"[ROS2] 获取机器人升降状态失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            robot_rise_state = response_dict.get("robot_rise_state", False)
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 获取机器人升降状态成功: state={robot_rise_state}")
+                return {
+                    "success": True,
+                    "state": robot_rise_state,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
             else:
-                # 检查响应是否为空或无效
-                if not response or not response.strip():
-                    logger.error(f"[ROS2] 机器人升降状态服务返回空响应")
-                    return {
-                        "success": False,
-                        "state": False,
-                        "description": "机器人升降状态服务返回空响应"
-                    }
-                
-                # 解析响应数据
-                try:
-                    # 使用新的解析函数解析YAML响应
-                    response_data = parse_ros2_response(response)
-                    
-                    robot_rise_state = response_data.get("robot_rise_state", False)
-                    result_number = response_data.get("result_number", 0)  # 1表示成功
-                    result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
-                    result = {
-                        "success": success,
-                        "state": robot_rise_state,
-                        "description": result_msg if success else f"获取失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    
-                    if success:
-                        logger.info(f"[ROS2] 获取机器人升降状态成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 获取机器人升降状态失败: {result}")
-                    
-                    return result
-                    
-                except Exception as e:
-                    logger.error(f"[ROS2] 机器人升降状态响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "state": False,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                logger.error(f"[ROS2] 获取机器人升降状态失败: {result_msg}")
+                return {
+                    "success": False,
+                    "state": robot_rise_state,
+                    "description": f"获取失败: {result_msg}",
+                    "result_number": result_number
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 获取机器人升降状态失败: {e}")
             return {
@@ -1289,80 +1425,61 @@ class ROS2Interface:
     # ======================
     
     def set_robot_tilt_jqr(self, angle: float, duration: int = 0) -> Dict[str, Any]:
-        """控制机器人俯仰 (jqr_ros_msgs版本)
-        
+        """控制机器人俯仰 (jqr_ros_msgs版本，支持并发)
+
         Args:
             angle (float): 俯仰角度
             duration (int): 执行时间（单位0.1s），缺省表示希望以最快的速度执行
-            
+
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
             # 构造请求数据
+            request_data = {"robot_tilt": angle}
             if duration > 0:
-                request_data = f'{{"robot_tilt": {angle}, "duration": {duration}}}'
-            else:
-                request_data = f'{{"robot_tilt": {angle}}}'
-                
-            # 调用ROS2服务控制机器人俯仰
-            response = self._call_ros2_service(
+                request_data["duration"] = duration
+
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/set_robot_tilt",
                 "jqr_ros_msgs/srv/RobotTilt",
-                request_data
+                request_data,
+                timeout=10.0
             )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
                     "angle": angle,
-                    "description": "服务 /set_robot_tilt 不存在或调用失败"
+                    "description": error_msg
                 }
-                logger.error(f"[ROS2] 设置机器人俯仰角度失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 设置机器人俯仰角度成功: angle={angle}")
+                return {
+                    "success": True,
+                    "angle": angle,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
             else:
-                # 检查响应是否为空或无效
-                if not response or not response.strip():
-                    logger.error(f"[ROS2] 机器人俯仰服务返回空响应")
-                    return {
-                        "success": False,
-                        "angle": angle,
-                        "description": "机器人俯仰服务返回空响应"
-                    }
-                
-                # 解析响应数据
-                try:
-                    # 使用parse_ros2_response工具函数解析响应
-                    response_data = parse_ros2_response(response)
-                    # 根据jqr_ros_msgs的RobotTilt响应格式解析
-                    # 响应应包含: result_number, result_msg
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
-                    result = {
-                        "success": success,
-                        "angle": angle,
-                        "description": result_msg if success else f"设置失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    
-                    if success:
-                        logger.info(f"[ROS2] 设置机器人俯仰角度成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 设置机器人俯仰角度失败: {result}")
-                    
-                    return result
-                    
-                except (json.JSONDecodeError, KeyError) as e:
-                    logger.error(f"[ROS2] 设置机器人俯仰角度响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "angle": angle,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                logger.error(f"[ROS2] 设置机器人俯仰角度失败: {result_msg}")
+                return {
+                    "success": False,
+                    "angle": angle,
+                    "description": f"设置失败: {result_msg}",
+                    "result_number": result_number
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 设置机器人俯仰角度失败: {e}")
             return {
@@ -1425,78 +1542,56 @@ class ROS2Interface:
     # ======================
     
     def set_medicine_box_switch(self, switch: bool, speed_stage: int) -> Dict[str, Any]:
-        """控制药箱开关
-        
+        """控制药箱开关（支持并发）
+
         Args:
             switch (bool): 药箱开关状态 (True: 打开, False: 关闭)
             speed_stage (int): 速度档位 (1: 慢档, 2: 快档)
-            
+
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
-            # 构造请求数据
-            request_data = f'{{"medicine_box_switch": {str(switch).lower()}, "speed_stage": {speed_stage}}}'
-            
-            # 调用ROS2服务控制药箱开关
-            response = self._call_ros2_service(
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/set_medicine_box_switch",
                 "jqr_ros_msgs/srv/MedicineBoxSwitch",
-                request_data
+                {
+                    "medicine_box_switch": switch,
+                    "speed_stage": speed_stage
+                },
+                timeout=10.0
             )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
-                    "type": "set_medicine_box_switch",
-                    "success": False,
-                    "error_msg": "服务 /set_medicine_box_switch 不存在或调用失败"
-                }
-                logger.error(f"[ROS2] 设置药箱开关失败: {result}")
-                return result
 
-            # 检查响应是否为空或无效
-            if not response or not response.strip():
-                logger.error(f"[ROS2] 药箱开关服务返回空响应")
-                result = {
-                    "type": "set_medicine_box_switch",
-                    "success": False,
-                    "error_msg": "药箱开关服务返回空响应"
-                }
-                return result
-
-            # 解析响应数据
-            try:
-                # 使用parse_ros2_response工具函数解析响应
-                response_data = parse_ros2_response(response)
-                # 根据jqr_ros_msgs的MedicineBoxSwitch响应格式解析
-                # 响应应包含: result_number, result_msg
-                result_number = response_data.get("result_number", 0)
-                result_msg = response_data.get("result_msg", "")
-                
-                success = (result_number == 1)
-                
-                result = {
-                    "type": "set_medicine_box_switch",
-                    "success": success
-                }
-                if not success:
-                    result["error_msg"] = result_msg or "服务异常"
-                
-                if success:
-                    logger.info(f"[ROS2] 设置药箱开关成功: {result}")
-                else:
-                    logger.error(f"[ROS2] 设置药箱开关失败: {result}")
-                
-                return result
-                
-            except (json.JSONDecodeError, KeyError) as e:
-                logger.error(f"[ROS2] 设置药箱开关响应解析失败: {e}, 原始响应: {response}")
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
                 return {
                     "type": "set_medicine_box_switch",
                     "success": False,
-                    "error_msg": f"响应解析失败: {str(e)}"
+                    "error_msg": error_msg
                 }
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 设置药箱开关成功: switch={switch}, speed={speed_stage}")
+                return {
+                    "type": "set_medicine_box_switch",
+                    "success": True
+                }
+            else:
+                logger.error(f"[ROS2] 设置药箱开关失败: {result_msg}")
+                return {
+                    "type": "set_medicine_box_switch",
+                    "success": False,
+                    "error_msg": result_msg or "服务异常"
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 设置药箱开关失败: {e}")
             return {
@@ -1506,70 +1601,53 @@ class ROS2Interface:
             }
     
     def get_medicine_box_state(self) -> Dict[str, Any]:
-        """获取药箱状态
-        
+        """获取药箱状态（支持并发）
+
         Returns:
             Dict[str, Any]: 药箱状态信息
         """
         try:
-            # 调用ROS2服务获取药箱状态
-            response = self._call_ros2_service(
+            # 使用异步服务调用（支持并发）
+            result = self._call_ros2_service_async(
                 "/get_medicine_box_state",
                 "jqr_ros_msgs/srv/MedicineBoxState",
-                "{}"
+                {},
+                timeout=10.0
             )
-            
-            if response is None:
-                # 服务调用失败，可能是服务不存在
-                result = {
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
                     "success": False,
                     "state": False,
-                    "description": "服务 /get_medicine_box_state 不存在或调用失败"
+                    "description": error_msg
                 }
-                logger.error(f"[ROS2] 获取药箱状态失败: {result}")
-                return result
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            medicine_box_state = response_dict.get("medicine_box_switch_state", False)
+            result_number = response_dict.get("result_number", 0)
+            result_msg = response_dict.get("result_msg", "")
+
+            success = (result_number == 1)
+
+            if success:
+                logger.info(f"[ROS2] 获取药箱状态成功: state={medicine_box_state}")
+                return {
+                    "success": True,
+                    "state": medicine_box_state,
+                    "description": result_msg,
+                    "result_number": result_number
+                }
             else:
-                # 检查响应是否为空或无效
-                if not response or not response.strip():
-                    logger.error(f"[ROS2] 药箱状态服务返回空响应")
-                    return {
-                        "success": False,
-                        "state": False,
-                        "description": "药箱状态服务返回空响应"
-                    }
-                
-                # 解析响应数据
-                try:
-                    # 使用新的解析函数解析YAML响应
-                    response_data = parse_ros2_response(response)
-                    
-                    medicine_box_state = response_data.get("medicine_box_switch_state", False)
-                    result_number = response_data.get("result_number", 1)  # 0表示成功
-                    result_msg = response_data.get("result_msg", "")
-                    
-                    success = (result_number == 1)
-                    
-                    result = {
-                        "success": success,
-                        "state": medicine_box_state,
-                        "description": result_msg if success else f"获取失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    
-                    if success:
-                        logger.info(f"[ROS2] 获取药箱状态成功: {result}")
-                    else:
-                        logger.error(f"[ROS2] 获取药箱状态失败: {result}")
-                    
-                    return result
-                    
-                except Exception as e:
-                    logger.error(f"[ROS2] 药箱状态响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "state": False,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                logger.error(f"[ROS2] 获取药箱状态失败: {result_msg}")
+                return {
+                    "success": False,
+                    "state": medicine_box_state,
+                    "description": f"获取失败: {result_msg}",
+                    "result_number": result_number
+                }
+
         except Exception as e:
             logger.error(f"[ROS2] 获取药箱状态失败: {e}")
             return {
@@ -2110,33 +2188,41 @@ class USBCoordinateManager:
             return False
     
     def _handle_received_message(self, message: Dict[Any, Any]):
-        """处理接收到的消息 - 实时处理，不经过队列"""
+        """处理接收到的消息 - 使用线程池实现真正的并发"""
         try:
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收到USB消息: {message}")
 
             # 将消息转发给agent处理
             if self.agent and hasattr(self.agent, 'handle_client_message'):
-                # 优先使用保存的事件循环，如果不可用则尝试获取当前运行的事件循环
-                loop = self.agent.event_loop
-                if not loop or not loop.is_running():
-                    # 尝试获取当前运行的事件循环
-                    try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 没有可用的运行中事件循环，无法调度任务")
-                        return
-
-                # 使用事件循环调度异步任务
-                future = asyncio.run_coroutine_threadsafe(
-                    self.agent.handle_client_message(message),
-                    loop
+                # 使用独立线程处理每个消息，实现真正的并发
+                # 每个消息都在独立的线程中执行，互不阻塞
+                thread = threading.Thread(
+                    target=self._process_message_in_thread,
+                    args=(message,),
+                    daemon=True,
+                    name=f"MessageHandler-{datetime.now().strftime('%H%M%S%f')}"
                 )
-                # 添加异常处理回调
-                future.add_done_callback(lambda f: None if f.exception() is None else logger.error(f"任务执行异常: {f.exception()}"))
+                thread.start()
             else:
                 logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Agent或handle_client_message方法不可用")
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理USB消息失败: {e}")
+
+    def _process_message_in_thread(self, message: Dict[str, Any]):
+        """在独立线程中处理消息"""
+        try:
+            # 在线程中创建新的事件循环来运行异步任务
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            # 运行异步任务
+            loop.run_until_complete(self.agent._execute_task_concurrent(message))
+
+            # 关闭事件循环
+            loop.close()
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 线程处理消息失败: {e}")
     
     async def send_message(self, message: Dict[Any, Any]) -> bool:
         """发送消息到客户端"""
@@ -2408,19 +2494,20 @@ class SmartRobotAgent:
                 
                 # 检查是否为已知任务类型
                 if task_type in self.known_task_types:
-                    # 已知任务类型，直接执行
-                    logger.info(f"[AGENT] 已知任务类型 '{task_type}'，直接执行")
-                    result = await self.execute_task(task_to_execute)
-                    # 记录到记忆
-                    self.memory.add_task(task_to_execute, result)
+                    # 已知任务类型，后台并发执行，不等待完成
+                    logger.info(f"[AGENT] 已知任务类型 '{task_type}'，后台并发执行")
+                    # 创建后台任务执行，不等待完成
+                    asyncio.create_task(self._execute_task_async(task_to_execute))
+                    # 立即返回，不等待任务完成
+                    return
                 else:
                     # 未知任务类型，发给LLM处理
                     logger.info(f"[AGENT] 未知任务类型 '{task_type}'，发送给LLM分析")
                     user_prompt = f"执行任务: {task_type}，参数: {task_params}"
                     llm_result = await self.analyze_with_llm(user_prompt, task_type)
                     result = llm_result
-                
-                await self.send_response_to_client(result)
+                    await self.send_response_to_client(result)
+                    return
                 return
             
             # 2. 自然语言任务（不含type字段）
@@ -2466,6 +2553,63 @@ class SmartRobotAgent:
                 logger.error(f"发送响应失败: {response}")
         except Exception as e:
             logger.error(f"发送响应失败: {e}")
+
+    async def _execute_task_async(self, task: Dict[str, Any]):
+        """后台异步执行任务（并发执行）
+
+        Args:
+            task (Dict[str, Any]): 任务字典
+        """
+        try:
+            task_type = task.get("type")
+            logger.info(f"[ASYNC_EXECUTE] 开始后台执行任务: {task_type}")
+
+            # 执行任务
+            result = await self.execute_task(task)
+
+            # 记录到记忆
+            self.memory.add_task(task, result)
+
+            # 发送响应到客户端
+            await self.send_response_to_client(result)
+
+            logger.info(f"[ASYNC_EXECUTE] 任务执行完成: {task_type}")
+        except Exception as e:
+            logger.error(f"[ASYNC_EXECUTE] 后台任务执行异常: {task_type}, 错误: {e}")
+
+    async def _execute_task_concurrent(self, message: Dict[str, Any]):
+        """并发执行消息处理（直接执行任务，不经过handle_client_message）
+        
+        这个方法绕过 handle_client_message，直接处理消息并执行任务，
+        避免消息在事件循环中排队等待
+        """
+        try:
+            logger.info(f"[CONCURRENT_EXECUTE] 开始并发处理消息: {message}")
+
+            # 重置任务状态
+            self.memory.clear_episode()
+
+            # 只处理已知任务类型
+            if isinstance(message, dict) and "type" in message:
+                task_type = message.get("type", "")
+                
+                # 检查是否为已知任务类型
+                if task_type in self.known_task_types:
+                    # 已知任务类型，直接执行
+                    logger.info(f"[CONCURRENT_EXECUTE] 已知任务类型 '{task_type}'，直接执行")
+                    result = await self.execute_task(message)
+                    # 记录到记忆
+                    self.memory.add_task(message, result)
+                    # 发送响应
+                    await self.send_response_to_client(result)
+                else:
+                    # 未知任务类型，调用 handle_client_message
+                    logger.info(f"[CONCURRENT_EXECUTE] 未知任务类型 '{task_type}'，使用常规处理")
+                    await self.handle_client_message(message)
+
+            logger.info(f"[CONCURRENT_EXECUTE] 消息处理完成")
+        except Exception as e:
+            logger.error(f"[CONCURRENT_EXECUTE] 并发处理消息失败: {e}")
 
     # ======================
     # LLM智能分析核心方法

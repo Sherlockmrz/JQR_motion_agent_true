@@ -35,14 +35,16 @@ class SerialManager:
 
         # 任务响应管理
         self.task_responses: Dict[str, List[Dict[Any, Any]]] = {}
-        
+
         # 活跃任务类型管理 - 用于防止同一类型任务并发执行
+        # 修改：使用细粒度锁，不同类型任务可以并发执行
         self.active_task_types: set = set()  # 存储正在执行的任务类型
-        
+        self.task_type_locks: Dict[str, threading.Lock] = {}  # 每种任务类型一个独立的锁
+
         # 自发自收过滤
         self.sent_messages: List[str] = []  # 存储最近发送的消息的JSON字符串
         self.max_sent_messages = 3  # 最多存储3条最近发送的消息
-        
+
         # 线程锁
         self.lock = threading.Lock()
         
@@ -327,34 +329,60 @@ class SerialManager:
         return True, ""
     
     def acquire_task_type_lock(self, task_type: str) -> Tuple[bool, str]:
-        """尝试获取任务类型锁
-        
+        """尝试获取任务类型锁（支持并发）
+
         Args:
             task_type: 任务类型
-            
+
         Returns:
             Tuple[bool, str]: (是否成功获取, 错误消息)
         """
+        # 获取或创建该任务类型的专用锁
         with self.lock:
+            if task_type not in self.task_type_locks:
+                self.task_type_locks[task_type] = threading.Lock()
+                logger.info(f"[锁管理] 为任务类型 '{task_type}' 创建专用锁")
+
+            task_lock = self.task_type_locks[task_type]
+
+            # 检查该类型是否已在执行中
             if task_type in self.active_task_types:
                 error_msg = f"任务类型 '{task_type}' 正在执行中，请等待当前任务完成"
                 logger.warning(error_msg)
                 return False, error_msg
-            
+
+            # 标记任务类型为活跃
             self.active_task_types.add(task_type)
-            logger.info(f"任务类型 '{task_type}' 获取锁成功")
-            return True, ""
+            logger.info(f"[锁管理] 任务类型 '{task_type}' 获取锁成功")
+
+        # 尝试获取该任务类型的专用锁（非阻塞方式）
+        # 使用超时避免死锁
+        acquired = task_lock.acquire(blocking=False)
+        if not acquired:
+            # 理论上不应该到达这里，因为已经检查了active_task_types
+            # 但为了安全起见，如果获取锁失败，从active_task_types中移除
+            with self.lock:
+                self.active_task_types.discard(task_type)
+            error_msg = f"任务类型 '{task_type}' 锁获取失败"
+            logger.warning(error_msg)
+            return False, error_msg
+
+        return True, ""
     
     def release_task_type_lock(self, task_type: str):
-        """释放任务类型锁
-        
+        """释放任务类型锁（支持并发）
+
         Args:
             task_type: 任务类型
         """
         with self.lock:
-            if task_type in self.active_task_types:
-                self.active_task_types.remove(task_type)
-                logger.info(f"任务类型 '{task_type}' 释放锁成功")
+            # 从活跃任务集合中移除
+            self.active_task_types.discard(task_type)
+
+            # 释放该任务类型的专用锁
+            if task_type in self.task_type_locks:
+                self.task_type_locks[task_type].release()
+                logger.info(f"[锁管理] 任务类型 '{task_type}' 释放锁成功")
     
     def get_task_responses(self, task_id: str) -> List[Dict[Any, Any]]:
         """获取任务的所有响应"""
