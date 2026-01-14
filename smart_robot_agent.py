@@ -437,6 +437,7 @@ class ROS2Interface:
         self.battery_level = 100.0  # 初始电池电量
         self.last_position = None  # 记录最后一个位置
         self.pre_position = None  # 任务执行前的位置
+        self.initial_position = None  # 初始位置（只在第一次位置回调时记录）
         self.position_subscribed = False  # 是否已订阅位置信息
         self.battery_subscribed = False  # 是否已订阅电池电量信息
         self.battery_subscription = None  # 电池电量订阅对象
@@ -1092,6 +1093,11 @@ class ROS2Interface:
                 }
             }
             self.last_position = position
+            
+            # 记录初始位置（只在第一次回调时记录）
+            if self.initial_position is None:
+                self.initial_position = position
+                logger.info(f"[ROS2] 已记录初始位置: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
             # logger.info(f"[ROS2] 收到位置更新: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
             
             # 构造位置更新消息
@@ -1143,6 +1149,14 @@ class ROS2Interface:
             Optional[Dict[str, Any]]: 位置信息，如果没有则返回None
         """
         return self.pre_position
+    
+    def get_initial_position(self) -> Optional[Dict[str, Any]]:
+        """获取初始位置
+        
+        Returns:
+            Optional[Dict[str, Any]]: 初始位置信息，如果没有则返回None
+        """
+        return self.initial_position
     
     def navigate_to_position(self, position: Dict[str, Any]) -> Dict[str, Any]:
         """导航到指定位置
@@ -2748,7 +2762,7 @@ Agent已知的能力（可用工具）:
             "go_to_object": "导航到指定对象位置",
             "go_find_person": "去寻找指定的人",
             "follow_person": "跟随指定的人",
-            "back_to_last_position": "返回上一个记录的位置",
+            "back_to_last_position": "返回到初始位置",
             "stop_follow": "停止跟随",
             "stop_navigate": "停止导航",
             "stop_move": "停止移动",
@@ -3495,32 +3509,32 @@ Agent已知的能力（可用工具）:
     
     async def back_to_last_position(self) -> Dict[str, Any]:
         """
-        返回到最后记录的位置
+        返回到初始位置
         Returns:
             Dict[str, Any]: 返回导航结果
         """
         try:
-            logger.info("[AGENT] 开始返回到最后记录的位置")
-            # 获取最后记录的位置
-            last_position = self.ros2_interface.get_last_position()
-            if not last_position:
-                logger.warning("[AGENT] 没有记录的位置信息")
+            logger.info("[AGENT] 开始返回到初始位置")
+            # 获取初始位置
+            initial_position = self.ros2_interface.get_initial_position()
+            if not initial_position:
+                logger.warning("[AGENT] 没有记录的初始位置信息")
                 return {
                     "success": False,
-                    "error_msg": "没有记录的位置信息，无法返回"
+                    "error_msg": "没有记录的初始位置信息，无法返回"
                 }
-            logger.info(f"[AGENT] 返回到位置: {last_position['position']}")
+            logger.info(f"[AGENT] 返回到初始位置: {initial_position['position']}")
             # 调用导航功能
-            result = self.ros2_interface.navigate_to_position(last_position)
+            result = self.ros2_interface.navigate_to_position(initial_position)
             # 确保返回结果包含type字段
             result["type"] = "back_to_last_position"
             if result["success"]:
-                logger.info("[AGENT] 成功返回到最后记录的位置")
+                logger.info("[AGENT] 成功返回到初始位置")
             else:
-                logger.error(f"[AGENT] 返回位置失败: {result.get('error_msg', '未知错误')}")
+                logger.error(f"[AGENT] 返回初始位置失败: {result.get('error_msg', '未知错误')}")
             return result
         except Exception as e:
-            logger.error(f"[AGENT] 返回最后位置时出错: {e}")
+            logger.error(f"[AGENT] 返回初始位置时出错: {e}")
             return {
                 "success": False,
                 "error_msg": f"返回位置失败: {str(e)}"
