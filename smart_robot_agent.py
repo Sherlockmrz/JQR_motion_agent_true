@@ -2223,18 +2223,36 @@ class USBCoordinateManager:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理USB消息失败: {e}")
 
     def _process_message_in_thread(self, message: Dict[str, Any]):
-        """在独立线程中处理消息"""
+        """在独立线程中处理消息 - 使用线程独立的事件循环和WebSocket连接"""
         try:
+            # 检查agent是否存在
+            if not self.agent:
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Agent不可用，无法处理消息")
+                return
+            
             # 在线程中创建新的事件循环来运行异步任务
+            # 每个线程有独立的事件循环和WebSocket连接，实现真正的并发
             import asyncio
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
-            # 运行异步任务
-            loop.run_until_complete(self.agent._execute_task_concurrent(message))
-
-            # 关闭事件循环
-            loop.close()
+            try:
+                # 运行异步任务
+                loop.run_until_complete(self.agent._execute_task_concurrent(message))
+            finally:
+                # 清理线程本地的WebSocket连接
+                if hasattr(self.agent, '_thread_local'):
+                    thread_local = self.agent._thread_local
+                    if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
+                        try:
+                            loop.run_until_complete(thread_local.websocket.close())
+                        except Exception:
+                            pass
+                        thread_local.websocket = None
+                
+                # 关闭事件循环
+                loop.close()
+                
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 线程处理消息失败: {e}")
     
@@ -2383,6 +2401,8 @@ class SmartRobotAgent:
 
         # 事件循环引用（用于从其他线程调度任务）
         self.event_loop: Optional[asyncio.AbstractEventLoop] = None
+        # 线程本地存储，用于隔离WebSocket连接
+        self._thread_local = threading.local()
 
         # 本地模型连接相关
         self.local_model_websocket = None
@@ -2453,22 +2473,22 @@ class SmartRobotAgent:
                 return False
             
             # 连接到本地模型
-            max_retries = 1
-            for attempt in range(max_retries):
-                try:
-                    logger.info(f"尝试连接本地模型服务器 (第{attempt + 1}次)...")
-                    connected = await self.connect_to_local_model()
-                    if connected:
-                        logger.info("成功连接到本地模型服务器")
-                        break
-                    else:
-                        logger.warning(f"连接本地模型服务器失败 (第{attempt + 1}次)")
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(2)
-                except Exception as e:
-                    logger.error(f"连接本地模型服务器时出错 (第{attempt + 1}次): {e}")
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1)
+            # max_retries = 1
+            # for attempt in range(max_retries):
+            #     try:
+            #         logger.info(f"尝试连接本地模型服务器 (第{attempt + 1}次)...")
+            #         connected = await self.connect_to_local_model()
+            #         if connected:
+            #             logger.info("成功连接到本地模型服务器")
+            #             break
+            #         else:
+            #             logger.warning(f"连接本地模型服务器失败 (第{attempt + 1}次)")
+            #             if attempt < max_retries - 1:
+            #                 await asyncio.sleep(2)
+            #     except Exception as e:
+            #         logger.error(f"连接本地模型服务器时出错 (第{attempt + 1}次): {e}")
+            #         if attempt < max_retries - 1:
+            #             await asyncio.sleep(1)
             
             # 启动消息处理循环
             self._running = True
@@ -2574,8 +2594,9 @@ class SmartRobotAgent:
         Args:
             task (Dict[str, Any]): 任务字典
         """
+        task_type = None
         try:
-            task_type = task.get("type")
+            task_type = task.get("type") if task else None
             logger.info(f"[ASYNC_EXECUTE] 开始后台执行任务: {task_type}")
 
             # 执行任务
@@ -3545,34 +3566,32 @@ Agent已知的能力（可用工具）:
     # ======================
     
     async def connect_to_local_model(self):
-        """建立与本地模型的WebSocket连接"""
+        """建立与本地模型的WebSocket连接（线程本地）"""
         import websockets
         
-        if self.local_model_connected and self.local_model_websocket:
-            # 检查连接是否仍然有效
+        # 获取线程本地存储
+        if not hasattr(self, '_thread_local'):
+            self._thread_local = threading.local()
+        
+        thread_local = self._thread_local
+        
+        # 清理可能存在的旧连接
+        if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
             try:
-                # 发送一个ping消息来检查连接状态
-                await self.local_model_websocket.ping()
-                logger.info("[LOCAL_MODEL] 已连接到本地模型服务器")
-                return True
-            except Exception as e:
-                logger.warning(f"[LOCAL_MODEL] 现有连接失效: {e}")
-                # 连接失效，重置连接状态
-                self.local_model_connected = False
-                self.local_model_websocket = None
+                await thread_local.websocket.close()
+            except Exception:
+                pass
+            thread_local.websocket = None
         
         # 尝试建立新连接
         try:
-            # 使用getattr获取connect属性，避免Pylance错误
             connect_func = getattr(websockets, 'connect')
-            self.local_model_websocket = await connect_func(self.local_model_uri)
-            self.local_model_connected = True
-            logger.info(f"[LOCAL_MODEL] 成功连接到本地模型服务器: {self.local_model_uri}")
+            thread_local.websocket = await connect_func(self.local_model_uri)
+            logger.info(f"[LOCAL_MODEL] 成功建立线程本地连接: {self.local_model_uri}")
             return True
         except Exception as e:
-            logger.error(f"[LOCAL_MODEL] 连接本地模型服务器失败: {e}")
-            self.local_model_connected = False
-            self.local_model_websocket = None
+            logger.error(f"[LOCAL_MODEL] 建立线程本地连接失败: {e}")
+            thread_local.websocket = None
             return False
     
     async def send_to_local_model(self, model_data: Dict[str, Any], task_id: Optional[str] = None) -> Dict[str, Any]:
@@ -3586,76 +3605,83 @@ Agent已知的能力（可用工具）:
         Returns:
             Dict[str, Any]: 本地模型的响应结果
         """
-        async with self.local_model_lock:  # 使用锁避免并发访问
+        import websockets
+        
+        # 获取或创建线程本地的WebSocket连接
+        thread_local = self._thread_local
+        if not hasattr(thread_local, 'websocket') or thread_local.websocket is None:
+            # 创建新的连接
             try:
-                # 检查并建立连接（带重试机制）
-                connection_success = False
-                connection_success = await self.connect_to_local_model()
-                if not connection_success:
-                    logger.error("无法连接到本地模型服务器")
-                    return {"success": False, "error_msg": "无法连接到本地模型服务器"}
-                
-                # 发送数据
-                message_str = json.dumps(model_data, ensure_ascii=False)
-                if self.local_model_websocket is not None:
-                    await self.local_model_websocket.send(message_str)
-                logger.info(f"已发送到本地模型: {model_data}")
-                intermediate_data = {
-                    "type": "",
-                    "command": ""
-                }
-                # 持续接收响应，直到收到最终结果
-                final_response = None
-                while self._running and self.local_model_websocket is not None:
+                # 清理可能存在的旧连接
+                if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
                     try:
-                        response_str = await asyncio.wait_for(self.local_model_websocket.recv(), timeout=1.0)
-                        response_data = json.loads(response_str)
-                        logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
-                        
-                        # 检查是否是最终结果（包含success字段或result字段）
-                        if ("success" in response_data or "result" in response_data) and "command" not in response_data:
-                            final_response = response_data
-                            break
-                        else:
-                            # 中间信息，需要添加任务类型后转发给所有连接的客户端
-                            # intermediate_data = response_data.copy()
-                            # 从原始model_data中获取任务类型
-                            task_type = model_data.get("type", "unknown")
-                            intermediate_data["type"] = task_type
-                            if "message" in response_data:
-                                intermediate_data["command"] = response_data.get("message", "") 
-                            else:
-                                intermediate_data["command"] = response_data.get("command", "")
-                            await self.usb_manager.send_message(intermediate_data)
-                            logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
-                    except asyncio.TimeoutError:
-                        # 超时检查运行状态
-                        continue
-                    except Exception as e:
-                        logger.error(f"接收本地模型响应时出错: {e}")
-                        break
+                        await thread_local.websocket.close()
+                    except Exception:
+                        pass
+                    thread_local.websocket = None
                 
-                return final_response if final_response else {"success": False, "error_msg": "未收到最终响应"}
-                
+                # 建立新连接
+                connect_func = getattr(websockets, 'connect')
+                thread_local.websocket = await connect_func(self.local_model_uri)
+                logger.info(f"[LOCAL_MODEL] 成功创建线程本地连接: {self.local_model_uri}")
             except Exception as e:
-                logger.error(f"与本地模型通信失败: {e}")
-                # 清理连接
+                logger.error(f"[LOCAL_MODEL] 创建线程本地连接失败: {e}")
+                return {"success": False, "error_msg": f"无法连接到本地模型服务器: {str(e)}"}
+        
+        websocket = thread_local.websocket
+        
+        try:
+            # 发送数据
+            message_str = json.dumps(model_data, ensure_ascii=False)
+            await websocket.send(message_str)
+            logger.info(f"已发送到本地模型: {model_data}")
+            
+            intermediate_data = {
+                "type": "",
+                "command": ""
+            }
+            
+            # 持续接收响应，直到收到最终结果
+            final_response = None
+            while self._running and websocket is not None:
                 try:
-                    if self.local_model_websocket:
-                        await self.local_model_websocket.close()
-                except:
-                    pass
-                self.local_model_connected = False
-                return {"success": False, "error_msg": f"本地模型通信失败: {str(e)}"}
-            finally:
-                # 关闭连接
-                try:
-                    if self.local_model_websocket:
-                        await self.local_model_websocket.close()
-                        self.local_model_websocket = None
-                except:
-                    pass
-                self.local_model_connected = False
+                    response_str = await asyncio.wait_for(websocket.recv(), timeout=1.0)
+                    response_data = json.loads(response_str)
+                    logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
+                    
+                    # 检查是否是最终结果（包含success字段或result字段）
+                    if ("success" in response_data or "result" in response_data) and "command" not in response_data:
+                        final_response = response_data
+                        break
+                    else:
+                        # 中间信息，需要添加任务类型后转发给所有连接的客户端
+                        task_type = model_data.get("type", "unknown")
+                        intermediate_data["type"] = task_type
+                        if "message" in response_data:
+                            intermediate_data["command"] = response_data.get("message", "") 
+                        else:
+                            intermediate_data["command"] = response_data.get("command", "")
+                        await self.usb_manager.send_message(intermediate_data)
+                        logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
+                except asyncio.TimeoutError:
+                    # 超时检查运行状态
+                    continue
+                except Exception as e:
+                    logger.error(f"接收本地模型响应时出错: {e}")
+                    break
+            
+            return final_response if final_response else {"success": False, "error_msg": "未收到最终响应"}
+            
+        except Exception as e:
+            logger.error(f"与本地模型通信失败: {e}")
+            # 清理线程本地连接
+            try:
+                if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
+                    await thread_local.websocket.close()
+            except Exception:
+                pass
+            thread_local.websocket = None
+            return {"success": False, "error_msg": f"本地模型通信失败: {str(e)}"}
     
     # ======================
     # ReAct框架核心方法
