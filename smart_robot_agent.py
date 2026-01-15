@@ -783,7 +783,7 @@ class ROS2Interface:
             services = result.split('\n')
             for service in services:
                 if service.strip() == service_name:
-                    logger.info(f"[ROS2] 服务 {service_name} 存在")
+                    # logger.info(f"[ROS2] 服务 {service_name} 存在")
                     return True
             
             logger.warning(f"[ROS2] 服务 {service_name} 不存在")
@@ -810,7 +810,7 @@ class ROS2Interface:
             actions = result.split('\n')
             for action in actions:
                 if action.strip() == action_name:
-                    logger.info(f"[ROS2] 动作 {action_name} 存在")
+                    # logger.info(f"[ROS2] 动作 {action_name} 存在")
                     return True
 
             logger.warning(f"[ROS2] 动作 {action_name} 不存在")
@@ -871,7 +871,7 @@ class ROS2Interface:
 
             # 缓存客户端
             self.service_clients[service_name] = (client, callback_group)
-            logger.info(f"[ROS2] 服务客户端已创建: {service_name}")
+            # logger.info(f"[ROS2] 服务客户端已创建: {service_name}")
 
             return client
 
@@ -971,7 +971,7 @@ class ROS2Interface:
                 # 如果无法获取字段，尝试直接转换为字典
                 response_dict = vars(response) if hasattr(response, '__dict__') else {}
 
-            logger.info(f"[ROS2] 异步服务调用成功: {service_name}, 响应: {response_dict}")
+            # logger.info(f"[ROS2] 异步服务调用成功: {service_name}, 响应: {response_dict}")
             return {
                 "success": True,
                 "response": response_dict
@@ -2114,7 +2114,7 @@ def battery_callback(msg):
     try:
         # 更新电池电量
         battery_level = msg.battery_power_state
-        logger.info(f"[BATTERY] 收到电池电量更新: {battery_level}%")
+        # logger.info(f"[BATTERY] 收到电池电量更新: {battery_level}%")
         
         # 构造电池电量消息
         battery_message = {
@@ -2139,7 +2139,7 @@ def battery_callback(msg):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 loop.run_until_complete(smart_robot_agent_instance.usb_manager.send_message(battery_message))
-            logger.info(f'电池电量已通过USB发送: {battery_level:.1f}%')
+            # logger.info(f'电池电量已通过USB发送: {battery_level:.1f}%')
         else:
             logger.warning('USB管理器不可用，无法发送电池电量信息')
             
@@ -2192,7 +2192,7 @@ class USBCoordinateManager:
                 self.serial_manager.add_callback(self._handle_received_message)
                 # 开始接收数据
                 self.serial_manager.start_receiving()
-                logger.info("USB串口通信已启动，直接双向通信")
+                # logger.info("USB串口通信已启动，直接双向通信")
                 return True
             else:
                 logger.error("USB串口连接失败")
@@ -2515,7 +2515,7 @@ class SmartRobotAgent:
         4. Agent执行任务或直接返回答案
         """
         try:
-            logger.info(f"[AGENT] 收到客户端消息: {message}")
+            # logger.info(f"[AGENT] 收到客户端消息: {message}")
             
             # 重置任务状态
             self.memory.clear_episode()
@@ -2529,7 +2529,7 @@ class SmartRobotAgent:
                 # 检查是否为已知任务类型
                 if task_type in self.known_task_types:
                     # 已知任务类型，后台并发执行，不等待完成
-                    logger.info(f"[AGENT] 已知任务类型 '{task_type}'，后台并发执行")
+                    # logger.info(f"[AGENT] 已知任务类型 '{task_type}'，后台并发执行")
                     # 创建后台任务执行，不等待完成
                     asyncio.create_task(self._execute_task_async(task_to_execute))
                     # 立即返回，不等待任务完成
@@ -2581,10 +2581,10 @@ class SmartRobotAgent:
         try:
             # 发送到串口
             success = await self.usb_manager.send_message(response)
-            if success:
-                logger.info(f"响应已发送到客户端: {response.get('type', 'unknown')}")
-            else:
-                logger.error(f"发送响应失败: {response}")
+            # if success:
+            #     logger.info(f"响应已发送到客户端: {response.get('type', 'unknown')}")
+            # else:
+            #     logger.error(f"发送响应失败: {response}")
         except Exception as e:
             logger.error(f"发送响应失败: {e}")
 
@@ -2619,7 +2619,7 @@ class SmartRobotAgent:
         避免消息在事件循环中排队等待
         """
         try:
-            logger.info(f"[CONCURRENT_EXECUTE] 开始并发处理消息: {message}")
+            # logger.info(f"[CONCURRENT_EXECUTE] 开始并发处理消息: {message}")
 
             # 重置任务状态
             self.memory.clear_episode()
@@ -2631,7 +2631,7 @@ class SmartRobotAgent:
                 # 检查是否为已知任务类型
                 if task_type in self.known_task_types:
                     # 已知任务类型，直接执行
-                    logger.info(f"[CONCURRENT_EXECUTE] 已知任务类型 '{task_type}'，直接执行")
+                    # logger.info(f"[CONCURRENT_EXECUTE] 已知任务类型 '{task_type}'，直接执行")
                     result = await self.execute_task(message)
                     # 记录到记忆
                     self.memory.add_task(message, result)
@@ -2642,7 +2642,7 @@ class SmartRobotAgent:
                     logger.info(f"[CONCURRENT_EXECUTE] 未知任务类型 '{task_type}'，使用常规处理")
                     await self.handle_client_message(message)
 
-            logger.info(f"[CONCURRENT_EXECUTE] 消息处理完成")
+            # logger.info(f"[CONCURRENT_EXECUTE] 消息处理完成")
         except Exception as e:
             logger.error(f"[CONCURRENT_EXECUTE] 并发处理消息失败: {e}")
 
@@ -2864,7 +2864,7 @@ Agent已知的能力（可用工具）:
         task_type = task.get("type")
         task_params = task.get("params", {})
         
-        logger.info(f"[EXECUTE_TASK] 执行任务类型: {task_type}, 参数: {task_params}")
+        # logger.info(f"[EXECUTE_TASK] 执行任务类型: {task_type}, 参数: {task_params}")
         
         if not task_type:
             return {"type": task_type or "unknown", "success": False, "error_msg": "任务类型为空"}
@@ -3507,19 +3507,19 @@ Agent已知的能力（可用工具）:
             bool: 记录是否成功
         """
         try:
-            logger.info(f"[AGENT] record_position_before_navigation 调用，self类型: {type(self)}")
+            # logger.info(f"[AGENT] record_position_before_navigation 调用，self类型: {type(self)}")
             # 确保位置订阅已启动
             if hasattr(self, 'ros2_interface') and not self.ros2_interface.position_subscribed:
-                logger.info("[AGENT] 启动位置订阅")
+                # logger.info("[AGENT] 启动位置订阅")
                 self.ros2_interface.subscribe_robot_position()
             
             # 记录当前位置
             if hasattr(self, 'ros2_interface'):
                 success = self.ros2_interface.record_current_position()
-                if success:
-                    logger.info("[AGENT] 已在导航前记录当前位置")
-                else:
-                    logger.warning("[AGENT] 无法记录当前位置，可能还没有位置信息")
+                # if success:
+                #     logger.info("[AGENT] 已在导航前记录当前位置")
+                # else:
+                #     logger.warning("[AGENT] 无法记录当前位置，可能还没有位置信息")
                 return success
             else:
                 logger.warning("[AGENT] ROS2接口不可用")
@@ -3535,7 +3535,7 @@ Agent已知的能力（可用工具）:
             Dict[str, Any]: 返回导航结果
         """
         try:
-            logger.info("[AGENT] 开始返回到初始位置")
+            # logger.info("[AGENT] 开始返回到初始位置")
             # 获取初始位置
             initial_position = self.ros2_interface.get_initial_position()
             if not initial_position:
@@ -3634,7 +3634,7 @@ Agent已知的能力（可用工具）:
             # 发送数据
             message_str = json.dumps(model_data, ensure_ascii=False)
             await websocket.send(message_str)
-            logger.info(f"已发送到本地模型: {model_data}")
+            # logger.info(f"已发送到本地模型: {model_data}")
             
             intermediate_data = {
                 "type": "",
@@ -3647,7 +3647,7 @@ Agent已知的能力（可用工具）:
                 try:
                     response_str = await asyncio.wait_for(websocket.recv(), timeout=1.0)
                     response_data = json.loads(response_str)
-                    logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
+                    # logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
                     
                     # 检查是否是最终结果（包含success字段或result字段）
                     if ("success" in response_data or "result" in response_data) and "command" not in response_data:
@@ -3662,7 +3662,7 @@ Agent已知的能力（可用工具）:
                         else:
                             intermediate_data["command"] = response_data.get("command", "")
                         await self.usb_manager.send_message(intermediate_data)
-                        logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
+                        # logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
                 except asyncio.TimeoutError:
                     # 超时检查运行状态
                     continue

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class SerialManager:
     """串口管理器 - 负责USB串口通信"""
     
-    def __init__(self, port: str = "/dev/ttyACM0", baudrate: int = 115200):
+    def __init__(self, port: str = "/dev/rk", baudrate: int = 115200):
         """初始化串口管理器
         
         Args:
@@ -48,7 +48,7 @@ class SerialManager:
         # 线程锁
         self.lock = threading.Lock()
         
-        logger.info(f"串口管理器初始化完成: {port}@{baudrate}")
+        # logger.info(f"串口管理器初始化完成: {port}@{baudrate}")
     
     def add_callback(self, callback: Callable[[Dict[Any, Any]], None]):
         """添加消息回调函数
@@ -75,7 +75,7 @@ class SerialManager:
             
             # 尝试连接多个可能的串口设备
             possible_ports = self.port
-            logger.info(f"即将连接到串口: {possible_ports}")
+            # logger.info(f"即将连接到串口: {possible_ports}")
             
             try:
                 self.serial_port = serial.Serial(
@@ -127,7 +127,7 @@ class SerialManager:
     
     def _receive_loop(self):
         """接收数据循环"""
-        logger.info("串口接收循环开始")
+        # logger.info("串口接收循环开始")
         
         while self.is_running:
             try:
@@ -155,19 +155,19 @@ class SerialManager:
     def _process_received_data(self, data: bytes):
         """处理接收到的数据"""
         try:
-            logger.info(f"[RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
+            # logger.info(f"[RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
             
             # 解析协议数据
             result = self.parser.parse_buffer(data)
-            logger.info(f"[PARSER_RESULT] 解析结果: {result}")
+            # logger.info(f"[PARSER_RESULT] 解析结果: {result}")
             
             if result == ParseResult.PARSE_OK:
-                logger.debug(f"成功解析协议帧: {self.parser.buffer.hex()}")
+                # logger.debug(f"成功解析协议帧: {self.parser.buffer.hex()}")
                 
                 # 提取JSON数据
                 json_data = self.parser.extract_json_data()
                 if json_data:
-                    logger.info(f"[PARSER_DEBUG] 解析到JSON: {json_data}")
+                    # logger.info(f"[PARSER_DEBUG] 解析到JSON: {json_data}")
                     self._handle_received_message(json_data)
                 
                 # 重置解析器准备下一帧
@@ -192,7 +192,7 @@ class SerialManager:
     def _handle_received_message(self, message: Dict[Any, Any]):
         """处理接收到的消息"""
         try:
-            logger.info(f"处理接收到的消息: {message}")
+            # logger.info(f"处理接收到的消息: {message}")
             
             # 启用自发自收过滤
             if self._is_self_sent_message(message):
@@ -203,7 +203,7 @@ class SerialManager:
             with self.lock:
                 for callback in self.message_callbacks:
                     try:
-                        logger.info(f"调用回调函数: {callback.__name__}")
+                        # logger.info(f"调用回调函数: {callback.__name__}")
                         callback(message)
                     except Exception as e:
                         logger.error(f"回调函数执行失败: {e}")
@@ -293,14 +293,14 @@ class SerialManager:
 
             # 创建协议帧 (地瓜S100应答使用0x81)
             frame = self.parser.create_response_frame(CommandType.CMD_JSON_RESPONSE, json_str)
-            logger.info(f"创建协议帧: {frame.hex()}")
+            # logger.info(f"创建协议帧: {frame.hex()}")
             # 发送数据
             if hasattr(self.serial_port, 'write'):
                 bytes_written = self.serial_port.write(frame)
                 if hasattr(self.serial_port, 'flush'):
                     self.serial_port.flush()
 
-                logger.info(f"已发送USB消息: {json_str} ({bytes_written} bytes)")
+                # logger.info(f"已发送USB消息: {json_str} ({bytes_written} bytes)")
                 return True
             else:
                 logger.error("串口对象不支持写入操作")
@@ -341,7 +341,7 @@ class SerialManager:
         with self.lock:
             if task_type not in self.task_type_locks:
                 self.task_type_locks[task_type] = threading.Lock()
-                logger.info(f"[锁管理] 为任务类型 '{task_type}' 创建专用锁")
+                # logger.info(f"[锁管理] 为任务类型 '{task_type}' 创建专用锁")
 
             task_lock = self.task_type_locks[task_type]
 
@@ -353,7 +353,7 @@ class SerialManager:
 
             # 标记任务类型为活跃
             self.active_task_types.add(task_type)
-            logger.info(f"[锁管理] 任务类型 '{task_type}' 获取锁成功")
+            # logger.info(f"[锁管理] 任务类型 '{task_type}' 获取锁成功")
 
         # 尝试获取该任务类型的专用锁（非阻塞方式）
         # 使用超时避免死锁
@@ -382,7 +382,7 @@ class SerialManager:
             # 释放该任务类型的专用锁
             if task_type in self.task_type_locks:
                 self.task_type_locks[task_type].release()
-                logger.info(f"[锁管理] 任务类型 '{task_type}' 释放锁成功")
+                # logger.info(f"[锁管理] 任务类型 '{task_type}' 释放锁成功")
     
     def get_task_responses(self, task_id: str) -> List[Dict[Any, Any]]:
         """获取任务的所有响应"""
