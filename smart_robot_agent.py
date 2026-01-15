@@ -585,7 +585,7 @@ class ROS2Interface:
         global battery_level
 
         if hasattr(self, 'battery_subscribed') and self.battery_subscribed:
-            logger.warning("电池电量监控已在运行")
+            # logger.warning("电池电量监控已在运行")
             return True
 
         try:
@@ -611,8 +611,6 @@ class ROS2Interface:
                 10  # 队列大小
             )
             self.battery_subscribed = True
-            logger.info("电池电量订阅者已创建")
-            logger.info("电池电量订阅监控已启动")
             return True
 
         except Exception as e:
@@ -651,11 +649,11 @@ class ROS2Interface:
                 if hasattr(rclpy, 'get_instance'):
                     instance = rclpy.get_instance()  # type: ignore
                     if instance is not None:
-                        logger.info("[ROS2] rclpy已经初始化")
+                        # logger.info("[ROS2] rclpy已经初始化")
                         # 如果rclpy已初始化但没有节点，创建节点
                         if self.node is None:
                             self.node = rclpy.create_node('smart_robot_agent_ros2')
-                            logger.info("[ROS2] 节点创建成功: smart_robot_agent_ros2")
+                            # logger.info("[ROS2] 节点创建成功: smart_robot_agent_ros2")
                         # 创建回调组
                         self._create_callback_groups()
                         self.initialized = True
@@ -672,11 +670,11 @@ class ROS2Interface:
 
             # 初始化rclpy
             rclpy.init()
-            logger.info("[ROS2] rclpy初始化成功")
+            # logger.info("[ROS2] rclpy初始化成功")
 
             # 创建节点
             self.node = rclpy.create_node('smart_robot_agent_ros2')
-            logger.info("[ROS2] 节点创建成功: smart_robot_agent_ros2")
+            # logger.info("[ROS2] 节点创建成功: smart_robot_agent_ros2")
 
             # 创建回调组
             self._create_callback_groups()
@@ -700,7 +698,7 @@ class ROS2Interface:
         self.ros2_thread_running = True
         self.ros2_thread = threading.Thread(target=self._ros2_spin_worker, daemon=True)
         self.ros2_thread.start()
-        logger.info("[ROS2] 独立处理线程已启动")
+        # logger.info("[ROS2] 独立处理线程已启动")
     
     def _create_callback_groups(self):
         """创建回调组以支持并发服务调用"""
@@ -709,11 +707,11 @@ class ROS2Interface:
 
             # 创建互斥回调组（串行执行，用于需要互斥的操作）
             self.mutually_exclusive_callback_group = MutuallyExclusiveCallbackGroup()
-            logger.info("[ROS2] 互斥回调组创建成功")
+            # logger.info("[ROS2] 互斥回调组创建成功")
 
             # 创建可重入回调组（并发执行，用于支持并发的服务调用）
             self.reentrant_callback_group = ReentrantCallbackGroup()
-            logger.info("[ROS2] 可重入回调组创建成功")
+            # logger.info("[ROS2] 可重入回调组创建成功")
 
         except Exception as e:
             logger.error(f"[ROS2] 创建回调组失败: {e}")
@@ -724,7 +722,7 @@ class ROS2Interface:
         """ROS2独立处理线程工作函数"""
         global rclpy
         try:
-            logger.info("[ROS2] 处理线程开始运行")
+            # logger.info("[ROS2] 处理线程开始运行")
             while self.ros2_thread_running and rclpy and rclpy.ok() and self.node:
                 rclpy.spin_once(self.node, timeout_sec=0.1)
                 # 短暂休眠避免CPU占用过高
@@ -1010,7 +1008,9 @@ class ROS2Interface:
                 request_str = str(request_data)
             
             cmd = f"ros2 service call {service_name} {service_type} '{request_str}'"
-            logger.info(f"[ROS2] 执行命令: {cmd}")
+            # logger.info(f"[ROS2] 执行命令: {cmd}")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行命令: {cmd}")
+            
             
             # 使用subprocess而不是os.popen来获得更好的控制
             # 设置ROS环境变量
@@ -1026,7 +1026,7 @@ class ROS2Interface:
                 return None
             
             response = result.stdout.strip()
-            logger.info(f"[ROS2] 服务调用结果: {response}")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用结果: {response}")            
             
             # 检查结果是否为空
             if not response:
@@ -1065,7 +1065,7 @@ class ROS2Interface:
             )
             
             self.position_subscribed = True
-            logger.info("[ROS2] 已使用主节点订阅机器人位置话题: /tracked_pose")
+            # logger.info("[ROS2] 已使用主节点订阅机器人位置话题: /tracked_pose")
             return True
             
         except Exception as e:
@@ -1097,7 +1097,7 @@ class ROS2Interface:
             # 记录初始位置（只在第一次回调时记录）
             if self.initial_position is None:
                 self.initial_position = position
-                logger.info(f"[ROS2] 已记录初始位置: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已记录初始位置: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
             # logger.info(f"[ROS2] 收到位置更新: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
             
             # 构造位置更新消息
@@ -1520,7 +1520,7 @@ class ROS2Interface:
         try:
             # 构造ROS2动作调用命令
             cmd = f"ros2 action send_goal {action_name} {action_type} '{goal_data}'"
-            logger.info(f"[ROS2] 执行命令: {cmd}")
+            # logger.info(f"[ROS2] 执行命令: {cmd}")
             
             # 使用subprocess而不是os.popen来获得更好的控制
             # 设置ROS环境变量
@@ -1593,7 +1593,7 @@ class ROS2Interface:
             success = (result_number == 1)
 
             if success:
-                logger.info(f"[ROS2] 设置药箱开关成功: switch={switch}, speed={speed_stage}")
+                # logger.info(f"[ROS2] 设置药箱开关成功: switch={switch}, speed={speed_stage}")
                 return {
                     "type": "set_medicine_box_switch",
                     "success": True
@@ -1878,9 +1878,9 @@ class ROS2Interface:
                     }
                     
                     if success:
-                        logger.info(f"[ROS2] 获取机器人俯仰状态成功: {result}")
+                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人俯仰状态成功: {result}")
                     else:
-                        logger.error(f"[ROS2] 获取机器人俯仰状态失败: {result}")
+                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人俯仰状态失败: {result}")
                     
                     return result
                     
@@ -1927,14 +1927,14 @@ class ROS2Interface:
                     "height": height,  # 从响应中提取的实际值
                     "description": f"机身升降高度为 {height} 米"
                 }
-                logger.info(f"[ROS2] 获取机身升降状态: {result}")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机身升降状态: {result}")
                 return result
             else:
                 # 如果服务调用失败，返回默认值
                 result = {
                     "success": False,
                 }
-                logger.info(f"[ROS2] 获取机身升降状态(默认值): {result}")
+                # logger.info(f"[ROS2] 获取机身升降状态(默认值): {result}")
                 return result
         except Exception as e:
             logger.error(f"[ROS2] 获取机身升降状态失败: {e}")
@@ -2010,10 +2010,10 @@ class ROS2Interface:
                     }
                     
                     if success:
+                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度成功: {result}")
                         logger.info(f"[ROS2] 设置屏幕俯仰角度成功: {result}")
                     else:
-                        logger.error(f"[ROS2] 设置屏幕俯仰角度失败: {result}")
-                    
+                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度失败: {result}")
                     return result
                     
                 except (json.JSONDecodeError, KeyError) as e:
@@ -2187,7 +2187,7 @@ class USBCoordinateManager:
             # 连接到串口设备
             self.connected = await self.serial_manager.connect()
             if self.connected:
-                logger.info("USB串口连接成功")
+                # logger.info("USB串口连接成功")
                 # 添加消息回调
                 self.serial_manager.add_callback(self._handle_received_message)
                 # 开始接收数据
@@ -2278,7 +2278,7 @@ class USBCoordinateManager:
         """清理资源"""
         try:
             self.serial_manager.stop_receiving()
-            logger.info("USB串口资源已清理")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口资源已清理")
         except Exception as e:
             logger.error(f"清理USB串口资源失败: {e}")
 
@@ -2455,46 +2455,29 @@ class SmartRobotAgent:
                 # 启动电池电量监控
                 battery_success = self.ros2_interface.start_battery_monitoring()
                 if battery_success:
-                    logger.info("电池电量监控已启动")
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 电池电量监控已启动")
+                    
                 else:
                     logger.warning("电池电量监控启动失败")
                 
                 # 启动位置订阅
                 position_success = self.ros2_interface.subscribe_robot_position()
                 if position_success:
-                    logger.info("机器人位置订阅已启动")
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人位置订阅已启动")
                 else:
                     logger.warning("机器人位置订阅启动失败")
             
             # 初始化USB串口通信
             usb_connected = await self.usb_manager.initialize()
             if not usb_connected:
-                logger.warning("USB串口连接失败，无法继续初始化Agent")
-                return False
-            
-            # 连接到本地模型
-            # max_retries = 1
-            # for attempt in range(max_retries):
-            #     try:
-            #         logger.info(f"尝试连接本地模型服务器 (第{attempt + 1}次)...")
-            #         connected = await self.connect_to_local_model()
-            #         if connected:
-            #             logger.info("成功连接到本地模型服务器")
-            #             break
-            #         else:
-            #             logger.warning(f"连接本地模型服务器失败 (第{attempt + 1}次)")
-            #             if attempt < max_retries - 1:
-            #                 await asyncio.sleep(2)
-            #     except Exception as e:
-            #         logger.error(f"连接本地模型服务器时出错 (第{attempt + 1}次): {e}")
-            #         if attempt < max_retries - 1:
-            #             await asyncio.sleep(1)
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口连接失败，无法继续初始化Agent")
+                return False            
             
             # 启动消息处理循环
             self._running = True
             asyncio.create_task(self._message_processor())
             
-            logger.info("SmartRobotAgent初始化完成")
+            # logger.info("SmartRobotAgent初始化完成")
             return True
         except Exception as e:
             logger.error(f"初始化SmartRobotAgent失败: {e}")
@@ -2597,7 +2580,7 @@ class SmartRobotAgent:
         task_type = None
         try:
             task_type = task.get("type") if task else None
-            logger.info(f"[ASYNC_EXECUTE] 开始后台执行任务: {task_type}")
+            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始后台执行任务: {task_type}")
 
             # 执行任务
             result = await self.execute_task(task)
@@ -2607,8 +2590,7 @@ class SmartRobotAgent:
 
             # 发送响应到客户端
             await self.send_response_to_client(result)
-
-            logger.info(f"[ASYNC_EXECUTE] 任务执行完成: {task_type}")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 任务执行完成: {task_type}")
         except Exception as e:
             logger.error(f"[ASYNC_EXECUTE] 后台任务执行异常: {task_type}, 错误: {e}")
 
@@ -3716,9 +3698,9 @@ Agent已知的能力（可用工具）:
 
 async def main():
     """主函数"""
-    print("Smart Robot Agent is running...")
-    print(f"USB串口通信端口: {USB_SERIAL_PORT}@{USB_SERIAL_BAUDRATE}")
-    print("Type 'exit' to quit.")
+    # print("Smart Robot Agent is running...")
+    # print(f"USB串口通信端口: {USB_SERIAL_PORT}@{USB_SERIAL_BAUDRATE}")
+    # print("Type 'exit' to quit.")
 
     # 保存事件循环引用
     loop = asyncio.get_running_loop()
@@ -3740,7 +3722,7 @@ async def main():
         if not success:
             logger.error("SmartRobotAgent初始化失败，退出程序")
             return
-        logger.info("SmartRobotAgent启动成功")
+        # logger.info("SmartRobotAgent启动成功")
 
         # 保持运行
         try:
