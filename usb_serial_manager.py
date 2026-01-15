@@ -58,7 +58,7 @@ class SerialManager:
         """
         with self.lock:
             self.message_callbacks.append(callback)
-        logger.info(f"添加消息回调函数: {callback.__name__}")
+        # logger.info(f"添加消息回调函数: {callback.__name__}")
     
     def remove_callback(self, callback: Callable[[Dict[Any, Any]], None]):
         """移除消息回调函数"""
@@ -112,7 +112,7 @@ class SerialManager:
             daemon=True
         )
         self.receive_thread.start()
-        logger.info("串口接收线程已启动")
+        # logger.info("串口接收线程已启动")
     
     def stop_receiving(self):
         """停止接收数据线程"""
@@ -244,7 +244,7 @@ class SerialManager:
                     # 清除任务类型的活跃状态（通过消息响应完成的任务）
                     if task_type and task_type in self.active_task_types:
                         self.active_task_types.remove(task_type)
-                        logger.info(f"任务类型 '{task_type}' 已执行完成 (通过消息响应)")
+                        # logger.info(f"任务类型 '{task_type}' 已执行完成 (通过消息响应)")
 
         except Exception as e:
             logger.error(f"处理任务响应时出错: {e}")
@@ -348,7 +348,7 @@ class SerialManager:
             # 检查该类型是否已在执行中
             if task_type in self.active_task_types:
                 error_msg = f"任务类型 '{task_type}' 正在执行中，请等待当前任务完成"
-                logger.warning(error_msg)
+                # logger.warning(error_msg)
                 return False, error_msg
 
             # 标记任务类型为活跃
@@ -364,7 +364,7 @@ class SerialManager:
             with self.lock:
                 self.active_task_types.discard(task_type)
             error_msg = f"任务类型 '{task_type}' 锁获取失败"
-            logger.warning(error_msg)
+            # logger.warning(error_msg)
             return False, error_msg
 
         return True, ""
@@ -397,7 +397,7 @@ class SerialManager:
             # 清除任务类型的活跃状态
             if task_type and task_type in self.active_task_types:
                 self.active_task_types.remove(task_type)
-                logger.info(f"任务类型 '{task_type}' 已执行完成")
+                # logger.info(f"任务类型 '{task_type}' 已执行完成")
     
     def _record_sent_message(self, json_str: str):
         """记录发送的消息用于自发自收过滤"""
