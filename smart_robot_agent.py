@@ -1160,12 +1160,12 @@ class ROS2Interface:
     
     def navigate_to_position(self, position: Dict[str, Any]) -> Dict[str, Any]:
         """导航到指定位置
-        
+
         注意：/navigate_to_pose 是一个action server，不是service
-        
+
         Args:
-            position (Dict[str, Any]): 目标位置信息
-            
+            position (Dict[str, Any]): 目标位置信息，格式包含 position 和 orientation
+
         Returns:
             Dict[str, Any]: 导航结果
         """
@@ -1175,10 +1175,7 @@ class ROS2Interface:
                     "success": False,
                     "error_msg": "无效的位置信息"
                 }
-            
-            target_x = position['position']['x']
-            target_y = position['position']['y']
-            
+
             # 检查导航action是否可用
             if not self._check_ros2_action_exists("/navigate_to_pose"):
                 logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航action /navigate_to_pose 不可用")
@@ -1186,9 +1183,9 @@ class ROS2Interface:
                     "success": False,
                     "error_msg": "导航action /navigate_to_pose 不可用"
                 }
-            
+
             # 调用导航action
-            # 构造NavigateToPose goal
+            # 构造NavigateToPose goal，完全复用position的数据结构
             goal_data = {
                 "pose": {
                     "header": {
@@ -1197,15 +1194,15 @@ class ROS2Interface:
                     },
                     "pose": {
                         "position": {
-                            "x": target_x,
-                            "y": target_y,
-                            "z": 0.0
+                            "x": position['position'].get('x', 0.0),
+                            "y": position['position'].get('y', 0.0),
+                            "z": position['position'].get('z', 0.0)
                         },
                         "orientation": {
-                            "x": 0.0,
-                            "y": 0.0,
-                            "z": 0.0,
-                            "w": 1.0
+                            "x": position.get('orientation', {}).get('x', 0.0),
+                            "y": position.get('orientation', {}).get('y', 0.0),
+                            "z": position.get('orientation', {}).get('z', 0.0),
+                            "w": position.get('orientation', {}).get('w', 1.0)
                         }
                     }
                 }
