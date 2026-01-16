@@ -16,6 +16,11 @@ import queue
 # 导入USB串口管理器
 from usb_serial_manager import SerialManager
 
+# ======================
+# 版本控制
+# ======================
+AGENT_VERSION = "1.0.0"  # 智能机器人Agent版本号
+
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -3693,7 +3698,7 @@ Agent已知的能力（可用工具）:
 
 async def main():
     """主函数"""
-    # print("Smart Robot Agent is running...")
+    print(f"Smart Robot Agent v{AGENT_VERSION} is running...")
     # print(f"USB串口通信端口: {USB_SERIAL_PORT}@{USB_SERIAL_BAUDRATE}")
     # print("Type 'exit' to quit.")
 
