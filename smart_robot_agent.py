@@ -890,12 +890,12 @@ class ROS2Interface:
             Dict[str, Any]: 服务响应结果
         """
         # 首先检查服务是否存在
-        if not self._check_ros2_service_exists(service_name):
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 不存在，无法调用")
-            return {
-                "success": False,
-                "error_msg": f"服务 {service_name} 不存在或调用失败"
-            }
+        # if not self._check_ros2_service_exists(service_name):
+        #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 不存在，无法调用")
+        #     return {
+        #         "success": False,
+        #         "error_msg": f"服务 {service_name} 不存在或调用失败"
+        #     }
 
         try:
             # 获取或创建服务客户端（使用可重入回调组支持并发）
@@ -1177,12 +1177,12 @@ class ROS2Interface:
                 }
 
             # 检查导航action是否可用
-            if not self._check_ros2_action_exists("/navigate_to_pose"):
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航action /navigate_to_pose 不可用")
-                return {
-                    "success": False,
-                    "error_msg": "导航action /navigate_to_pose 不可用"
-                }
+            # if not self._check_ros2_action_exists("/navigate_to_pose"):
+            #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航action /navigate_to_pose 不可用")
+            #     return {
+            #         "success": False,
+            #         "error_msg": "导航action /navigate_to_pose 不可用"
+            #     }
 
             # 调用导航action
             # 构造NavigateToPose goal，完全复用position的数据结构
