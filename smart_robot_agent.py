@@ -1530,7 +1530,7 @@ class ROS2Interface:
             env = os.environ.copy()
             env['ROS_DOMAIN_ID'] = os.environ.get('ROS_DOMAIN_ID', '0')
             
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30, env=env)
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120, env=env)
             
             if result.returncode != 0:
                 logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作调用命令执行失败，返回码: {result.returncode}")
