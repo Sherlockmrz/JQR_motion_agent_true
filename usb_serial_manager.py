@@ -16,7 +16,7 @@ class SerialManager:
     
     def __init__(self, port: str = "/dev/rk", baudrate: int = 115200):
         """初始化串口管理器
-        
+
         Args:
             port: 串口设备路径
             baudrate: 波特率
@@ -25,11 +25,11 @@ class SerialManager:
         self.baudrate = baudrate
         self.serial_port = None
         self.parser = ProtocolParser()
-        
+
         # 通信控制
         self.is_running = False
         self.receive_thread = None
-        
+
         # 回调函数列表
         self.message_callbacks: List[Callable[[Dict[Any, Any]], None]] = []
 
@@ -47,7 +47,12 @@ class SerialManager:
 
         # 线程锁
         self.lock = threading.Lock()
-        
+
+        # 重连机制
+        self.reconnect_thread = None  # 重连线程
+        self.reconnect_running = False  # 重连线程运行标志
+        self.reconnect_interval = 1.0  # 重连间隔（秒）
+
         # logger.info(f"串口管理器初始化完成: {port}@{baudrate}")
     
     def add_callback(self, callback: Callable[[Dict[Any, Any]], None]):
@@ -117,39 +122,53 @@ class SerialManager:
     def stop_receiving(self):
         """停止接收数据线程"""
         self.is_running = False
+
+        # 停止重连线程
+        self.reconnect_running = False
+        if self.reconnect_thread and self.reconnect_thread.is_alive():
+            self.reconnect_thread.join(timeout=2.0)
+
         if self.receive_thread and self.receive_thread.is_alive():
             self.receive_thread.join(timeout=2.0)
-        
+
         if self.serial_port and hasattr(self.serial_port, 'close'):
             self.serial_port.close()
-        
+
         logger.info("串口接收线程已停止")
     
     def _receive_loop(self):
         """接收数据循环"""
-        # logger.info("串口接收循环开始")
-        
         while self.is_running:
             try:
-                if self.serial_port and hasattr(self.serial_port, 'in_waiting') and self.serial_port.in_waiting > 0:
-                    # 读取可用数据
-                    data = self.serial_port.read(self.serial_port.in_waiting)
-                    if data:
-                        self._process_received_data(data)
-                
+                # 检查串口连接状态
+                if self.serial_port and not isinstance(self.serial_port, VirtualSerialPort):
+                    # 检查串口是否仍然打开
+                    if hasattr(self.serial_port, 'is_open') and not self.serial_port.is_open:
+                        self._trigger_reconnect()
+                        time.sleep(0.1)
+                        continue
+
+                    if hasattr(self.serial_port, 'in_waiting') and self.serial_port.in_waiting > 0:
+                        # 读取可用数据
+                        data = self.serial_port.read(self.serial_port.in_waiting)
+                        if data:
+                            self._process_received_data(data)
+
                 elif isinstance(self.serial_port, VirtualSerialPort):
                     # 虚拟串口模式
                     data = self.serial_port.read()
                     if data:
                         self._process_received_data(data)
-                
+
                 else:
                     time.sleep(0.01)  # 短暂休眠，避免CPU占用过高
-                    
+
             except Exception as e:
-                logger.error(f"接收数据时出错: {e}")
-                time.sleep(0.1)  # 出错后稍长休眠
-        
+                # 任何串口异常都触发重连
+                logger.warning(f"串口断开，正在尝试重连...")
+                self._trigger_reconnect()
+                time.sleep(0.1)
+
         logger.info("串口接收循环结束")
     
     def _process_received_data(self, data: bytes):
@@ -430,7 +449,7 @@ class SerialManager:
             # 暂时禁用消息过滤，允许所有消息通过
             # 这是为了调试通信问题，确保测试程序能收到agent的响应
             return False
-            
+
             # 原有的过滤逻辑被注释掉
             # 检查常见的响应模式
             # response_patterns = [
@@ -443,7 +462,7 @@ class SerialManager:
             #     # 移动相关的响应
             #     lambda msg: "type" in msg and msg["type"] in ["get_move_mode", "stop_move"] and ("success" in msg or "error_msg" in msg),
             # ]
-            
+
             # # 如果消息匹配任何响应模式，则认为是agent的响应
             # for pattern in response_patterns:
             #     if pattern(message):
@@ -451,8 +470,65 @@ class SerialManager:
             #         if "task" in message and "params" in message.get("task", {}):
             #             return False
             #         return True
-            
+
             # return False
+        except Exception:
+            return False
+
+    def _trigger_reconnect(self):
+        """触发重连机制"""
+        # 如果重连已经在进行中，忽略重复触发
+        if self.reconnect_running:
+            return
+
+        # 启动重连线程
+        self.reconnect_running = True
+        self.reconnect_thread = threading.Thread(
+            target=self._reconnect_loop,
+            name="SerialReconnect",
+            daemon=True
+        )
+        self.reconnect_thread.start()
+
+    def _reconnect_loop(self):
+        """重连循环"""
+        while self.reconnect_running and self.is_running:
+            try:
+                import serial
+
+                # 关闭现有连接
+                if self.serial_port and hasattr(self.serial_port, 'close'):
+                    self.serial_port.close()
+
+                # 重新连接
+                self.serial_port = serial.Serial(
+                    port=self.port,
+                    baudrate=self.baudrate,
+                    timeout=0.1,
+                    write_timeout=1.0
+                )
+
+                logger.info(f"串口重连成功: {self.port}")
+                self.reconnect_running = False
+                break
+
+            except Exception:
+                logger.warning(f"串口断开，正在尝试重连...")
+                time.sleep(self.reconnect_interval)
+
+        logger.info("重连循环结束")
+
+    def is_connected(self) -> bool:
+        """检查串口是否连接正常"""
+        try:
+            if not self.serial_port or isinstance(self.serial_port, VirtualSerialPort):
+                return True  # 虚拟串口始终认为已连接
+
+            # 检查串口是否打开
+            if hasattr(self.serial_port, 'is_open'):
+                return self.serial_port.is_open
+
+            return True
         except Exception:
             return False
     

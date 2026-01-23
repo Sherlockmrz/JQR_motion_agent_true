@@ -19,7 +19,7 @@ from usb_serial_manager import SerialManager
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.0"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.1"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
