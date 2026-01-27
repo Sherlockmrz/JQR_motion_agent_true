@@ -447,6 +447,15 @@ class ROS2Interface:
         self.battery_subscribed = False  # 是否已订阅电池电量信息
         self.battery_subscription = None  # 电池电量订阅对象
         self.position_subscription = None  # 位置订阅对象
+        self.robot_state_subscription = None  # 机器人状态订阅对象
+        self.motor_control_publisher = None  # 电机控制发布对象
+        self.robot_state = {
+            "screen_tilt": 0.0,  # 屏幕俯仰角度
+            "robot_tilt": 0.0,  # 机身俯仰角度
+            "robot_rise": 0.0,  # 机身升降状态 (0.0=降下, 1.0=升起, 2.0=运行中)
+            "medicine_box": 0.0,  # 药盒电机状态 (0.0=关闭, 1.0=开启, 2.0=运行中)
+            "battery": 100.0  # 电池电量
+        }
         self.node = None  # ROS2节点
         self.initialized = False  # ROS2是否已初始化
         self.ros2_thread = None  # ROS2处理线程
@@ -586,41 +595,8 @@ class ROS2Interface:
             }
 
     def start_battery_monitoring(self) -> bool:
-        """开始电池电量监控（订阅模式）"""
-        global battery_level
-
-        if hasattr(self, 'battery_subscribed') and self.battery_subscribed:
-            # logger.warning("电池电量监控已在运行")
-            return True
-
-        try:
-            # 检查ROS2和节点是否可用
-            if not ROS2_AVAILABLE:
-                logger.warning("ROS2不可用，无法启动电池电量监控")
-                return False
-
-            if not self.initialized or not self.node:
-                logger.warning("ROS2未初始化或节点不存在，无法启动电池电量监控")
-                return False
-
-            # 检查jqr_ros_msgs是否可用
-            if not jqr_ros_msgs:
-                logger.warning("jqr_ros_msgs模块不可用，无法创建电池电量订阅者")
-                return False
-
-            # 使用主节点创建电池电量订阅
-            self.battery_subscription = self.node.create_subscription(
-                BatteryLevel,
-                '/battery_level',  # 电池电量话题
-                battery_callback,
-                10  # 队列大小
-            )
-            self.battery_subscribed = True
-            return True
-
-        except Exception as e:
-            logger.error(f"启动电池电量监控失败: {e}")
-            return False
+        """开始电池电量监控（订阅模式，已弃用，使用 start_robot_state_monitoring）"""
+        return self.start_robot_state_monitoring()
         
     def stop_battery_monitoring(self):
         """停止电池电量监控"""
@@ -633,10 +609,141 @@ class ROS2Interface:
             self.battery_subscribed = False
             logger.info("电池电量监控已停止")
             return True
-            
+
         except Exception as e:
             logger.error(f"停止电池电量监控失败: {e}")
             return False
+
+    def start_robot_state_monitoring(self) -> bool:
+        """开始机器人状态监控（订阅 robot_state_update 话题）"""
+        if hasattr(self, 'robot_state_subscribed') and self.robot_state_subscribed:
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，跳过重复订阅")
+            return True
+
+        try:
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 正在启动机器人状态监控...")
+            if not ROS2_AVAILABLE:
+                logger.error("ROS2不可用，无法启动机器人状态监控")
+                return False
+            if not self.initialized:
+                logger.error(f"ROS2未初始化，无法启动机器人状态监控。initialized={self.initialized}, node={'存在' if self.node else '不存在'}")
+                return False
+            if not self.node:
+                logger.error("ROS2节点不存在，无法启动机器人状态监控")
+                return False
+
+            try:
+                from std_msgs.msg import Float32MultiArray
+                logger.info("std_msgs.msg.Float32MultiArray 导入成功")
+            except ImportError:
+                logger.error("std_msgs.msg.Float32MultiArray 不可用")
+                return False
+
+            self.robot_state_subscription = self.node.create_subscription(
+                Float32MultiArray,
+                '/robot_state_update',
+                self._robot_state_callback,
+                10
+            )
+            self.robot_state_subscribed = True
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，订阅话题: /robot_state_update")
+            return True
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 启动机器人状态监控失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def stop_robot_state_monitoring(self):
+        """停止机器人状态监控"""
+        try:
+            if hasattr(self, 'robot_state_subscription') and self.robot_state_subscription:
+                self.robot_state_subscription.destroy()
+                self.robot_state_subscription = None
+
+            self.robot_state_subscribed = False
+            logger.info("机器人状态监控已停止")
+            return True
+
+        except Exception as e:
+            logger.error(f"停止机器人状态监控失败: {e}")
+            return False
+
+    def _robot_state_callback(self, msg):
+        """机器人状态回调函数"""
+        try:
+            data = msg.data
+            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到 robot_state_update 消息，数据长度: {len(data)}")
+            if len(data) >= 5:
+                self.robot_state["screen_tilt"] = float(data[0])
+                self.robot_state["robot_tilt"] = float(data[1])
+                self.robot_state["robot_rise"] = float(data[2])
+                self.robot_state["medicine_box"] = float(data[3])
+                self.robot_state["battery"] = float(data[4])
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态更新: 屏幕={self.robot_state['screen_tilt']:.1f}, 机身={self.robot_state['robot_tilt']:.1f}, 升降={self.robot_state['robot_rise']:.1f}, 药盒={self.robot_state['medicine_box']:.1f}, 电池={self.robot_state['battery']:.1f}%")
+            else:
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] robot_state_update 数据长度不足: {len(data)}，需要至少5个元素")
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态回调处理失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def get_robot_state(self) -> Dict[str, Any]:
+        """获取机器人状态"""
+        return self.robot_state.copy()
+
+    def get_battery_level(self) -> float:
+        """获取电池电量（从 robot_state 话题获取）"""
+        return self.robot_state["battery"]
+
+    def publish_motor_control(self, screen_tilt: float = 0.0, robot_tilt: float = 0.0,
+                               robot_rise: float = 0.0, medicine_box: float = 0.0,
+                               medicine_speed: float = 1.0) -> Dict[str, Any]:
+        """发布电机控制指令到 motor_control 话题
+
+        Args:
+            screen_tilt (float): 屏幕俯仰角度
+            robot_tilt (float): 机身俯仰角度
+            robot_rise (float): 机身升降控制 (0.0=降下, 1.0=升起)
+            medicine_box (float): 药盒电机控制 (0.0=关, 1.0=开)
+            medicine_speed (float): 药盒电机速度 (0.0=慢档, 1.0=快档)
+
+        Returns:
+            Dict[str, Any]: 发布结果
+        """
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                logger.warning("ROS2不可用或未初始化，无法发布电机控制")
+                return {"success": False, "error_msg": "ROS2不可用或未初始化"}
+
+            if self.motor_control_publisher is None:
+                try:
+                    from std_msgs.msg import Float32MultiArray
+                    self.motor_control_publisher = self.node.create_publisher(
+                        Float32MultiArray,
+                        '/motor_control',
+                        10
+                    )
+                except Exception as e:
+                    logger.error(f"创建电机控制发布者失败: {e}")
+                    return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
+
+            try:
+                from std_msgs.msg import Float32MultiArray
+                msg = Float32MultiArray()
+                msg.data = [float(screen_tilt), float(robot_tilt), float(robot_rise),
+                           float(medicine_box), float(medicine_speed)]
+                self.motor_control_publisher.publish(msg)
+                logger.info(f"电机控制指令已发布: 屏幕={screen_tilt:.1f}, 机身={robot_tilt:.1f}, 升降={robot_rise:.1f}, 药盒={medicine_box:.1f}, 速度={medicine_speed:.1f}")
+                return {"success": True}
+            except Exception as e:
+                logger.error(f"发布电机控制指令失败: {e}")
+                return {"success": False, "error_msg": f"发布失败: {str(e)}"}
+
+        except Exception as e:
+            logger.error(f"发布电机控制失败: {e}")
+            return {"success": False, "error_msg": f"未知错误: {str(e)}"}
 
     def _initialize_ros2(self):
         """初始化ROS2"""
@@ -727,13 +834,19 @@ class ROS2Interface:
         """ROS2独立处理线程工作函数"""
         global rclpy
         try:
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程开始运行")
+            logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程开始运行")
+            spin_count = 0
             while self.ros2_thread_running and rclpy and rclpy.ok() and self.node:
                 rclpy.spin_once(self.node, timeout_sec=0.1)
                 # 短暂休眠避免CPU占用过高
                 time.sleep(0.01)
+                spin_count += 1
+                if spin_count % 1000 == 0:  # 每1000次输出一次心跳日志
+                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2 spin 线程运行中，已执行 {spin_count} 次")
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程出错: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已退出")
     
@@ -1558,7 +1671,7 @@ class ROS2Interface:
     # ======================
     
     def set_medicine_box_switch(self, switch: bool, speed_stage: int) -> Dict[str, Any]:
-        """控制药箱开关（支持并发）
+        """控制药箱开关（使用话题控制）
 
         Args:
             switch (bool): 药箱开关状态 (True: 打开, False: 关闭)
@@ -1568,48 +1681,30 @@ class ROS2Interface:
             Dict[str, Any]: 控制结果
         """
         try:
-            # 使用异步服务调用（支持并发）
-            result = self._call_ros2_service_async(
-                "/set_medicine_box_switch",
-                "jqr_ros_msgs/srv/MedicineBoxSwitch",
-                {
-                    "medicine_box_switch": switch,
-                    "speed_stage": speed_stage
-                },
-                timeout=10.0
+            medicine_box = 1.0 if switch else 0.0
+            medicine_speed = 1.0 if speed_stage == 2 else 0.0
+
+            result = self.publish_motor_control(
+                screen_tilt=0.0,
+                robot_tilt=0.0,
+                robot_rise=0.0,
+                medicine_box=medicine_box,
+                medicine_speed=medicine_speed
             )
 
-            if not result.get("success"):
-                error_msg = result.get("error_msg", "未知错误")
-                return {
-                    "type": "set_medicine_box_switch",
-                    "success": False,
-                    "error_msg": error_msg
-                }
-
-            # 解析响应数据
-            response_dict = result.get("response", {})
-            result_number = response_dict.get("result_number", 0)
-            result_msg = response_dict.get("result_msg", "")
-
-            success = (result_number == 1)
-
-            if success:
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置药箱开关成功: switch={switch}, speed={speed_stage}")
+            if result.get("success"):
                 return {
                     "type": "set_medicine_box_switch",
                     "success": True
                 }
             else:
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置药箱开关失败: {result_msg}")
                 return {
                     "type": "set_medicine_box_switch",
                     "success": False,
-                    "error_msg": result_msg or "服务异常"
+                    "error_msg": result.get("error_msg", "发布失败")
                 }
 
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置药箱开关失败: {e}")
             return {
                 "type": "set_medicine_box_switch",
                 "success": False,
@@ -1617,55 +1712,36 @@ class ROS2Interface:
             }
     
     def get_medicine_box_state(self) -> Dict[str, Any]:
-        """获取药箱状态（支持并发）
+        """获取药箱状态（从 robot_state 话题获取）
 
         Returns:
             Dict[str, Any]: 药箱状态信息
         """
         try:
-            # 使用异步服务调用（支持并发）
-            result = self._call_ros2_service_async(
-                "/get_medicine_box_state",
-                "jqr_ros_msgs/srv/MedicineBoxState",
-                {},
-                timeout=10.0
-            )
+            medicine_box_value = self.robot_state["medicine_box"]
 
-            if not result.get("success"):
-                error_msg = result.get("error_msg", "未知错误")
-                return {
-                    "success": False,
-                    "state": False,
-                    "description": error_msg
-                }
-
-            # 解析响应数据
-            response_dict = result.get("response", {})
-            medicine_box_state = response_dict.get("medicine_box_switch_state", False)
-            result_number = response_dict.get("result_number", 0)
-            result_msg = response_dict.get("result_msg", "")
-
-            success = (result_number == 1)
-
-            if success:
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取药箱状态成功: state={medicine_box_state}")
-                return {
-                    "success": True,
-                    "state": medicine_box_state,
-                    "description": result_msg,
-                    "result_number": result_number
-                }
+            # 映射状态值: 0.0=关闭, 1.0=开启, 2.0=运行中
+            if medicine_box_value == 0.0:
+                state = False
+                state_desc = "关闭"
+            elif medicine_box_value == 1.0:
+                state = True
+                state_desc = "开启"
+            elif medicine_box_value == 2.0:
+                state = True
+                state_desc = "运行中"
             else:
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取药箱状态失败: {result_msg}")
-                return {
-                    "success": False,
-                    "state": medicine_box_state,
-                    "description": f"获取失败: {result_msg}",
-                    "result_number": result_number
-                }
+                state = False
+                state_desc = "未知"
+
+            return {
+                "success": True,
+                "state": state,
+                "description": state_desc,
+                "raw_value": medicine_box_value
+            }
 
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取药箱状态失败: {e}")
             return {
                 "success": False,
                 "state": False,
