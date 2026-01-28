@@ -19,7 +19,7 @@ from usb_serial_manager import SerialManager
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.1"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.2"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -804,7 +804,7 @@ class ROS2Interface:
     def _start_ros2_spin_thread(self):
         """启动ROS2独立处理线程"""
         if self.ros2_thread is not None and self.ros2_thread.is_alive():
-            logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程已在运行")
+            logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程已在运行")
             return
             
         self.ros2_thread_running = True
@@ -834,7 +834,7 @@ class ROS2Interface:
         """ROS2独立处理线程工作函数"""
         global rclpy
         try:
-            logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程开始运行")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程开始运行")
             spin_count = 0
             while self.ros2_thread_running and rclpy and rclpy.ok() and self.node:
                 rclpy.spin_once(self.node, timeout_sec=0.1)
@@ -848,7 +848,7 @@ class ROS2Interface:
             import traceback
             traceback.print_exc()
         finally:
-            logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已退出")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已退出")
     
     def stop_ros2_spin_thread(self):
         """停止ROS2处理线程"""
@@ -856,7 +856,7 @@ class ROS2Interface:
             self.ros2_thread_running = False
             if self.ros2_thread and self.ros2_thread.is_alive():
                 self.ros2_thread.join(timeout=2.0)
-            logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已停止")
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已停止")
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止处理线程失败: {e}")
 
@@ -877,7 +877,7 @@ class ROS2Interface:
                     self.node = None
                 rclpy.shutdown()
                 self.initialized = False
-                logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 资源已清理")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 资源已清理")
         except Exception as e:
             logger.error(f"清理ROS2资源时出错: {e}")
         
@@ -2484,7 +2484,7 @@ class SmartRobotAgent:
         self.local_model_websocket = None
         self.local_model_connected = False
         # self.local_model_uri = "ws://localhost:8769"
-        self.local_model_uri = "ws://192.168.31.180:8000/ws/navigate"
+        self.local_model_uri = "ws://192.168.50.185:8000/ws/navigate"
         # self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
@@ -2622,7 +2622,7 @@ class SmartRobotAgent:
             # 发送自然语言任务给LLM分析
             if user_prompt:
                 logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送自然语言任务给LLM分析")
-                llm_result = await self.analyze_with_llm(user_prompt, "natural_language")
+                llm_result = await self.analyze_with_llm(user_prompt, "talk")
                 await self.send_response_to_client(llm_result)
                 return
         
@@ -2745,7 +2745,7 @@ class SmartRobotAgent:
 
 说明:
 - 如果需要执行任务，type从上面可用工具中选择，params填写对应参数
-- 如果是问答类请求（如问时间、天气、打招呼等），type使用"natural_response"，params中填写"response"字段作为回答内容
+- 如果是问答类请求（如问时间、天气、打招呼等），type使用"default"，params中填写"response"字段作为回答内容
 - 必须严格返回有效JSON格式，不要包含其他文字
 """
         
@@ -2767,7 +2767,7 @@ class SmartRobotAgent:
             self.memory.add_thought(thought)
             
             # 判断任务类型
-            if result_type == "natural_response":
+            if result_type == "default":
                 # 交互问答类，直接返回回答
                 logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 交互问答类，直接返回回答")
                 response_content = result_params.get("response", llm_response)
@@ -2824,20 +2824,20 @@ class SmartRobotAgent:
 
     def _build_system_prompt(self) -> str:
         """构造system_prompt，包含Agent已知能力
-        
+
         Returns:
             str: system_prompt
         """
         available_tools = list(self.known_task_types)
-        
-        system_prompt = f"""你是一个智能机器人Agent的助手，负责分析用户指令并决定如何响应。
+
+        system_prompt = f"""你是一个智能机器人Agent的助手，负责分析用户指令并决定如何响应，当用户指令中包含多个任务请求比如找多个物品时，创建任务列表并返回。下面是
 
 Agent已知的能力（可用工具）:
 """
-        
+
         # 添加每个工具的说明
         tool_descriptions = {
-            "find_object": "查找指定对象",
+            # "find_object": "查找指定对象",
             "go_to_object": "导航到指定对象位置",
             "go_find_person": "去寻找指定的人",
             "follow_person": "跟随指定的人",
@@ -2859,37 +2859,51 @@ Agent已知的能力（可用工具）:
             "set_rgb_light_strip": "设置RGB灯光",
             "get_rgb_light_strip_state": "获取RGB灯光状态"
         }
-        
+
         for tool in available_tools:
             desc = tool_descriptions.get(tool, "未知工具")
             system_prompt += f"- {tool}: {desc}\n"
-        
+
         system_prompt += """
 其他说明:
-- natural_response: 用于直接回答用户的问题或进行对话（如打招呼、问答、闲聊等）
-- 如果用户指令不匹配上述任何工具，请使用natural_response直接回复
+- default: 用于直接回答用户的问题或进行对话（如打招呼、问答、闲聊等）
+- 如果用户指令不匹配上述任何工具，请使用default直接回复
 - 必须严格按照JSON格式返回，不要包含任何其他解释性文字
 """
-        
+
         return system_prompt
 
     async def _call_llm_for_analysis(self, prompt: str) -> str:
         """调用LLM进行任务分析
-        
+
         Args:
             prompt (str): 完整的提示词（包含system_prompt和user_prompt）
-            
+
         Returns:
             str: LLM的JSON格式响应
         """
         try:
-            # 构造LLM请求格式
+            # 构造LLM请求格式 - 按照本地模型期望的messages数组格式
+            messages = [
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": "你是一个智能机器人任务分析助手，负责分析用户指令并返回标准JSON格式的响应。"},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ]
+
             llm_request = {
-                "type": "task_analysis",
-                "system_prompt": prompt,
-                "enable_react": False  # 不需要ReAct模式，直接返回JSON
+                "type": "talk",
+                "message": json.dumps(messages),
             }
-            
+
             # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送分析请求给LLM")
             response = await self.send_to_local_model(llm_request)
             
@@ -2902,13 +2916,117 @@ Agent已知的能力（可用工具）:
                 return response
             else:
                 logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应格式异常: {response}")
-                # 返回默认的natural_response
-                return json.dumps({"type": "natural_response", "params": {"response": "抱歉，我无法理解您的指令"}})
+                # 返回默认的default
+                return json.dumps({"type": "default", "params": {"response": "抱歉，我无法理解您的指令"}})
                 
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 调用LLM失败: {e}")
-            # 返回默认的natural_response
-            return json.dumps({"type": "natural_response", "params": {"response": f"分析失败: {str(e)}"}})
+            # 返回默认的default
+            return json.dumps({"type": "default", "params": {"response": f"分析失败: {str(e)}"}})
+
+    async def _decompose_find_object_task(self, user_prompt: str) -> List[Dict[str, Any]]:
+        """
+        使用LLM拆解找物任务，判断是否需要执行多个go_to_object任务
+
+        Args:
+            user_prompt (str): 用户原始指令
+
+        Returns:
+            List[Dict[str, Any]]: 拆解后的任务列表，每个任务格式为 {"type": "go_to_object", "params": {...}}
+        """
+        system_prompt = f"""你是一个智能机器人任务拆解助手，负责分析用户的找物指令，判断需要查找多少个物体以及每个物体的名称,如果用户指令输入有对于物品的描述，拆解后物体名称需要包含它的描述。
+
+任务规则:
+1. 分析用户指令中提到的所有需要查找的物体
+2. 如果只涉及一个物体，返回空任务列表
+3. 如果涉及多个物体，为每个物体创建一个go_to_object任务
+4. go_to_object任务的params中需要包含obj_name字段
+
+返回格式:
+- 如果只需要执行一个任务或不属于多任务场景，返回空列表: []
+- 如果需要执行多个任务，返回任务列表，格式如下:
+[
+    {{"type": "go_to_object", "params": {{"obj_name": "物体1名称"}}}},
+    {{"type": "go_to_object", "params": {{"obj_name": "物体2名称"}}}}
+]
+
+注意:
+- 严格按照JSON格式返回，不要包含任何解释性文字
+- 每个任务都必须有type和params字段
+- 如果用户的指令中指定了数量（如"找两个遥控器"），需要创建对应数量的任务
+"""
+
+        try:
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始任务拆解: {user_prompt}")
+
+            # 构造消息数组格式
+            messages = [
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": system_prompt},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"用户指令: {user_prompt}\n\n请分析并返回需要执行的任务列表（JSON格式）:"},
+                    ],
+                }
+            ]
+
+            llm_request = {
+                "type": "talk",
+                "message": json.dumps(messages),
+            }
+
+            response = await self.send_to_local_model(llm_request)
+
+            # 提取响应内容
+            if response is None:
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应为None")
+                return []
+            elif isinstance(response, dict):
+                if "result" in response:
+                    llm_response = response["result"]
+                elif "answer" in response:
+                    llm_response = response["answer"]
+                else:
+                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应格式异常: {response}")
+                    return []
+            elif isinstance(response, str):
+                llm_response = response
+            else:
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应类型异常: {type(response)}")
+                return []
+
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应: {llm_response}")
+
+            # 解析LLM响应
+            task_data = json.loads(llm_response)
+
+            # 检查返回格式
+            if isinstance(task_data, list):
+                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 拆解出 {len(task_data)} 个子任务")
+                return task_data
+            elif isinstance(task_data, dict):
+                # 如果返回的是单个任务，包装成列表
+                if "type" in task_data:
+                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 拆解出 1 个子任务")
+                    return [task_data]
+                # 如果是natural_response或其他类型，返回空列表
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM返回自然语言响应，无需拆解")
+                return []
+            else:
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM返回格式异常: {task_data}")
+                return []
+
+        except json.JSONDecodeError as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] JSON解析失败: {e}, 原始响应: {llm_response}")
+            return []
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 任务拆解失败: {e}")
+            return []
     
     async def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """执行单个任务
@@ -3034,7 +3152,7 @@ Agent已知的能力（可用工具）:
             self.record_position_before_navigation()
         
         if task_type == "find_object":
-            return await self.go_to_object(**params)
+            return await self.find_object(params.get("obj_name", ""), params.get("user_prompt", ""))
         elif task_type == "go_to_object":
             return await self.go_to_object(**params)
         elif task_type == "go_find_person":
@@ -3187,7 +3305,7 @@ Agent已知的能力（可用工具）:
             row = cursor.fetchone()
             conn.close()
             if row:
-                logger.info(f"[DB] Found object {obj_name} with id {row[0]} at location ({row[2]}, {row[3]})")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Found object {obj_name} with id {row[0]} at location ({row[2]}, {row[3]})")
                 return {
                     "object_id": row[0],
                     "name": row[1],
@@ -3198,77 +3316,104 @@ Agent已知的能力（可用工具）:
                     "object_description": row[6]
                 }
             else:
-                logger.info(f"[DB] Object {obj_name} not found in database")
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Object {obj_name} not found in database")
         except Exception as e:
             logger.error(f"[ERROR] DB query failed: {e}")
         return None
-    # async def find_object(self,obj_name: str) -> Dict[str, Any]:
-    #     """
-    #     查找物品的位置信息，按照ASM→DB→探索的优先级执行
-        
-    #     Args:
-    #         obj_name (str): 物品名称
-        
-    #     Returns:
-    #         Dict[str, Any]: 工具执行结果
-    #     """
-    #     logger.info(f"[FIND_OBJECT] 开始查找物品/人员: {obj_name}")
-    #     try:
-    #         # Step 1: ASM查询（最高优先级）
-    #         asm_res = self.query_asm_object(obj_name)
-    #         if asm_res:
-    #             #打印asm_res
-    #             print(asm_res)
-    #             loc = asm_res["location"]
-    #             logger.info(f"[FIND_OBJECT] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
-                
-    #             # ASM找到：返回位置信息，询问用户是否需要导航
-    #             result_msg = f"找到 {obj_name} 的位置：像素坐标 ({loc['x']}, {loc['y']})"
-    #             logger.info(f"[FIND_OBJECT] {result_msg}")
-                
-    #             # 按照新格式返回结果，包含像素位置
-    #             result_data = {
-    #                 "type": "find_object",
-    #                 "success": True,
-    #                 "pixel_position": asm_res.get("pixel_position", []),  # 添加像素位置
-    #                 "position_description": asm_res.get("object_description", "")  # 使用ASM中的描述
-    #             }
-                
-    #             return result_data
+    async def find_object(self, obj_name: str, user_prompt: str = "") -> Dict[str, Any]:
+        """
+        查找物品的位置信息，按照ASM→DB→探索的优先级执行，并支持多任务拆解
 
-    #         # Step 2: DB查询
-    #         db_res = self.query_history_db(obj_name)
-    #         if not db_res:
-    #             # DB没有找到：返回失败结果
-    #             result_data = {
-    #                 "type": "find_object",
-    #                 "success": False,
-    #                 "pixel_position": None,
-    #                 "position_description": None
-    #             }
-                
-    #             return result_data
+        Args:
+            obj_name (str): 物品名称
+            user_prompt (str): 用户原始指令，用于任务拆解
 
-    #         logger.info(f"[FIND_OBJECT] 在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
-            
-    #         # DB找到：直接反馈结果，不询问导航
-    #         result_data = {
-    #             "type": "find_object",
-    #             "success": True,
-    #             "pixel_position": [db_res["world_x"], db_res["world_y"]],
-    #             "position_description": db_res["object_description"]
-    #         }
-            
-    #         return result_data
-    #     except Exception as e:
-    #         result_data = {
-    #             "type": "find_object",
-    #             "success": False,
-    #             "pixel_position": None,
-    #             "position_description": None
-    #         }
-        
-    #         return result_data
+        Returns:
+            Dict[str, Any]: 工具执行结果
+        """
+        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始查找物品/人员: {obj_name}, 用户指令: {user_prompt}")
+
+        # 存储初始查询结果
+        initial_find_result = None
+        try:
+            # Step 1: ASM查询（最高优先级）
+            asm_res = self.query_asm_object(obj_name)
+            if asm_res:
+                # 打印asm_res
+                print(asm_res)
+                loc = asm_res["location"]
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
+
+                # ASM找到：返回位置信息
+                initial_find_result = {
+                    "type": "find_object",
+                    "success": True,
+                    "pixel_position": asm_res.get("pixel_position", []),
+                    "position_description": asm_res.get("object_description", "")
+                }
+
+            # Step 2: DB查询（如果ASM没有找到）
+            if not initial_find_result:
+                db_res = self.query_history_db(obj_name)
+                if db_res:
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
+                    initial_find_result = {
+                        "type": "find_object",
+                        "success": True,
+                        "pixel_position": [db_res["world_x"], db_res["world_y"]],
+                        "position_description": db_res["object_description"]
+                    }
+                else:
+                    # DB也没有找到：返回失败结果
+                    initial_find_result = {
+                        "type": "find_object",
+                        "success": False,
+                        "pixel_position": None,
+                        "position_description": None
+                    }
+
+            # Step 3: 先发送找物结果给客户端
+            if initial_find_result:
+                await self.send_response_to_client(initial_find_result)
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已发送找物结果给客户端")
+
+            # Step 4: 使用LLM对user_prompt进行任务拆解并执行
+            if user_prompt:
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始对用户指令进行任务拆解: {user_prompt}")
+                task_list = await self._decompose_find_object_task(user_prompt)
+                success_count = 0
+                if task_list and len(task_list) > 0:
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM拆解出 {len(task_list)} 个子任务，开始执行")
+                    # 依次执行所有go_to_object任务
+                    for task in task_list:
+                        if task.get("type") == "go_to_object":
+                            task_params = task.get("params", {})
+                            obj_name_sub = task_params.get("obj_name", obj_name)
+                            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行子任务: go_to_object {obj_name_sub}")
+                            response = await self.go_to_object(obj_name_sub, task_params.get("pixel_position"))
+                            if (response.get("success") == True):
+                                success_count += 1
+                            await self.send_response_to_client(response)
+                    if success_count == len(task_list):
+                        if initial_find_result:
+                            initial_find_result["success"] = True
+                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 所有找物子任务执行成功")
+                    else:
+                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找物子任务执行完成，成功 {success_count} 个，失败 {len(task_list) - success_count} 个")
+                else:
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM未拆解出子任务")
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找物过程异常: {e}")
+            initial_find_result = {
+                "type": "find_object",
+                "success": False,
+                "pixel_position": None,
+                "position_description": None,
+                "error_msg": str(e)
+            }
+        # 如果没有user_prompt或没有执行子任务，返回initial_find_result
+        return initial_find_result
     
     async def go_to_object(self, obj_name: str, pixel_position: Optional[List[float]] = None) -> Dict[str, Any]:
         """导航到物体位置"""
@@ -3678,9 +3823,14 @@ Agent已知的能力（可用工具）:
                         pass
                     thread_local.websocket = None
                 
-                # 建立新连接
+                # 建立新连接（禁用 ping keepalive，因为我们会持续接收数据）
                 connect_func = getattr(websockets, 'connect')
-                thread_local.websocket = await connect_func(self.local_model_uri)
+                thread_local.websocket = await connect_func(
+                    self.local_model_uri,
+                    ping_interval=None,  # 禁用自动ping
+                    ping_timeout=None,     # 禁用ping超时
+                    close_timeout=10.0       # 关闭超时10秒
+                )
                 logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功建立线程本地连接: {self.local_model_uri}")
             except Exception as e:
                 logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建线程本地连接失败: {e}")
@@ -3704,11 +3854,18 @@ Agent已知的能力（可用工具）:
             while self._running and websocket is not None:
                 try:
                     response_str = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-                    response_data = json.loads(response_str)
-                    # logger.info(f"[LOCAL_MODEL] 收到响应: {response_data}")
+                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 原始响应: {response_str}")
+                    try:
+                        response_data = json.loads(response_str)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] JSON解析失败: {e}, 原始数据: {response_str}")
+                        # 尝试将非JSON响应作为最终结果返回
+                        final_response = {"success": False, "error_msg": f"本地模型返回非JSON数据: {response_str}"}
+                        break
+                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到响应: {response_data}")
                     
                     # 检查是否是最终结果（包含success字段或result字段）
-                    if ("success" in response_data or "result" in response_data) and "command" not in response_data:
+                    if ("success" in response_data or "result" in response_data or "answer" in response_data) and "command" not in response_data:
                         final_response = response_data
                         break
                     else:
@@ -3720,12 +3877,28 @@ Agent已知的能力（可用工具）:
                         else:
                             intermediate_data["command"] = response_data.get("command", "")
                         await self.usb_manager.send_message(intermediate_data)
-                        # logger.info(f"[LOCAL_MODEL] 已转发中间信息给客户端: {intermediate_data}")
+                        # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已转发中间信息给客户端: {intermediate_data}")
                 except asyncio.TimeoutError:
                     # 超时检查运行状态
                     continue
                 except Exception as e:
+                    error_str = str(e)
                     logger.error(f"接收本地模型响应时出错: {e}")
+
+                    # 只在连接真正关闭时才重建连接
+                    if ("connection closed" in error_str.lower() or "closed by peer" in error_str.lower()) and "keepalive" not in error_str.lower():
+                        logger.warning("检测到WebSocket连接已关闭，将重建连接")
+                        # 清理无效连接
+                        if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
+                            try:
+                                await thread_local.websocket.close()
+                            except Exception:
+                                pass
+                            thread_local.websocket = None
+
+                    # 检查是否有部分响应
+                    if final_response is None:
+                        final_response = {"success": False, "error_msg": f"接收响应失败: {error_str}"}
                     break
             
             return final_response if final_response else {"success": False, "error_msg": "未收到最终响应"}
