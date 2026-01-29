@@ -1,5 +1,7 @@
 #request
 bool rgb_switch   #true 表示开启，false表示关闭
+uint8 mode        #调节模式
+uint8 speed       #呼吸或闪烁模式的速度
 bool is_incremental #true 表示增量式调亮度，false表示非增量式
 int16 brightness_set #缺省代表不调节
 string color #缺省代表不调整颜色

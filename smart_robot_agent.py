@@ -19,7 +19,7 @@ from usb_serial_manager import SerialManager
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.2"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.3"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -449,6 +449,8 @@ class ROS2Interface:
         self.position_subscription = None  # 位置订阅对象
         self.robot_state_subscription = None  # 机器人状态订阅对象
         self.motor_control_publisher = None  # 电机控制发布对象
+        self.rgb_control_publisher = None  # RGB灯控制发布对象
+        self.rgb_state_subscription = None  # RGB灯状态订阅对象
         self.robot_state = {
             "screen_tilt": 0.0,  # 屏幕俯仰角度
             "robot_tilt": 0.0,  # 机身俯仰角度
@@ -456,6 +458,14 @@ class ROS2Interface:
             "medicine_box": 0.0,  # 药盒电机状态 (0.0=关闭, 1.0=开启, 2.0=运行中)
             "battery": 100.0  # 电池电量
         }
+        self.rgb_state = {
+            "rgb_switch": 0,  # RGB灯开关 (0=关闭, 1=开启)
+            "rgb_mode": 0,  # RGB灯模式 (0-5)
+            "rgb_speed": 0,  # RGB灯速度 (0-6)
+            "brightness": 0,  # RGB灯亮度 (0-255)
+            "color": 0  # RGB灯颜色 (0-8)
+        }
+        self.rgb_state_lock = threading.Lock()  # RGB状态锁
         self.node = None  # ROS2节点
         self.initialized = False  # ROS2是否已初始化
         self.ros2_thread = None  # ROS2处理线程
@@ -615,7 +625,7 @@ class ROS2Interface:
             return False
 
     def start_robot_state_monitoring(self) -> bool:
-        """开始机器人状态监控（订阅 robot_state_update 话题）"""
+        """开始机器人状态监控（订阅 robot_state_update 和 rgb_state 话题）"""
         if hasattr(self, 'robot_state_subscribed') and self.robot_state_subscribed:
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，跳过重复订阅")
             return True
@@ -647,6 +657,10 @@ class ROS2Interface:
             )
             self.robot_state_subscribed = True
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，订阅话题: /robot_state_update")
+
+            # 同时启动RGB状态监控
+            self.start_rgb_state_monitoring()
+
             return True
 
         except Exception as e:
@@ -688,6 +702,69 @@ class ROS2Interface:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态回调处理失败: {e}")
             import traceback
             traceback.print_exc()
+
+    def _rgb_state_callback(self, msg):
+        """RGB灯状态回调函数"""
+        try:
+            data = msg.data
+            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到 rgb_state 消息，数据长度: {len(data)}")
+            with self.rgb_state_lock:
+                if len(data) >= 5:
+                    self.rgb_state["rgb_switch"] = int(data[0])
+                    self.rgb_state["rgb_mode"] = int(data[1])
+                    self.rgb_state["rgb_speed"] = int(data[2])
+                    # data[3] 是空缺的，跳过
+                    self.rgb_state["brightness"] = int(data[4])
+                    self.rgb_state["color"] = int(data[5])
+                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
+                else:
+                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_state 数据长度不足: {len(data)}，需要至少6个元素")
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态回调处理失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def start_rgb_state_monitoring(self):
+        """启动RGB灯状态监控（订阅rgb_state话题）"""
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                logger.warning("ROS2不可用或未初始化，无法启动RGB状态监控")
+                return False
+
+            if self.rgb_state_subscription is not None:
+                logger.warning("RGB状态监控已在运行")
+                return False
+
+            from std_msgs.msg import UInt8MultiArray
+
+            self.rgb_state_subscription = self.node.create_subscription(
+                UInt8MultiArray,
+                '/rgb_state',
+                self._rgb_state_callback,
+                10
+            )
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态监控已启动，订阅话题: /rgb_state")
+            return True
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 启动RGB状态监控失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def stop_rgb_state_monitoring(self):
+        """停止RGB灯状态监控"""
+        try:
+            if hasattr(self, 'rgb_state_subscription') and self.rgb_state_subscription:
+                self.rgb_state_subscription.destroy()
+                self.rgb_state_subscription = None
+
+            logger.info("RGB灯状态监控已停止")
+            return True
+
+        except Exception as e:
+            logger.error(f"停止RGB灯状态监控失败: {e}")
+            return False
 
     def get_robot_state(self) -> Dict[str, Any]:
         """获取机器人状态"""
@@ -1748,87 +1825,111 @@ class ROS2Interface:
                 "description": f"获取药箱状态失败: {str(e)}"
             }
 
-    def set_rgb_light_strip(self, brightness_set: Optional[int] = None, rgb_switch: Optional[bool] = None, color: Optional[str] = None, is_incremental: bool = False) -> Dict[str, Any]:
-        """控制RGB灯带开关、颜色与亮度
-        
+    def set_rgb_light_strip(self, brightness_set: Optional[int] = None, rgb_switch: Optional[bool] = None,
+                             color: Optional[str] = None, is_incremental: bool = False,
+                             rgb_mode: Optional[int] = None, rgb_speed: Optional[int] = None) -> Dict[str, Any]:
+        """控制RGB灯带开关、颜色、亮度、模式和速度（通过话题发布）
+
         Args:
             rgb_switch (bool): RGB灯开关 (True: 开启, False: 关闭)，可选
-            brightness (int): 亮度 0-255，可选
-            color (str): 颜色名称 (red/yellow/blue/green等)，可选
-            red (int): 红色分量 0~255，已弃用，请使用color参数
-            green (int): 绿色分量 0~255，已弃用，请使用color参数
-            blue (int): 蓝色分量 0~255，已弃用，请使用color参数
+            brightness_set (int): 亮度 0-255，可选
+            color (str): 颜色名称 (red/green/blue/yellow/cyan/purple/white/warm_white)，可选
             is_incremental (bool): 是否增量调节 (True: 增量式, False: 非增量式)，默认False
-            
+            rgb_mode (int): 灯的模式 0-5，可选
+              0=单色, 1=单色呼吸, 2=单色闪烁, 3=7色常亮循环, 4=7色呼吸循环, 5=7色闪烁循环
+            rgb_speed (int): 控制速度 0-6档，可选（仅呼吸或闪烁模式生效）
+              0=0.25s, 1=0.5s, 2=1s, 3=2.5s, 4=3.5s, 5=5s, 6=10s
+
         Returns:
             Dict[str, Any]: 控制结果
         """
         try:
-            # 构造请求数据
-            request_parts = []
-                        
-            # 添加必填参数
-            if rgb_switch is not None:
-                request_parts.append(f'"rgb_switch": {str(rgb_switch).lower()}')
-            
-            # 添加可选参数
-            if is_incremental is not None:
-                request_parts.append(f'"is_incremental": {str(is_incremental).lower()}')
-            
-            if brightness_set is not None:
-                request_parts.append(f'"brightness_set": {brightness_set}')
-            
-            if color is not None:
-                request_parts.append(f'"color": "{color}"')
-            
-            # 如果没有任何参数，返回错误
-            if not request_parts:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
                 return {
                     "success": False,
-                    "description": "请至少提供一个参数：rgb_switch, brightness, color"
+                    "description": "ROS2不可用或未初始化"
                 }
-            
-            request_data = '{' + ', '.join(request_parts) + '}'
-            
-            response = self._call_ros2_service(
-                "/rgb_brightness_color_set",
-                "jqr_ros_msgs/srv/RgbLightStrip",
-                request_data
-            )
-            if response is None:
-                result = {
-                    "success": False,
-                    "description": "服务 /rgb_brightness_color_set 不存在或调用失败"
-                }
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置RGB灯带失败: {result}")
-                return result
+
+            # 确保发布者已创建
+            if self.rgb_control_publisher is None:
+                from std_msgs.msg import UInt8MultiArray
+                self.rgb_control_publisher = self.node.create_publisher(
+                    UInt8MultiArray,
+                    '/rgb_control',
+                    10
+                )
+                logger.info("RGB灯控制发布者已创建: /rgb_control")
+
+            # 从当前状态获取默认值
+            with self.rgb_state_lock:
+                current_switch = self.rgb_state.get("rgb_switch", 0)
+                current_mode = self.rgb_state.get("rgb_mode", 0)
+                current_speed = self.rgb_state.get("rgb_speed", 0)
+                current_brightness = self.rgb_state.get("brightness", 0)
+                current_color = self.rgb_state.get("color", 0)
+
+            # 构造控制数据
+            data = [0, 0, 0, 0, 0, 0]  # [rgb_switch, rgb_mode, rgb_speed, is_incremental, brightness_set, color]
+
+            # data[0]: 开关
+            if rgb_switch is not None:
+                data[0] = 1 if rgb_switch else 0
             else:
-                if not response or not response.strip():
-                    return {
-                        "success": False,
-                        "description": "RGB灯带服务返回空响应"
-                    }
-                try:
-                    response_data = parse_ros2_response(response)
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    success = (result_number == 1)
-                    result = {
-                        "success": success,
-                        "description": result_msg if success else f"设置失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    # if success:
-                    #     logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置RGB灯带成功: {result}")
-                    # else:
-                    #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置RGB灯带失败: {result}")
-                    return result
-                except Exception as e:
-                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯带响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+                data[0] = current_switch
+
+            # data[1]: 模式
+            if rgb_mode is not None:
+                data[1] = rgb_mode
+            else:
+                data[1] = current_mode
+
+            # data[2]: 速度
+            if rgb_speed is not None:
+                data[2] = rgb_speed
+            else:
+                data[2] = current_speed
+
+            # data[3]: 是否增量调节
+            data[3] = 1 if is_incremental else 0
+
+            # data[4]: 亮度
+            if brightness_set is not None:
+                data[4] = brightness_set
+            else:
+                data[4] = current_brightness
+
+            # data[5]: 颜色
+            if color is not None:
+                color_map = {
+                    "red": 0,
+                    "green": 1,
+                    "blue": 2,
+                    "yellow": 3,
+                    "cyan": 4,
+                    "purple": 5,
+                    "white": 6,
+                    "warm_white": 7,
+                    "warm_white2": 8
+                }
+                data[5] = color_map.get(color.lower(), 0)
+            else:
+                data[5] = current_color
+
+            # 发布控制消息
+            from std_msgs.msg import UInt8MultiArray
+            msg = UInt8MultiArray()
+            msg.data = data
+            self.rgb_control_publisher.publish(msg)
+
+            logger.info(f"RGB灯控制指令已发布: 开关={data[0]}, 模式={data[1]}, 速度={data[2]}, "
+                       f"增量={data[3]}, 亮度={data[4]}, 颜色={data[5]}")
+
+            return {
+                "success": True,
+                "description": "RGB灯控制指令已发布",
+                "data": data
+            }
+
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置RGB灯带失败: {e}")
             return {
@@ -1837,65 +1938,64 @@ class ROS2Interface:
             }
 
     def get_rgb_light_strip_state(self) -> Dict[str, Any]:
-        """获取RGB灯带状态
-        
-        根据新的服务接口 rgb_state 获取RGB灯的开关、颜色和亮度状态
-        
+        """获取RGB灯带状态（从rgb_state话题订阅获取）
+
         Returns:
             Dict[str, Any]: 灯带状态信息
-            - rgb_switch (bool): RGB灯开关状态
-            - brightness_value (int): 亮度值 0-255
-            - color (str): 颜色名称 (red/yellow/blue/green等)
+            - rgb_switch (int): RGB灯开关状态 (0=关闭, 1=开启)
+            - rgb_mode (int): 灯的模式 (0-5)
+            - rgb_speed (int): 控制速度 (0-6)
+            - brightness (int): 亮度值 0-255
+            - color (int): 颜色 (0-8)
+            - color_name (str): 颜色名称
             - success (bool): 是否获取成功
             - description (str): 描述信息
-            - result_number (int): 结果码 (0=失败, 1=成功)
         """
         try:
-            response = self._call_ros2_service(
-                "/rgb_state",
-                "jqr_ros_msgs/srv/RgbLightStripState",
-                "{}"
-            )
-            if response is None:
-                result = {
-                    "success": False,
-                    "description": "服务 /rgb_state 不存在或调用失败"
-                }
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取RGB灯带状态失败: {result}")
-                return result
-            else:
-                if not response or not response.strip():
-                    return {
-                        "success": False,
-                        "description": "RGB灯带状态服务返回空响应"
-                    }
-                try:
-                    response_data = parse_ros2_response(response)
-                    rgb_switch = response_data.get("rgb_switch", False)
-                    brightness_value = response_data.get("brightness_value", 0)
-                    color = response_data.get("color", "")
-                    result_number = response_data.get("result_number", 0)
-                    result_msg = response_data.get("result_msg", "")
-                    success = (result_number == 1)
-                    result = {
-                        "success": success,
-                        "rgb_switch": rgb_switch,
-                        "brightness_value": brightness_value,
-                        "color": color,
-                        "description": result_msg if success else f"获取失败: {result_msg}",
-                        "result_number": result_number
-                    }
-                    # if success:
-                    #     logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取RGB灯带状态成功: {result}")
-                    # else:
-                    #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取RGB灯带状态失败: {result}")
-                    return result
-                except Exception as e:
-                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯带状态响应解析失败: {e}, 原始响应: {response}")
-                    return {
-                        "success": False,
-                        "description": f"响应解析失败: {str(e)}"
-                    }
+            with self.rgb_state_lock:
+                rgb_switch = self.rgb_state.get("rgb_switch", 0)
+                rgb_mode = self.rgb_state.get("rgb_mode", 0)
+                rgb_speed = self.rgb_state.get("rgb_speed", 0)
+                brightness = self.rgb_state.get("brightness", 0)
+                color = self.rgb_state.get("color", 0)
+
+            # 将颜色代码转换为名称
+            color_names = {
+                0: "red",
+                1: "green",
+                2: "blue",
+                3: "yellow",
+                4: "cyan",
+                5: "purple",
+                6: "white",
+                7: "warm_white",
+                8: "warm_white2"
+            }
+            color_name = color_names.get(color, "unknown")
+
+            # 将模式代码转换为描述
+            mode_descriptions = {
+                0: "单色",
+                1: "单色呼吸",
+                2: "单色闪烁",
+                3: "7色常亮循环",
+                4: "7色呼吸循环",
+                5: "7色闪烁循环"
+            }
+            mode_desc = mode_descriptions.get(rgb_mode, "未知")
+
+            return {
+                "success": True,
+                "rgb_switch": rgb_switch,
+                "rgb_mode": rgb_mode,
+                "mode_description": mode_desc,
+                "rgb_speed": rgb_speed,
+                "brightness": brightness,
+                "color": color,
+                "color_name": color_name,
+                "description": f"RGB灯状态: 开关={rgb_switch}, 模式={mode_desc}, 速度={rgb_speed}, 亮度={brightness}, 颜色={color_name}"
+            }
+
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取RGB灯带状态失败: {e}")
             return {

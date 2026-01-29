@@ -44,6 +44,8 @@ set(srv_files
   "srv/RgbLightStripState.srv"
   "srv/FaceRecognition.srv"
   "srv/FaceRegistration.srv"
+  "srv/RealSenseDepthImage.srv"
+  "srv/RealSenseRGBImage.srv"
 )
 
 set(action_files

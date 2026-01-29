@@ -1,0 +1,6 @@
+# Request
+string[] camera_ids
+---
+# Response
+string[] camera_ids
+sensor_msgs/CompressedImage[] depth_images_compressed

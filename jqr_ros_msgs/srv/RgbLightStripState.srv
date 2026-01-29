@@ -1,6 +1,8 @@
 #request
 ---
 bool rgb_switch #true 表示开启，false表示关闭
+uint8 mode           #表示模式、六种模式
+uint8 speed           #呼吸或闪烁 的调节速度  0-6档
 uint8 brightness_value 
 string color
 std_msgs/UInt8 result_number

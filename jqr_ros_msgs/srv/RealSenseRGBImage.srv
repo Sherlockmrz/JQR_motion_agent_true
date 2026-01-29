@@ -1,0 +1,6 @@
+# Request
+string[] camera_ids
+---
+# Response
+string[] camera_ids
+sensor_msgs/CompressedImage[] rgb_images_compressed
