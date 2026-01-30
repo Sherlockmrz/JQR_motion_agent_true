@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Smart Robot Agent with USB Serial Communication"""
-
+import base64
 import os
 import json
 import sqlite3
@@ -19,7 +19,7 @@ from usb_serial_manager import SerialManager
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.3"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.4"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -448,9 +448,11 @@ class ROS2Interface:
         self.battery_subscription = None  # 电池电量订阅对象
         self.position_subscription = None  # 位置订阅对象
         self.robot_state_subscription = None  # 机器人状态订阅对象
+        self.robot_state_monitoring_active = False  # 机器人状态监控是否激活标志
         self.motor_control_publisher = None  # 电机控制发布对象
         self.rgb_control_publisher = None  # RGB灯控制发布对象
         self.rgb_state_subscription = None  # RGB灯状态订阅对象
+        self.rgb_monitoring_active = False  # RGB监控是否激活标志
         self.robot_state = {
             "screen_tilt": 0.0,  # 屏幕俯仰角度
             "robot_tilt": 0.0,  # 机身俯仰角度
@@ -468,6 +470,7 @@ class ROS2Interface:
         self.rgb_state_lock = threading.Lock()  # RGB状态锁
         self.node = None  # ROS2节点
         self.initialized = False  # ROS2是否已初始化
+        self.executor = None  # MultiThreadedExecutor
         self.ros2_thread = None  # ROS2处理线程
         self.ros2_thread_running = False  # ROS2线程是否运行
 
@@ -475,6 +478,7 @@ class ROS2Interface:
         self.service_clients = {}  # 服务客户端缓存 {service_name: (client, callback_group)}
         self.mutually_exclusive_callback_group = None  # 互斥回调组
         self.reentrant_callback_group = None  # 可重入回调组
+        self.face_recognition_callback_group = None  # 人脸识别专用回调组
 
         # 异步服务调用结果存储
         self.service_call_results = {}  # {call_id: (future, event, result)}
@@ -511,6 +515,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/set_laser_pointer",
+                1,
                 "jqr_ros_msgs/srv/LaserPointer",
                 {"laser_pointer": laser_pointer_value},
                 timeout=10.0
@@ -561,6 +566,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/get_laser_pointer_state",
+                1,
                 "jqr_ros_msgs/srv/LaserPointerState",
                 {},
                 timeout=10.0
@@ -655,6 +661,7 @@ class ROS2Interface:
                 self._robot_state_callback,
                 10
             )
+            self.robot_state_monitoring_active = True
             self.robot_state_subscribed = True
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，订阅话题: /robot_state_update")
 
@@ -672,6 +679,9 @@ class ROS2Interface:
     def stop_robot_state_monitoring(self):
         """停止机器人状态监控"""
         try:
+            # 先设置标志为False，避免回调继续执行
+            self.robot_state_monitoring_active = False
+
             if hasattr(self, 'robot_state_subscription') and self.robot_state_subscription:
                 self.robot_state_subscription.destroy()
                 self.robot_state_subscription = None
@@ -686,6 +696,10 @@ class ROS2Interface:
 
     def _robot_state_callback(self, msg):
         """机器人状态回调函数"""
+        # 检查监控是否仍然激活，避免在订阅销毁后执行回调
+        if not self.robot_state_monitoring_active:
+            return
+
         try:
             data = msg.data
             # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到 robot_state_update 消息，数据长度: {len(data)}")
@@ -705,18 +719,22 @@ class ROS2Interface:
 
     def _rgb_state_callback(self, msg):
         """RGB灯状态回调函数"""
+        # 检查监控是否仍然激活，避免在订阅销毁后执行回调
+        if not self.rgb_monitoring_active:
+            return
+
         try:
             data = msg.data
             # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到 rgb_state 消息，数据长度: {len(data)}")
             with self.rgb_state_lock:
-                if len(data) >= 5:
+                if len(data) >= 6:
                     self.rgb_state["rgb_switch"] = int(data[0])
                     self.rgb_state["rgb_mode"] = int(data[1])
                     self.rgb_state["rgb_speed"] = int(data[2])
                     # data[3] 是空缺的，跳过
                     self.rgb_state["brightness"] = int(data[4])
                     self.rgb_state["color"] = int(data[5])
-                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
                 else:
                     logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_state 数据长度不足: {len(data)}，需要至少6个元素")
         except Exception as e:
@@ -743,6 +761,7 @@ class ROS2Interface:
                 self._rgb_state_callback,
                 10
             )
+            self.rgb_monitoring_active = True  # 设置监控激活标志
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态监控已启动，订阅话题: /rgb_state")
             return True
 
@@ -755,15 +774,22 @@ class ROS2Interface:
     def stop_rgb_state_monitoring(self):
         """停止RGB灯状态监控"""
         try:
+            # 先设置标志为False，阻止回调执行
+            self.rgb_monitoring_active = False
+
+            # 销毁订阅
             if hasattr(self, 'rgb_state_subscription') and self.rgb_state_subscription:
                 self.rgb_state_subscription.destroy()
                 self.rgb_state_subscription = None
 
-            logger.info("RGB灯状态监控已停止")
+            # 短暂等待，确保所有回调都已处理完毕
+            time.sleep(0.1)
+
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态监控已停止")
             return True
 
         except Exception as e:
-            logger.error(f"停止RGB灯状态监控失败: {e}")
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止RGB灯状态监控失败: {e}")
             return False
 
     def get_robot_state(self) -> Dict[str, Any]:
@@ -868,6 +894,12 @@ class ROS2Interface:
             # 创建回调组
             self._create_callback_groups()
 
+            # 创建 MultiThreadedExecutor 支持多线程并发
+            from rclpy.executors import MultiThreadedExecutor
+            self.executor = MultiThreadedExecutor(num_threads=4)
+            self.executor.add_node(self.node)
+            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] MultiThreadedExecutor 已创建，线程数: 4")
+
             self.initialized = True
             # 启动ROS2处理线程
             self._start_ros2_spin_thread()
@@ -902,10 +934,15 @@ class ROS2Interface:
             self.reentrant_callback_group = ReentrantCallbackGroup()
             # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 可重入回调组创建成功")
 
+            # 创建独立的人脸识别回调组（用于耗时的人脸识别服务）
+            self.face_recognition_callback_group = ReentrantCallbackGroup()
+            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 人脸识别回调组创建成功")
+
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建回调组失败: {e}")
             self.mutually_exclusive_callback_group = None
             self.reentrant_callback_group = None
+            self.face_recognition_callback_group = None
 
     def _ros2_spin_worker(self):
         """ROS2独立处理线程工作函数"""
@@ -952,7 +989,14 @@ class ROS2Interface:
                 if self.node:
                     self.node.destroy_node()
                     self.node = None
-                rclpy.shutdown()
+                try:
+                    rclpy.shutdown()
+                except Exception as shutdown_error:
+                    # 如果已经shutdown过，忽略错误
+                    if "already called" in str(shutdown_error):
+                        logger.debug("ROS2 context already shutdown")
+                    else:
+                        raise
                 self.initialized = False
                 logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 资源已清理")
         except Exception as e:
@@ -1012,13 +1056,13 @@ class ROS2Interface:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 检查动作存在性失败: {e}")
             return False
 
-    def _get_or_create_service_client(self, service_name: str, service_type: str, use_concurrent: bool = True):
+    def _get_or_create_service_client(self, service_name: str, service_type: str, use_concurrent: int):
         """获取或创建服务客户端
 
         Args:
             service_name (str): 服务名称
             service_type (str): 服务类型字符串 (如 "jqr_ros_msgs/srv/RobotRise")
-            use_concurrent (bool): 是否使用并发回调组
+            use_concurrent (int): 是否使用并发回调组
 
         Returns:
             服务客户端对象，如果创建失败则返回None
@@ -1047,7 +1091,12 @@ class ROS2Interface:
                 return None
 
             # 选择回调组
-            callback_group = self.reentrant_callback_group if use_concurrent else self.mutually_exclusive_callback_group
+            if use_concurrent == 2:  # 人脸识别专用回调组
+                callback_group = self.face_recognition_callback_group
+            elif use_concurrent == 1:  # 可重入回调组
+                callback_group = self.reentrant_callback_group
+            else:  # 默认互斥回调组
+                callback_group = self.mutually_exclusive_callback_group
 
             # 创建服务客户端（如果node为None则返回None）
             if self.node is None:
@@ -1072,7 +1121,115 @@ class ROS2Interface:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建服务客户端失败: {e}")
             return None
 
-    def _call_ros2_service_async(self, service_name: str, service_type: str, request_data: dict, timeout: float = 10.0) -> Dict[str, Any]:
+    def _create_sensor_msgs_image(self, pil_image) -> Any:
+        """创建 sensor_msgs/Image 对象从 PIL.Image
+
+        Args:
+            pil_image: PIL.Image 对象
+
+        Returns:
+            sensor_msgs.msg.Image 对象
+        """
+        try:
+            # 导入必要的模块
+            from sensor_msgs.msg import Image
+            import numpy as np
+            import cv2
+
+            # 转换为 numpy 数组
+            cv_img = np.array(pil_image)
+
+            # 确定编码格式
+            if pil_image.mode == 'RGB':
+                encoding = 'rgb8'
+            elif pil_image.mode == 'RGBA':
+                encoding = 'rgba8'
+            elif pil_image.mode == 'L':
+                encoding = 'mono8'
+            else:
+                encoding = 'rgb8'  # 默认
+
+            # 创建 Image 消息
+            img_msg = Image()
+            img_msg.height = cv_img.shape[0]
+            img_msg.width = cv_img.shape[1]
+            img_msg.encoding = encoding
+
+            # 处理通道数
+            if len(cv_img.shape) == 2:
+                # 单通道
+                img_msg.step = cv_img.shape[1]
+                img_msg.data = cv_img.tobytes()
+            else:
+                # 多通道
+                channels = cv_img.shape[2]
+                img_msg.step = cv_img.shape[1] * channels
+                img_msg.data = cv_img.tobytes()
+
+            # 设置时间戳
+            img_msg.header.stamp = self.node.get_clock().now().to_msg()
+            img_msg.header.frame_id = "camera"
+
+            return img_msg
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建 sensor_msgs/Image 失败: {e}")
+            return None
+
+    def _set_request_field_complex(self, request, field_name: str, value: Any) -> bool:
+        """设置请求字段的复杂类型值
+
+        Args:
+            request: 请求对象
+            field_name (str): 字段名称
+            value: 字段值
+
+        Returns:
+            bool: 是否设置成功
+        """
+        try:
+            # 检查字段是否存在
+            if not hasattr(request, field_name):
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 请求类型没有属性: {field_name}")
+                return False
+
+            # 获取字段类型
+            field_value = getattr(request, field_name)
+
+            # 如果是列表类型
+            if isinstance(field_value, list):
+                # 清空列表
+                field_value.clear()
+
+                # 处理每个元素
+                if isinstance(value, list):
+                    for item in value:
+                        # 检查是否是 PIL.Image
+                        if hasattr(item, 'mode'):  # PIL.Image 的特征
+                            img_msg = self._create_sensor_msgs_image(item)
+                            if img_msg:
+                                field_value.append(img_msg)
+                        elif isinstance(item, dict):
+                            # 如果是字典，尝试直接赋值（用于简单类型）
+                            field_value.append(item)
+                        else:
+                            # 其他类型，直接添加
+                            field_value.append(item)
+                else:
+                    # 单个值，添加到列表
+                    field_value.append(value)
+
+                return True
+            else:
+                # 非列表类型，直接赋值
+                setattr(request, field_name, value)
+                return True
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置请求字段失败: {field_name}, {e}")
+            return False
+
+    def _call_ros2_service_async(self, service_name: str, use_concurrent:int,service_type: str, request_data: dict, timeout: float = 10.0) -> Dict[str, Any]:
         """异步调用ROS2服务（支持并发）
 
         Args:
@@ -1094,7 +1251,10 @@ class ROS2Interface:
 
         try:
             # 获取或创建服务客户端（使用可重入回调组支持并发）
-            client = self._get_or_create_service_client(service_name, service_type, use_concurrent=True)
+            if(use_concurrent ==2):
+                client = self._get_or_create_service_client(service_name, service_type, use_concurrent=2)
+            else:
+                client = self._get_or_create_service_client(service_name, service_type, use_concurrent=1)
             if not client:
                 return {
                     "success": False,
@@ -1126,11 +1286,10 @@ class ROS2Interface:
                     "success": False,
                     "error_msg": "客户端没有 srv_type 属性"
                 }
+
+            # 设置请求字段 - 支持复杂类型
             for key, value in request_data.items():
-                if hasattr(request, key):
-                    setattr(request, key, value)
-                else:
-                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 请求类型没有属性: {key}")
+                self._set_request_field_complex(request, key, value)
 
             # 同步调用服务（由于回调组是可重入的，多个服务调用可以并发执行）
             # 注意：这里使用同步调用但配合可重入回调组，ROS2会在后台处理多个服务请求
@@ -1155,8 +1314,30 @@ class ROS2Interface:
                 # Pylance 可能无法识别 get_fields_and_field_types，运行时它是正确的
                 for field_name in response.get_fields_and_field_types():  # type: ignore
                     value = getattr(response, field_name)
+                    # 处理数组类型（如 string[], CompressedImage[]）
+                    if isinstance(value, list):
+                        # 对于数组类型，将每个元素转换为字典
+                        converted_list = []
+                        for i, item in enumerate(value):
+                            if hasattr(item, 'get_fields_and_field_types'):
+                                # 复杂类型（如CompressedImage），转换为字典（优先检查）
+                                item_dict = {}
+                                for sub_field in item.get_fields_and_field_types():
+                                    sub_value = getattr(item, sub_field)
+                                    # 对于CompressedImage，直接使用原始值（包括data字段的bytearray）
+                                    item_dict[sub_field] = sub_value
+                                converted_list.append(item_dict)
+                            elif hasattr(item, 'data'):
+                                # std_msgs类型，提取data字段
+                                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 转换数组元素[{i}]为std_msgs类型，提取data字段: type={type(item.data).__name__}")
+                                converted_list.append(item.data)
+                            else:
+                                # 其他类型，直接添加
+                                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 转换数组元素[{i}]: type={type(item).__name__}")
+                                converted_list.append(item)
+                        response_dict[field_name] = converted_list
                     # 处理std_msgs类型
-                    if hasattr(value, 'data'):
+                    elif hasattr(value, 'data'):
                         response_dict[field_name] = value.data
                     else:
                         response_dict[field_name] = value
@@ -1165,6 +1346,15 @@ class ROS2Interface:
                 response_dict = vars(response) if hasattr(response, '__dict__') else {}
 
             # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 异步服务调用成功: {service_name}, 响应: {response_dict}")
+
+            # 调试：记录响应的详细信息
+            if 'rgb_images_compressed' in response_dict:
+                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed in response_dict")
+                img_list = response_dict['rgb_images_compressed']
+                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed type: {type(img_list).__name__}, len: {len(img_list)}")
+                if img_list:
+                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] type: {type(img_list[0]).__name__}")
+
             return {
                 "success": True,
                 "response": response_dict
@@ -1464,6 +1654,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/get_move_mode",
+                1,
                 "jqr_ros_msgs/srv/MoveMode",
                 {},
                 timeout=10.0
@@ -1534,6 +1725,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/set_robot_rise",
+                1,
                 "jqr_ros_msgs/srv/RobotRise",
                 request_data,
                 timeout=10.0
@@ -1580,6 +1772,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/get_robot_rise",
+                1,
                 "jqr_ros_msgs/srv/RobotRiseState",
                 {},
                 timeout=10.0
@@ -1649,6 +1842,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/set_robot_tilt",
+                1,
                 "jqr_ros_msgs/srv/RobotTilt",
                 request_data,
                 timeout=10.0
@@ -2001,6 +2195,209 @@ class ROS2Interface:
             return {
                 "success": False,
                 "description": f"获取RGB灯带状态失败: {str(e)}"
+            }
+
+    def find_person(self, obj_name: str, user_prompt: str = "") -> Dict[str, Any]:
+        """静态找人功能
+
+        Args:
+            obj_name (str): 人员名称/ID
+            user_prompt (str): 用户原始指令，预留参数
+
+        Returns:
+            Dict[str, Any]: 找人结果
+        """
+        try:
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始找人: {obj_name}")
+
+            # Step 1: 调用realsense_rgb_image服务获取4个相机的RGB图像
+            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取相机图像数据...")
+            camera_ids = ["cameraF", "cameraB", "cameraL", "cameraR"]
+
+            # 构造请求数据 - 按照通信协议
+            # Request: string[] camera_ids
+            # Response: string[] camera_ids, sensor_msgs/CompressedImage[] rgb_images_compressed
+            request_data = {
+                "camera_ids": camera_ids
+            }
+
+            # 使用异步服务调用，直接返回Python对象，避免文本解析问题
+            result = self._call_ros2_service_async(
+                "/realsense_rgb_image",
+                2,
+                "jqr_ros_msgs/srv/RealSenseRGBImage",
+                request_data,
+                timeout=10.0
+            )
+
+            if not result.get("success"):
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 相机图像数据获取异常: {result.get('error_msg', '未知错误')}")
+                return {
+                    "type": "find_person",
+                    "success": False,
+                    "obj_name": obj_name,
+                    "result_msg": "相机图像数据获取异常"
+                }
+
+            # 解析响应 - 使用异步服务调用的响应，已经是字典格式
+            try:
+                response_data = result.get("response", {})
+                returned_camera_ids = response_data.get("camera_ids", [])
+                # rgb_images_compressed 是 sensor_msgs/CompressedImage[] 类型
+                rgb_images_compressed = response_data.get("rgb_images_compressed", [])
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取到 {len(returned_camera_ids)} 个相机的图像数据")
+
+                # 详细调试：输出响应数据的完整结构
+                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] response_data keys: {list(response_data.keys())}")
+                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed type: {type(rgb_images_compressed).__name__}")
+                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed length: {len(rgb_images_compressed)}")
+                if rgb_images_compressed:
+                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] type: {type(rgb_images_compressed[0]).__name__}")
+                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] has get: {hasattr(rgb_images_compressed[0], 'get')}")
+                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] has get_fields: {hasattr(rgb_images_compressed[0], 'get_fields_and_field_types')}")
+                    if isinstance(rgb_images_compressed[0], dict):
+                        logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] keys: {list(rgb_images_compressed[0].keys())}")
+                        if 'data' in rgb_images_compressed[0]:
+                            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0]['data'] type: {type(rgb_images_compressed[0]['data']).__name__}")
+
+                if len(returned_camera_ids) != 4:
+                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 期望4个相机数据，实际获取到 {len(returned_camera_ids)} 个")
+
+            except Exception as e:
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析相机图像响应失败: {e}")
+                return {
+                    "type": "find_person",
+                    "success": False,
+                    "obj_name": obj_name,
+                    "result_msg": "相机图像数据解析失败"
+                }
+
+            # 将 CompressedImage 解码为 PIL.Image 列表 - 参考 ros2_data_source.py 的转换方法
+            pil_images = []
+            import numpy as np
+            from PIL import Image
+            import cv2
+
+            for i, comp_img_msg in enumerate(rgb_images_compressed):
+                try:
+                    # CompressedImage 格式: {format: string, data: bytearray}
+                    data = comp_img_msg.get("data", [])
+                    img_format = comp_img_msg.get("format", "jpeg")
+
+                    # 将压缩数据解码为 numpy 数组
+                    np_arr = np.frombuffer(data, np.uint8)
+                    cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+                    if cv_image is None:
+                        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解码相机 {returned_camera_ids[i]} 的图像失败")
+                        pil_images.append(None)
+                        continue
+
+                    # BGR 转 RGB (参考 ros2_data_source.py:180)
+                    cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+                    pil_img = Image.fromarray(cv_image, mode='RGB')
+                    pil_images.append(pil_img)
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功解码相机 {returned_camera_ids[i]} 的图像")
+
+                except Exception as e:
+                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解码相机 {returned_camera_ids[i]} 的图像失败: {e}")
+                    pil_images.append(None)
+
+            # 检查是否所有图像都成功解码
+            if any(img is None for img in pil_images):
+                logger.error("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 部分相机图像解码失败")
+                return {
+                    "type": "find_person",
+                    "success": False,
+                    "obj_name": obj_name,
+                    "result_msg": "相机图像解码失败"
+                }
+
+            # Step 2: 调用人脸识别服务face_recognition
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 进行人脸识别...")
+            t0 = time.time()
+
+            # 构造人脸识别请求 - 直接使用 PIL.Image 列表，_call_ros2_service_async 会自动转换
+            # Request格式: person_id (string), camera_ids (string[]), rgb_images (sensor_msgs/Image[])
+            t1 = time.time()
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 构造请求耗时: {(t1-t0)*1000:.2f}ms")
+            face_recognition_request = {
+                "person_id": obj_name,
+                "camera_ids": returned_camera_ids,
+                "rgb_images": pil_images  # 直接传递 PIL.Image 列表
+            }
+
+            # 直接调用服务 - ROS2 spin 线程会正常处理回调，不会阻塞
+            t2 = time.time()
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 准备服务调用耗时: {(t2-t1)*1000:.2f}ms")
+            face_result = self._call_ros2_service_async(
+                "/face_recognition",
+                2,
+                "jqr_ros_msgs/srv/FaceRecognition",
+                face_recognition_request,
+                timeout=30.0  # 给足够长的时间
+            )
+            t3 = time.time()
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 人脸识别服务调用完成，总耗时: {(t3-t2)*1000:.2f}ms")
+
+            if not face_result.get("success"):
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 人脸识别服务调用失败: {face_result.get('error_msg', '未知错误')}")
+                return {
+                    "type": "find_person",
+                    "success": False,
+                    "obj_name": obj_name,
+                    "result_msg": "人脸识别服务调用失败"
+                }
+
+            # 解析人脸识别响应 - 使用异步服务返回的字典格式
+            t4 = time.time()
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析响应耗时: {(t4-t3)*1000:.2f}ms")
+            try:
+                response_data = face_result.get("response", {})
+                camera_id = response_data.get("camera_id", "")
+                bbox = response_data.get("bbox", {})
+
+                if camera_id:
+                    # 找到目标人
+                    result_msg = f"目标人{obj_name}在相机 {camera_id} 里找到"
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {result_msg}, bbox: {bbox}")
+
+                    return {
+                        "type": "find_person",
+                        "success": True,
+                        "obj_name": obj_name,
+                        "result_msg": result_msg,
+                    }
+                else:
+                    # 未找到目标人
+                    result_msg = "未找到目标人"
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {result_msg}")
+
+                    return {
+                        "type": "find_person",
+                        "success": False,
+                        "obj_name": obj_name,
+                        "result_msg": result_msg,
+                    }
+
+            except Exception as e:
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析人脸识别响应失败: {e}")
+                return {
+                    "type": "find_person",
+                    "success": False,
+                    "obj_name": obj_name,
+                    "result_msg": "人脸识别响应解析失败"
+                }
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找人过程异常: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "type": "find_person",
+                "success": False,
+                "obj_name": obj_name,
+                "result_msg": f"找人过程异常: {str(e)}"
             }
 
     def get_robot_tilt_state(self) -> Dict[str, Any]:
@@ -2609,7 +3006,7 @@ class SmartRobotAgent:
         
         # 已知的任务类型列表（可直接执行，无需LLM）
         self.known_task_types = {
-            "find_object", "go_to_object", "go_find_person", "follow_person",
+            "find_object", "find_person", "go_to_object", "go_find_person", "follow_person",
             "back_to_last_position", "stop_follow", "stop_navigate", "stop_move",
             "get_move_mode", "get_medicine_box_state", "set_medicine_box_switch",
             "get_robot_rise_state", "set_robot_rise_jqr",
@@ -2938,6 +3335,7 @@ Agent已知的能力（可用工具）:
         # 添加每个工具的说明
         tool_descriptions = {
             # "find_object": "查找指定对象",
+            "find_person": "静态查找指定人员",
             "go_to_object": "导航到指定对象位置",
             "go_find_person": "去寻找指定的人",
             "follow_person": "跟随指定的人",
@@ -3253,6 +3651,8 @@ Agent已知的能力（可用工具）:
         
         if task_type == "find_object":
             return await self.find_object(params.get("obj_name", ""), params.get("user_prompt", ""))
+        elif task_type == "find_person":
+            return self.ros2_interface.find_person(params.get("obj_name", ""), params.get("user_prompt", ""))
         elif task_type == "go_to_object":
             return await self.go_to_object(**params)
         elif task_type == "go_find_person":
