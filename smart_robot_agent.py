@@ -464,6 +464,7 @@ class ROS2Interface:
             "rgb_switch": 0,  # RGB灯开关 (0=关闭, 1=开启)
             "rgb_mode": 0,  # RGB灯模式 (0-5)
             "rgb_speed": 0,  # RGB灯速度 (0-6)
+            "is_incremental": 0,  # 是否增量式亮度调节 (0=非增量, 1=增量)
             "brightness": 0,  # RGB灯亮度 (0-255)
             "color": 0  # RGB灯颜色 (0-8)
         }
@@ -731,10 +732,10 @@ class ROS2Interface:
                     self.rgb_state["rgb_switch"] = int(data[0])
                     self.rgb_state["rgb_mode"] = int(data[1])
                     self.rgb_state["rgb_speed"] = int(data[2])
-                    # data[3] 是空缺的，跳过
+                    self.rgb_state["is_incremental"] = int(data[3])
                     self.rgb_state["brightness"] = int(data[4])
                     self.rgb_state["color"] = int(data[5])
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 增量={self.rgb_state['is_incremental']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
                 else:
                     logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_state 数据长度不足: {len(data)}，需要至少6个元素")
         except Exception as e:
@@ -1262,12 +1263,14 @@ class ROS2Interface:
                 }
 
             # 等待服务可用
+            t_wait_start = time.time()
             if not client.wait_for_service(timeout_sec=timeout):
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 未在 {timeout} 秒内变为可用")
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 未在 {timeout} 秒内变为可用，耗时: {(time.time()-t_wait_start):.2f}s")
                 return {
                     "success": False,
                     "error_msg": f"服务 {service_name} 未在 {timeout} 秒内变为可用"
                 }
+            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 等待可用耗时: {(time.time()-t_wait_start):.2f}s")
 
             # 创建请求对象
             # Pylance 类型检查可能有误，srv_type.Request 在运行时存在
@@ -1288,23 +1291,30 @@ class ROS2Interface:
                 }
 
             # 设置请求字段 - 支持复杂类型
+            t_set_start = time.time()
             for key, value in request_data.items():
                 self._set_request_field_complex(request, key, value)
+            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置请求字段耗时: {(time.time()-t_set_start):.2f}s")
 
             # 同步调用服务（由于回调组是可重入的，多个服务调用可以并发执行）
             # 注意：这里使用同步调用但配合可重入回调组，ROS2会在后台处理多个服务请求
+            t_call_start = time.time()
             future = client.call_async(request)
+            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] call_async 耗时: {(time.time()-t_call_start):.2f}s")
 
             # 等待结果
             start_time = time.time()
+            check_count = 0
             while not future.done():
                 if time.time() - start_time > timeout:
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用超时: {service_name}")
+                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用超时: {service_name}, 已检查 {check_count} 次")
                     return {
                         "success": False,
                         "error_msg": f"服务调用超时: {service_name}"
                     }
                 time.sleep(0.01)
+                check_count += 1
+            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 等待响应完成，检查次数: {check_count}, 耗时: {(time.time()-start_time):.2f}s")
 
             response = future.result()
 
@@ -2139,6 +2149,7 @@ class ROS2Interface:
             - rgb_switch (int): RGB灯开关状态 (0=关闭, 1=开启)
             - rgb_mode (int): 灯的模式 (0-5)
             - rgb_speed (int): 控制速度 (0-6)
+            - is_incremental (int): 是否增量式亮度调节 (0=非增量, 1=增量)
             - brightness (int): 亮度值 0-255
             - color (int): 颜色 (0-8)
             - color_name (str): 颜色名称
@@ -2150,6 +2161,7 @@ class ROS2Interface:
                 rgb_switch = self.rgb_state.get("rgb_switch", 0)
                 rgb_mode = self.rgb_state.get("rgb_mode", 0)
                 rgb_speed = self.rgb_state.get("rgb_speed", 0)
+                is_incremental = self.rgb_state.get("is_incremental", 0)
                 brightness = self.rgb_state.get("brightness", 0)
                 color = self.rgb_state.get("color", 0)
 
@@ -2178,16 +2190,30 @@ class ROS2Interface:
             }
             mode_desc = mode_descriptions.get(rgb_mode, "未知")
 
+            # 速度描述
+            speed_descriptions = {
+                0: "0.25s",
+                1: "0.5s",
+                2: "1s",
+                3: "2.5s",
+                4: "3.5s",
+                5: "5s",
+                6: "10s"
+            }
+            speed_desc = speed_descriptions.get(rgb_speed, f"{rgb_speed}")
+
             return {
                 "success": True,
                 "rgb_switch": rgb_switch,
                 "rgb_mode": rgb_mode,
                 "mode_description": mode_desc,
                 "rgb_speed": rgb_speed,
+                "speed_description": speed_desc,
+                "is_incremental": is_incremental,
                 "brightness": brightness,
                 "color": color,
                 "color_name": color_name,
-                "description": f"RGB灯状态: 开关={rgb_switch}, 模式={mode_desc}, 速度={rgb_speed}, 亮度={brightness}, 颜色={color_name}"
+                # "description": f"RGB灯状态: 开关={rgb_switch}, 模式={mode_desc}, 速度={speed_desc}, 增量={is_incremental}, 亮度={brightness}, 颜色={color_name}"
             }
 
         except Exception as e:
