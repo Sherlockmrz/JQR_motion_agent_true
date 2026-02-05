@@ -16,6 +16,9 @@ import queue
 # 导入USB串口管理器
 from usb_serial_manager import SerialManager
 
+# 导入OpenAI客户端
+from openai import OpenAI
+
 # ======================
 # 版本控制
 # ======================
@@ -3037,14 +3040,21 @@ class SmartRobotAgent:
         self.local_model_websocket = None
         self.local_model_connected = False
         # self.local_model_uri = "ws://localhost:8769"
-        self.local_model_uri = "ws://192.168.50.185:8000/ws/navigate"
+        self.local_model_uri = "ws://192.168.31.43:8000/ws/navigate"
         # self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
         self.task_execution_lock = asyncio.Lock()  # 任务执行锁
-        
+
         # 本地模型连接锁
         self.local_model_lock = asyncio.Lock()
+
+        # OpenAI 客户端（用于本地模型）
+        self.openai_client = OpenAI(
+            api_key="0",
+            base_url="http://192.168.31.43:9000/v1",
+        )
+        self.openai_model = "Qwen3-VL-30B-A3B-Instruct"
         
         # 消息队列用于处理USB接收的消息
         self.message_queue = queue.Queue()
@@ -3493,13 +3503,11 @@ Agent已知的能力（可用工具）:
 
 任务规则:
 1. 分析用户指令中提到的所有需要查找的物体
-2. 如果只涉及一个物体，返回空任务列表
-3. 如果涉及多个物体，为每个物体创建一个go_to_object任务
-4. go_to_object任务的params中需要包含obj_name字段
+2. 如果涉及一个或多个物体，为每个物体创建一个go_to_object任务
+3. go_to_object任务的params中需要包含obj_name字段
 
 返回格式:
-- 如果只需要执行一个任务或不属于多任务场景，返回空列表: []
-- 如果需要执行多个任务，返回任务列表，格式如下:
+返回任务列表，格式如下:
 [
     {{"type": "go_to_object", "params": {{"obj_name": "物体1名称"}}}},
     {{"type": "go_to_object", "params": {{"obj_name": "物体2名称"}}}}
@@ -3514,46 +3522,24 @@ Agent已知的能力（可用工具）:
         try:
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始任务拆解: {user_prompt}")
 
-            # 构造消息数组格式
+            # 构造消息数组格式（使用 OpenAI 兼容格式）
             messages = [
                 {
                     "role": "system",
-                    "content": [
-                        {"type": "text", "text": system_prompt},
-                    ],
+                    "content": system_prompt,
                 },
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": f"用户指令: {user_prompt}\n\n请分析并返回需要执行的任务列表（JSON格式）:"},
-                    ],
+                    "content": f"用户指令: {user_prompt}\n\n请分析并返回需要执行的任务列表（JSON格式）:",
                 }
             ]
 
-            llm_request = {
-                "type": "talk",
-                "message": json.dumps(messages),
-            }
-
-            response = await self.send_to_local_model(llm_request)
-
-            # 提取响应内容
-            if response is None:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应为None")
-                return []
-            elif isinstance(response, dict):
-                if "result" in response:
-                    llm_response = response["result"]
-                elif "answer" in response:
-                    llm_response = response["answer"]
-                else:
-                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应格式异常: {response}")
-                    return []
-            elif isinstance(response, str):
-                llm_response = response
-            else:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应类型异常: {type(response)}")
-                return []
+            # 使用 OpenAI 客户端调用本地模型
+            completion = self.openai_client.chat.completions.create(
+                model=self.openai_model,
+                messages=messages,
+            )
+            llm_response = completion.choices[0].message.content
 
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应: {llm_response}")
 
@@ -3581,6 +3567,8 @@ Agent已知的能力（可用工具）:
             return []
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 任务拆解失败: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     async def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
@@ -3980,47 +3968,33 @@ Agent已知的能力（可用工具）:
         """导航到物体位置"""
         try:
             # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始导航到物体: {obj_name}")
-            
-            # 检查是否有新格式的tool和arguments
+
+            # 构造符合导航服务期望的数据格式
             model_data = {
                 "type": "go_to_object",
                 "user_prompt": f"去找{obj_name}",
-                "obj_name": obj_name,
-                "pixel_position": pixel_position
+                "params": {
+                    "obj_name": obj_name,
+                    "pixel_position": pixel_position
+                }
             }
-            # final_sent = False
+
             result_msg = {
-                        "type": "go_to_object",
-                        "success": False,
-                        "err_msg": ""}
+                "type": "go_to_object",
+                "success": False,
+                "err_msg": ""
+            }
+
             response = await self.send_to_local_model(model_data)
+
             if response and response.get("error_msg") == "无法连接到本地模型服务器":
-                result_msg = {
-                        "type": "go_to_object",
-                        "success": False,
-                        "err_msg": "无法连接到本地模型服务器"}
+                result_msg["err_msg"] = "无法连接到本地模型服务器"
                 return result_msg
+
             result_msg["success"] = response.get("success", False)
             result_msg["err_msg"] = response.get("error_msg", "")
-            return result_msg                        
-            # while not final_sent:
-            # # 发送到本地模型并获取响应
-            #     if isinstance(response, dict) and "command" in response:
-            #         cmd = response["command"]
-            #         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到中间信息: {cmd}")
-            #         await self.usb_manager.send_message({"type": "go_to_object", "command": cmd})
-            #         continue                
-            #     if isinstance(response, dict) and "success" in response:
-            #         success = response["success"]
-            #         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到最终结果: success={success}")
-            #         if not success:
-            #             result_msg["error_msg"] = response.get("error_msg", "导航失败")
-            #         # 通过 USB 发给客户端
-            #         result_msg["success"] = success
-            #         await self.usb_manager.send_message(result_msg)
-            #         final_sent = True
-            #     await asyncio.sleep(0.2)
-            # return result_msg    
+            return result_msg
+
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到物体失败: {e}")
             result_msg = {
