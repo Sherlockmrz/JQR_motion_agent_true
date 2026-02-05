@@ -153,12 +153,18 @@ class SerialManager:
                         data = self.serial_port.read(self.serial_port.in_waiting)
                         if data:
                             self._process_received_data(data)
+                    else:
+                        # 没有数据时休眠，避免CPU空转
+                        time.sleep(0.01)
 
                 elif isinstance(self.serial_port, VirtualSerialPort):
                     # 虚拟串口模式
                     data = self.serial_port.read()
                     if data:
                         self._process_received_data(data)
+                    else:
+                        # 虚拟串口没有数据时也要休眠
+                        time.sleep(0.01)
 
                 else:
                     time.sleep(0.01)  # 短暂休眠，避免CPU占用过高

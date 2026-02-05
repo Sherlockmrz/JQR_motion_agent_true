@@ -953,10 +953,10 @@ class ROS2Interface:
             spin_count = 0
             while self.ros2_thread_running and rclpy and rclpy.ok() and self.node:
                 rclpy.spin_once(self.node, timeout_sec=0.1)
-                # 短暂休眠避免CPU占用过高
-                time.sleep(0.01)
+                # 延长休眠时间，减少CPU占用（无任务时不需要频繁spin）
+                time.sleep(0.05)
                 spin_count += 1
-                if spin_count % 1000 == 0:  # 每1000次输出一次心跳日志
+                if spin_count % 200 == 0:  # 每200次输出一次心跳日志（约10秒一次）
                     logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2 spin 线程运行中，已执行 {spin_count} 次")
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程出错: {e}")
