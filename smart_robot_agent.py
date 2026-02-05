@@ -19,7 +19,7 @@ from usb_serial_manager import SerialManager
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.4"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.5"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -2051,7 +2051,7 @@ class ROS2Interface:
             if not ROS2_AVAILABLE or not self.initialized or not self.node:
                 return {
                     "success": False,
-                    "description": "ROS2不可用或未初始化"
+                    "error_msg": "ROS2不可用或未初始化"
                 }
 
             # 确保发布者已创建
@@ -2130,17 +2130,47 @@ class ROS2Interface:
 
             return {
                 "success": True,
-                "description": "RGB灯控制指令已发布",
-                "data": data
+                "error_msg": ""
             }
-
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置RGB灯带失败: {e}")
+            logger.error(f"控制RGB灯失败: {e}")
             return {
                 "success": False,
-                "description": f"设置RGB灯带失败: {str(e)}"
+                "error_msg": f"控制RGB灯失败: {str(e)}"
             }
 
+    def set_rgb(self, switch: Optional[bool] = None, mode: Optional[int] = None,
+                color: Optional[str] = None) -> Dict[str, Any]:
+        """设置RGB灯（简化的client接口，设置默认值）
+
+        Args:
+            switch (bool): 开关 (True: 开启, False: 关闭)，可选
+            mode (int): 模式 (0=单色, 1=单色呼吸, 2=单色闪烁)，可选
+            color (str): 颜色 (red/green/blue/yellow等)，可选
+
+        Returns:
+            Dict[str, Any]: 控制结果
+        """
+        # 设置默认值
+        default_switch = True  # 默认开启
+        default_mode = 0  # 默认单色模式
+        default_color = "green"  # 默认绿色
+        default_brightness = 100  # 默认亮度
+
+        # 使用传入参数或默认值
+        rgb_switch = switch if switch is not None else default_switch
+        rgb_mode = mode if mode is not None else default_mode
+        rgb_color = color if color is not None else default_color
+
+        # 调用完整的 set_rgb_light_strip 方法
+        return self.set_rgb_light_strip(
+            rgb_switch=rgb_switch,
+            rgb_mode=rgb_mode,
+            color=rgb_color,
+            brightness_set=default_brightness,
+            rgb_speed=0,
+            is_incremental=False
+        )
     def get_rgb_light_strip_state(self) -> Dict[str, Any]:
         """获取RGB灯带状态（从rgb_state话题订阅获取）
 
@@ -3033,13 +3063,13 @@ class SmartRobotAgent:
         # 已知的任务类型列表（可直接执行，无需LLM）
         self.known_task_types = {
             "find_object", "find_person", "go_to_object", "go_find_person", "follow_person",
-            "back_to_last_position", "stop_follow", "stop_navigate", "stop_move",
+            "back_to_last_position", "go_to_door", "stop_follow", "stop_navigate", "stop_move",
             "get_move_mode", "get_medicine_box_state", "set_medicine_box_switch",
             "get_robot_rise_state", "set_robot_rise_jqr",
             "get_robot_tilt_state", "set_robot_tilt_jqr",
             "get_screen_tilt_state", "set_screen_tilt_jqr",
             "set_laser_pointer", "get_laser_pointer_state",
-            "set_rgb_light_strip", "get_rgb_light_strip_state"
+            "set_rgb", "get_rgb_light_strip_state"
         }
     
     async def initialize(self):
@@ -3366,6 +3396,7 @@ Agent已知的能力（可用工具）:
             "go_find_person": "去寻找指定的人",
             "follow_person": "跟随指定的人",
             "back_to_last_position": "返回到初始位置",
+            "go_to_door": "导航到门口位置",
             "stop_follow": "停止跟随",
             "stop_navigate": "停止导航",
             "stop_move": "停止移动",
@@ -3380,7 +3411,7 @@ Agent已知的能力（可用工具）:
             "set_screen_tilt_jqr": "控制屏幕俯仰",
             "set_laser_pointer": "控制激光笔开关",
             "get_laser_pointer_state": "获取激光笔状态",
-            "set_rgb_light_strip": "设置RGB灯光",
+            "set_rgb": "设置RGB灯",
             "get_rgb_light_strip_state": "获取RGB灯光状态"
         }
 
@@ -3689,6 +3720,10 @@ Agent已知的能力（可用工具）:
                 result = await self.back_to_last_position(**params)
                 result["type"] = task_type
                 return result
+        elif task_type == "go_to_door":
+                result = await self.go_to_door(**params)
+                result["type"] = task_type
+                return result
         elif task_type == "stop_follow":
             return stop_follow()
         elif task_type == "stop_navigate":
@@ -3742,8 +3777,8 @@ Agent已知的能力（可用工具）:
             result = self.ros2_interface.get_laser_pointer_state()
             result["type"] = task_type
             return result
-        elif task_type == "set_rgb_light_strip" and hasattr(self, 'ros2_interface'):
-            result = self.ros2_interface.set_rgb_light_strip(**params)
+        elif task_type == "set_rgb" and hasattr(self, 'ros2_interface'):
+            result = self.ros2_interface.set_rgb(**params)
             result["type"] = task_type
             return result
         elif task_type == "get_rgb_light_strip_state" and hasattr(self, 'ros2_interface'):
@@ -4288,6 +4323,78 @@ Agent已知的能力（可用工具）:
             return {
                 "success": False,
                 "error_msg": f"返回位置失败: {str(e)}"
+            }
+
+    async def go_to_door(self) -> Dict[str, Any]:
+        """
+        导航到门口位置（从 position.txt 读取）
+        Returns:
+            Dict[str, Any]: 返回导航结果
+        """
+        try:
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始导航到门口位置")
+            # 读取 position.txt 文件
+            position_file = "/home/sunrise/welcome_position.txt"
+            if not os.path.exists(position_file):
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] position.txt 文件不存在")
+                return {
+                    "success": False,
+                    "error_msg": f"position.txt 文件不存在"
+                }
+
+            with open(position_file, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+
+            # 解析位置数据（空格分隔格式: x y z qx qy qz qw）
+            try:
+                parts = content.split()
+                if len(parts) != 7:
+                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] position.txt 格式错误，需要6个浮点数，实际得到 {len(parts)} 个")
+                    return {
+                        "success": False,
+                        "error_msg": f"position.txt 格式错误，需要7个浮点数 (x y z qx qy qz qw)"
+                    }
+
+                # 构造位置字典
+                door_position = {
+                    "position": {
+                        "x": float(parts[0]),
+                        "y": float(parts[1]),
+                        "z": float(parts[2])
+                    },
+                    "orientation": {
+                        "x": float(parts[3]),
+                        "y": float(parts[4]),
+                        "z": float(parts[5]),
+                        "w": float(parts[6])  # 如果没有提供w，默认为1.0
+                    }
+                }
+
+            except ValueError as e:
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析 position.txt 数值失败: {e}")
+                return {
+                    "success": False,
+                    "error_msg": f"position.txt 数值格式错误: {str(e)}"
+                }
+
+            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 门口位置: {door_position['position']}, 方向: {door_position['orientation']}")
+
+            # 调用导航功能
+            result = self.ros2_interface.navigate_to_position(door_position)
+            # 确保返回结果包含type字段
+            result["type"] = "go_to_door"
+
+            if result["success"]:
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功导航到门口")
+            else:
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到门口失败: {result.get('error_msg', '未知错误')}")
+
+            return result
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到门口时出错: {e}")
+            return {
+                "success": False,
+                "error_msg": f"导航到门口失败: {str(e)}"
             }
     
     # ============
