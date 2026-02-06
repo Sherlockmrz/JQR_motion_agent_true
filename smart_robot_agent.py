@@ -4492,18 +4492,20 @@ Agent已知的能力（可用工具）:
                     error_str = str(e)
                     logger.error(f"接收本地模型响应时出错: {e}")
 
-                    # 只在连接真正关闭时才重建连接
-                    if ("connection closed" in error_str.lower() or "closed by peer" in error_str.lower()) and "keepalive" not in error_str.lower():
-                        logger.warning("检测到WebSocket连接已关闭，将重建连接")
-                        # 清理无效连接
+                    # 检查连接是否已关闭
+                    if "connection" in error_str.lower() or "closed" in error_str.lower():
+                        logger.warning("检测到WebSocket连接已关闭，清理连接并退出循环")
+                        # 清理无效连接（关键：设置为None，避免下次复用）
                         if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
                             try:
                                 await thread_local.websocket.close()
                             except Exception:
                                 pass
-                            thread_local.websocket = None
+                            thread_local.websocket = None  # 必须置None
+                        # 退出循环
+                        break
 
-                    # 检查是否有部分响应
+                    # 其他错误，检查是否有部分响应后退出
                     if final_response is None:
                         final_response = {"success": False, "error_msg": f"接收响应失败: {error_str}"}
                     break
