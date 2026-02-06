@@ -22,7 +22,7 @@ from openai import OpenAI
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.5"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.6"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -3931,6 +3931,7 @@ Agent已知的能力（可用工具）:
                 logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始对用户指令进行任务拆解: {user_prompt}")
                 task_list = await self._decompose_find_object_task(user_prompt)
                 success_count = 0
+                response = {}
                 if task_list and len(task_list) > 0:
                     logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM拆解出 {len(task_list)} 个子任务，开始执行")
                     # 依次执行所有go_to_object任务
@@ -3946,6 +3947,7 @@ Agent已知的能力（可用工具）:
                     if success_count == len(task_list):
                         if initial_find_result:
                             initial_find_result["success"] = True
+                            initial_find_result["pixel_position"] = response.get("error_msg", "")
                         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 所有找物子任务执行成功")
                     else:
                         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找物子任务执行完成，成功 {success_count} 个，失败 {len(task_list) - success_count} 个")
@@ -3982,7 +3984,8 @@ Agent已知的能力（可用工具）:
             result_msg = {
                 "type": "go_to_object",
                 "success": False,
-                "err_msg": ""
+                "obj_name": obj_name,
+                "error_msg": ""
             }
 
             response = await self.send_to_local_model(model_data)
@@ -3992,7 +3995,7 @@ Agent已知的能力（可用工具）:
                 return result_msg
 
             result_msg["success"] = response.get("success", False)
-            result_msg["err_msg"] = response.get("error_msg", "")
+            result_msg["error_msg"] = response.get("error_msg", "")
             return result_msg
 
         except Exception as e:
