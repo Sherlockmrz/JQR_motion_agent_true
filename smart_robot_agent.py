@@ -3947,7 +3947,7 @@ Agent已知的能力（可用工具）:
                     if success_count == len(task_list):
                         if initial_find_result:
                             initial_find_result["success"] = True
-                            initial_find_result["pixel_position"] = response.get("error_msg", "")
+                            initial_find_result["position_description"] = response.get("error_msg", "")
                         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 所有找物子任务执行成功")
                     else:
                         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找物子任务执行完成，成功 {success_count} 个，失败 {len(task_list) - success_count} 个")
