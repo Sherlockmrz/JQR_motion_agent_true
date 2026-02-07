@@ -1,0 +1,6 @@
+# Request
+string person_id
+---
+# Response
+bool result
+string err_msg

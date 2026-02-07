@@ -46,6 +46,7 @@ set(srv_files
   "srv/FaceRegistration.srv"
   "srv/RealSenseDepthImage.srv"
   "srv/RealSenseRGBImage.srv"
+  "srv/FaceDelete.srv"
 )
 
 set(action_files
