@@ -5,7 +5,7 @@
 import json
 import logging
 from enum import IntEnum
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -157,17 +157,40 @@ class ProtocolParser:
             self.reset()
             return ParseResult.PARSE_ERROR_HEADER
     
-    def parse_buffer(self, data: bytes) -> ParseResult:
-        """解析缓冲区数据"""
+    def parse_buffer(self, data: bytes) -> Tuple[ParseResult, List[Dict[Any, Any]]]:
+        """解析缓冲区数据，返回解析结果和解析到的所有JSON消息列表
+
+        Args:
+            data: 接收到的原始数据
+
+        Returns:
+            Tuple[ParseResult, List[Dict]]: (最终解析结果, JSON消息列表)
+        """
         result = ParseResult.PARSE_INCOMPLETE
+        json_messages = []
+
         for byte in data:
             result = self.parse_byte(byte)
-            if result in [ParseResult.PARSE_OK, 
-                         ParseResult.PARSE_ERROR_HEADER,
-                         ParseResult.PARSE_ERROR_TAIL, 
-                         ParseResult.PARSE_ERROR_LENGTH]:
-                return result
-        return result
+
+            # 当解析完一帧后，提取JSON消息并重置状态继续解析下一帧
+            if result == ParseResult.PARSE_OK:
+                # 提取JSON数据
+                json_data = self.extract_json_data()
+                if json_data:
+                    json_messages.append(json_data)
+
+                # 重置解析器准备下一帧（关键修复：不返回，继续处理剩余字节）
+                self.reset()
+                result = ParseResult.PARSE_INCOMPLETE
+
+            elif result in [ParseResult.PARSE_ERROR_HEADER,
+                          ParseResult.PARSE_ERROR_TAIL,
+                          ParseResult.PARSE_ERROR_LENGTH]:
+                # 解析出错时重置状态，继续处理剩余字节
+                self.reset()
+                result = ParseResult.PARSE_INCOMPLETE
+
+        return result, json_messages
     
     def extract_json_from_frame(self) -> Optional[str]:
         """从帧中提取JSON数据"""

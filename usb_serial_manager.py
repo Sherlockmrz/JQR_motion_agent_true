@@ -181,35 +181,23 @@ class SerialManager:
         """处理接收到的数据"""
         try:
             # logger.info(f"[RAW_DATA] 接收到原始数据: {len(data)}字节, 内容: {data.hex()}")
-            
-            # 解析协议数据
-            result = self.parser.parse_buffer(data)
-            # logger.info(f"[PARSER_RESULT] 解析结果: {result}")
-            
-            if result == ParseResult.PARSE_OK:
-                # logger.debug(f"成功解析协议帧: {self.parser.buffer.hex()}")
-                
-                # 提取JSON数据
-                json_data = self.parser.extract_json_data()
-                if json_data:
-                    # logger.info(f"[PARSER_DEBUG] 解析到JSON: {json_data}")
-                    self._handle_received_message(json_data)
-                
-                # 重置解析器准备下一帧
-                self.parser.reset()
-                
-            elif result == ParseResult.PARSE_ERROR_HEADER:
+
+            # 解析协议数据（修复：支持一次解析多帧数据）
+            result, json_messages = self.parser.parse_buffer(data)
+            # logger.info(f"[PARSER_RESULT] 解析结果: {result}, 解析到 {len(json_messages)} 条消息")
+
+            # 处理所有解析到的JSON消息
+            for json_data in json_messages:
+                self._handle_received_message(json_data)
+
+            # 记录最终状态（用于调试）
+            if result == ParseResult.PARSE_ERROR_HEADER:
                 logger.warning("协议帧头错误")
-                self.parser.reset()
-                
             elif result == ParseResult.PARSE_ERROR_TAIL:
                 logger.warning("协议帧尾错误")
-                self.parser.reset()
-                
             elif result == ParseResult.PARSE_ERROR_LENGTH:
                 logger.warning("协议长度错误")
-                self.parser.reset()
-                
+
         except Exception as e:
             logger.error(f"[RAW_DATA] 处理接收数据时出错: {e}")
             self.parser.reset()

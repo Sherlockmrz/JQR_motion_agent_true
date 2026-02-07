@@ -22,7 +22,7 @@ from openai import OpenAI
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.7"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.8"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
