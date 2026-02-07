@@ -22,7 +22,7 @@ from openai import OpenAI
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.6"  # 智能机器人Agent版本号
+AGENT_VERSION = "1.0.7"  # 智能机器人Agent版本号
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -83,7 +83,8 @@ try:
             RobotTilt, RobotTiltState,
             ScreenTilt, ScreenTiltState,
             RgbLightStrip, RgbLightStripState,
-            LaserPointer, LaserPointerState
+            LaserPointer, LaserPointerState,
+            FaceDelete
         )
         jqr_ros_msgs = True
         # logger.info("jqr_ros_msgs 导入成功")
@@ -612,6 +613,60 @@ class ROS2Interface:
             return {
                 "success": False,
                 "description": f"获取激光笔状态失败: {str(e)}"
+            }
+
+    def delete_person(self, person_id: str) -> Dict[str, Any]:
+        """删除指定人脸人员
+
+        Args:
+            person_id (str): 要删除的人员ID（人员名称，如"爷爷"）
+
+        Returns:
+            Dict[str, Any]: 删除结果
+        """
+        try:
+            # 使用异步服务调用
+            result = self._call_ros2_service_async(
+                "/delete_person",
+                1,
+                "jqr_ros_msgs/srv/FaceDelete",
+                {"person_id": person_id},
+                timeout=10.0
+            )
+
+            if not result.get("success"):
+                error_msg = result.get("error_msg", "未知错误")
+                return {
+                    "success": False,
+                    "error_msg": error_msg
+                }
+
+            # 解析响应数据
+            response_dict = result.get("response", {})
+            result_value = response_dict.get("result", False)
+            err_msg = response_dict.get("err_msg", "")
+
+            if result_value:
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 删除人员成功: {person_id}")
+                return {
+                    "success": True,
+                    "obj_name": person_id,
+                    "error_msg": ""
+                }
+            else:
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 删除人员失败: {person_id}, {err_msg}")
+                return {
+                    "success": False,
+                    "obj_name": person_id,
+                    "error_msg": err_msg or "删除失败"
+                }
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 删除人员失败: {e}")
+            return {
+                "success": False,
+                "obj_name": person_id,
+                "error_msg": f"删除人员失败: {str(e)}"
             }
 
     def start_battery_monitoring(self) -> bool:
@@ -3079,7 +3134,7 @@ class SmartRobotAgent:
             "get_robot_tilt_state", "set_robot_tilt_jqr",
             "get_screen_tilt_state", "set_screen_tilt_jqr",
             "set_laser_pointer", "get_laser_pointer_state",
-            "set_rgb", "get_rgb_light_strip_state"
+            "set_rgb", "get_rgb_light_strip_state", "delete_person"
         }
     
     async def initialize(self):
@@ -3422,7 +3477,8 @@ Agent已知的能力（可用工具）:
             "set_laser_pointer": "控制激光笔开关",
             "get_laser_pointer_state": "获取激光笔状态",
             "set_rgb": "设置RGB灯",
-            "get_rgb_light_strip_state": "获取RGB灯光状态"
+            "get_rgb_light_strip_state": "获取RGB灯光状态",
+            "delete_person": "删除指定人脸人员"
         }
 
         for tool in available_tools:
@@ -3763,6 +3819,10 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "get_laser_pointer_state" and hasattr(self, 'ros2_interface'):
             result = self.ros2_interface.get_laser_pointer_state()
+            result["type"] = task_type
+            return result
+        elif task_type == "delete_person" and hasattr(self, 'ros2_interface'):
+            result = self.ros2_interface.delete_person(params.get("obj_name", ""))
             result["type"] = task_type
             return result
         elif task_type == "set_rgb" and hasattr(self, 'ros2_interface'):
