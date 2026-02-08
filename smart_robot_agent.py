@@ -768,7 +768,7 @@ class ROS2Interface:
                 self.robot_state["robot_rise"] = float(data[2])
                 self.robot_state["medicine_box"] = float(data[3])
                 self.robot_state["battery"] = float(data[4])
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态更新: 屏幕={self.robot_state['screen_tilt']:.1f}, 机身={self.robot_state['robot_tilt']:.1f}, 升降={self.robot_state['robot_rise']:.1f}, 药盒={self.robot_state['medicine_box']:.1f}, 电池={self.robot_state['battery']:.1f}%")
+                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态更新: 屏幕={self.robot_state['screen_tilt']:.1f}, 机身={self.robot_state['robot_tilt']:.1f}, 升降={self.robot_state['robot_rise']:.1f}, 药盒={self.robot_state['medicine_box']:.1f}, 电池={self.robot_state['battery']:.1f}%")
             else:
                 logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] robot_state_update 数据长度不足: {len(data)}，需要至少5个元素")
         except Exception as e:
@@ -793,7 +793,7 @@ class ROS2Interface:
                     self.rgb_state["is_incremental"] = int(data[3])
                     self.rgb_state["brightness"] = int(data[4])
                     self.rgb_state["color"] = int(data[5])
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 增量={self.rgb_state['is_incremental']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
+                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 增量={self.rgb_state['is_incremental']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
                 else:
                     logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_state 数据长度不足: {len(data)}，需要至少6个元素")
         except Exception as e:
