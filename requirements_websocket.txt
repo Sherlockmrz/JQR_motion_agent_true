@@ -1,0 +1,7 @@
+# WebSocket控制接口所需依赖
+
+# WebSocket客户端库 (用于测试脚本)
+websockets>=12.0
+
+# 注意: SmartRobotAgent的主要依赖请参考项目的其他requirements文件
+# 本文件仅包含WebSocket功能所需的额外依赖

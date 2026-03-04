@@ -17,7 +17,10 @@ import queue
 from usb_serial_manager import SerialManager
 
 # 导入OpenAI客户端
-from openai import OpenAI
+# from openai import OpenAI
+
+# 导入WebSocket控制服务器
+from websocket_control_server import WebSocketControlServer
 
 # ======================
 # 版本控制
@@ -123,7 +126,7 @@ os.makedirs(VIDEO_BASE_DIR, exist_ok=True)
 # os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # USB串口配置
-USB_SERIAL_PORT = "/dev/rk"
+USB_SERIAL_PORT = "/dev/ttyACM0"
 USB_SERIAL_BAUDRATE = 115200
 
 # ======================
@@ -3083,6 +3086,13 @@ class SmartRobotAgent:
         # 创建USB串口通信管理器
         self.usb_manager = USBCoordinateManager(self)
 
+        # 创建WebSocket控制服务器（局域网控制接口）
+        self.websocket_server = WebSocketControlServer(
+            agent=self,
+            host="0.0.0.0",  # 监听所有网卡
+            port=8766        # WebSocket端口
+        )
+
         # 任务中断标志
         self._task_interrupted = False
 
@@ -3105,11 +3115,11 @@ class SmartRobotAgent:
         self.local_model_lock = asyncio.Lock()
 
         # OpenAI 客户端（用于本地模型）
-        self.openai_client = OpenAI(
-            api_key="0",
-            base_url="http://192.168.31.43:9000/v1",
-        )
-        self.openai_model = "Qwen3-VL-30B-A3B-Instruct"
+        # self.openai_client = OpenAI(
+        #     api_key="0",
+        #     base_url="http://192.168.31.43:9000/v1",
+        # )
+        # self.openai_model = "Qwen3-VL-30B-A3B-Instruct"
         
         # 消息队列用于处理USB接收的消息
         self.message_queue = queue.Queue()
@@ -3166,6 +3176,13 @@ class SmartRobotAgent:
             if not usb_connected:
                 logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口连接失败，无法继续初始化Agent")
                 return False            
+            
+            # 启动WebSocket控制服务器
+            websocket_started = self.websocket_server.start()
+            if websocket_started:
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket控制服务器启动成功")
+            else:
+                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket控制服务器启动失败，但USB通信仍然可用")
             
             # 启动消息处理循环
             self._running = True
@@ -4595,11 +4612,28 @@ Agent已知的能力（可用工具）:
         self._task_interrupted = True
         logger.info("任务执行已被中断")
     
+    def get_websocket_stats(self) -> Dict[str, Any]:
+        """获取WebSocket服务器统计信息
+        
+        Returns:
+            Dict[str, Any]: WebSocket服务器状态
+        """
+        if hasattr(self, 'websocket_server'):
+            return self.websocket_server.get_stats()
+        return {
+            "running": False,
+            "error_msg": "WebSocket服务器未初始化"
+        }
+    
     def cleanup(self):
         """清理资源"""
         try:
             # 设置退出标志
             self._running = False
+            
+            # 停止WebSocket控制服务器
+            if hasattr(self, 'websocket_server'):
+                self.websocket_server.stop()
             
             # 清理USB串口资源
             if hasattr(self, 'usb_manager'):

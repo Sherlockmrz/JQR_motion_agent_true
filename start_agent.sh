@@ -2,7 +2,7 @@
 
 # 1. 设置设备权限
 echo "正在设置设备权限..."
-echo "sunrise" | sudo -S chmod 777 /dev/rk
+echo "sunrise" | sudo -S chmod 777 /dev/ttyACM0
 
 # 检查权限设置是否成功
 if [ $? -ne 0 ]; then
