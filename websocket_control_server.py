@@ -8,7 +8,11 @@ import time
 from datetime import datetime
 from typing import Dict, Any, Set, Optional
 import websockets
-from websockets.server import WebSocketServerProtocol
+try:
+    from websockets.server import WebSocketServerProtocol
+except ImportError:
+    # websockets 11.0+ 不再需要此导入，使用类型注解字符串
+    WebSocketServerProtocol = None
 
 logger = logging.getLogger(__name__)
 
@@ -86,20 +90,23 @@ class WebSocketControlServer:
             # 创建新的事件循环
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            self.server_loop = loop  # 保存事件循环引用
             
-            # 启动服务器
-            start_server = websockets.serve(
-                self._handle_client,
-                self.host,
-                self.port,
-                ping_interval=20,
-                ping_timeout=60
-            )
+            # 使用 async with 启动服务器（兼容 websockets 11.0+）
+            async def run_server():
+                async with websockets.serve(
+                    self._handle_client,
+                    self.host,
+                    self.port,
+                    ping_interval=20,
+                    ping_timeout=60
+                ):
+                    self.server = True  # 标记服务器已启动
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket服务器正在监听 {self.host}:{self.port}")
+                    # 保持运行
+                    await asyncio.Future()  # 永久等待
             
-            self.server = loop.run_until_complete(start_server)
-            
-            # 保持运行
-            loop.run_forever()
+            loop.run_until_complete(run_server())
             
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket服务器运行异常: {e}")
@@ -108,12 +115,11 @@ class WebSocketControlServer:
         finally:
             self.running = False
     
-    async def _handle_client(self, websocket: WebSocketServerProtocol, path: str):
-        """处理客户端连接
+    async def _handle_client(self, websocket):
+        """处理客户端连接（兼容 websockets 11.0+）
         
         Args:
             websocket: WebSocket连接对象
-            path: 请求路径
         """
         client_addr = websocket.remote_address
         logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 新的WebSocket客户端连接: {client_addr}")
@@ -146,7 +152,7 @@ class WebSocketControlServer:
             with self.clients_lock:
                 self.connected_clients.discard(websocket)
     
-    async def _handle_message(self, websocket: WebSocketServerProtocol, message: str):
+    async def _handle_message(self, websocket, message: str):
         """处理接收到的消息
         
         Args:
@@ -261,18 +267,17 @@ class WebSocketControlServer:
             with self.clients_lock:
                 for client in list(self.connected_clients):
                     try:
-                        asyncio.run(client.close())
+                        # 在服务器线程的事件循环中关闭连接
+                        asyncio.run_coroutine_threadsafe(client.close(), self.server_loop)
                     except Exception:
                         pass
                 self.connected_clients.clear()
             
-            # 关闭服务器
-            if self.server:
-                try:
-                    self.server.close()
-                    asyncio.run(self.server.wait_closed())
-                except Exception:
-                    pass
+            # 停止服务器线程的事件循环
+            if hasattr(self, 'server_loop') and self.server_loop:
+                self.server_loop.call_soon_threadsafe(self.server_loop.stop)
+            
+            self.server = None
             
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket控制服务器已停止，统计: 消息总数={self.total_messages}, 错误总数={self.total_errors}")
             

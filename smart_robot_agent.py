@@ -457,6 +457,7 @@ class ROS2Interface:
         self.robot_state_subscription = None  # 机器人状态订阅对象
         self.robot_state_monitoring_active = False  # 机器人状态监控是否激活标志
         self.motor_control_publisher = None  # 电机控制发布对象
+        self.head_motor_control_publisher = None  # 头部电机控制发布对象
         self.rgb_control_publisher = None  # RGB灯控制发布对象
         self.rgb_state_subscription = None  # RGB灯状态订阅对象
         self.rgb_monitoring_active = False  # RGB监控是否激活标志
@@ -908,6 +909,56 @@ class ROS2Interface:
 
         except Exception as e:
             logger.error(f"发布电机控制失败: {e}")
+            return {"success": False, "error_msg": f"未知错误: {str(e)}"}
+
+    def publish_head_motor_control(self, control_pitch: bool = False, pitch_angle: float = 0.0,
+                                    control_yaw: bool = False, yaw_angle: float = 0.0) -> Dict[str, Any]:
+        """发布头部电机控制指令到 head_motor_control 话题（新头部样机）
+
+        Args:
+            control_pitch (bool): 是否控制俯仰 (False=不控制, True=控制)
+            pitch_angle (float): pitch角度（仅在control_pitch=True时有效）
+            control_yaw (bool): 是否控制偏航 (False=不控制, True=控制)
+            yaw_angle (float): yaw角度（仅在control_yaw=True时有效）
+
+        Returns:
+            Dict[str, Any]: 发布结果
+        """
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                logger.warning("ROS2不可用或未初始化，无法发布头部电机控制")
+                return {"success": False, "error_msg": "ROS2不可用或未初始化"}
+
+            if self.head_motor_control_publisher is None:
+                try:
+                    from std_msgs.msg import Float32MultiArray
+                    self.head_motor_control_publisher = self.node.create_publisher(
+                        Float32MultiArray,
+                        '/head_motor_control',
+                        10
+                    )
+                except Exception as e:
+                    logger.error(f"创建头部电机控制发布者失败: {e}")
+                    return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
+
+            try:
+                from std_msgs.msg import Float32MultiArray
+                msg = Float32MultiArray()
+                msg.data = [
+                    1.0 if control_pitch else 0.0,
+                    float(pitch_angle),
+                    1.0 if control_yaw else 0.0,
+                    float(yaw_angle)
+                ]
+                self.head_motor_control_publisher.publish(msg)
+                logger.info(f"头部电机控制指令已发布: 控制俯仰={control_pitch}, pitch={pitch_angle:.1f}, 控制偏航={control_yaw}, yaw={yaw_angle:.1f}")
+                return {"success": True}
+            except Exception as e:
+                logger.error(f"发布头部电机控制指令失败: {e}")
+                return {"success": False, "error_msg": f"发布失败: {str(e)}"}
+
+        except Exception as e:
+            logger.error(f"发布头部电机控制失败: {e}")
             return {"success": False, "error_msg": f"未知错误: {str(e)}"}
 
     def _initialize_ros2(self):
@@ -2794,6 +2845,47 @@ class ROS2Interface:
                 "angle": 0.0,
                 "description": f"获取屏幕俯仰状态失败: {str(e)}"
             }
+
+    # ======================
+    # 头部电机控制相关接口（新头部样机）
+    # ======================
+
+    def set_head_motor_control(self, control_pitch: bool = False, pitch_angle: float = 0.0,
+                                control_yaw: bool = False, yaw_angle: float = 0.0) -> Dict[str, Any]:
+        """控制头部电机（新头部样机）
+
+        Args:
+            control_pitch (bool): 是否控制俯仰 (False=不控制, True=控制)
+            pitch_angle (float): pitch角度（仅在control_pitch=True时有效）
+            control_yaw (bool): 是否控制偏航 (False=不控制, True=控制)
+            yaw_angle (float): yaw角度（仅在control_yaw=True时有效）
+
+        Returns:
+            Dict[str, Any]: 控制结果
+        """
+        try:
+            # 调用ROS2Interface的发布方法
+            result = self.publish_head_motor_control(
+                control_pitch=control_pitch,
+                pitch_angle=pitch_angle,
+                control_yaw=control_yaw,
+                yaw_angle=yaw_angle
+            )
+
+            if result.get("success"):
+                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 头部电机控制成功: pitch={pitch_angle if control_pitch else 'N/A'}, yaw={yaw_angle if control_yaw else 'N/A'}")
+            else:
+                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 头部电机控制失败: {result.get('error_msg', '未知错误')}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 头部电机控制失败: {e}")
+            return {
+                "success": False,
+                "description": f"头部电机控制失败: {str(e)}"
+            }
+
 def battery_callback(msg):
     """电池电量回调函数 - 收到信息后立马通过USB串口发送
     
@@ -3848,6 +3940,11 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "get_rgb_light_strip_state" and hasattr(self, 'ros2_interface'):
             result = self.ros2_interface.get_rgb_light_strip_state()
+            result["type"] = task_type
+            return result
+        # 头部电机控制（新头部样机）
+        elif task_type == "set_head_motor_control" and hasattr(self, 'ros2_interface'):
+            result = self.ros2_interface.set_head_motor_control(**params)
             result["type"] = task_type
             return result
         else:

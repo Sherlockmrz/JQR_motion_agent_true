@@ -109,9 +109,15 @@ async def test_websocket_control():
             print("\n" + "-" * 80)
             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 所有测试用例执行完成")
             
-    except websockets.exceptions.ConnectionRefusedError:
+    except ConnectionRefusedError:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
+    except OSError as e:
+        if "Connect call failed" in str(e) or "Connection refused" in str(e):
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
+        else:
+            raise
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 测试失败: {e}")
         import traceback
@@ -184,9 +190,15 @@ async def interactive_test():
                 except Exception as e:
                     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 错误: {e}")
                     
-    except websockets.exceptions.ConnectionRefusedError:
+    except ConnectionRefusedError:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
+    except OSError as e:
+        if "Connect call failed" in str(e) or "Connection refused" in str(e):
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
+        else:
+            raise
     except Exception as e:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 连接失败: {e}")
 
