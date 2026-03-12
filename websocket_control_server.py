@@ -98,8 +98,8 @@ class WebSocketControlServer:
                     self._handle_client,
                     self.host,
                     self.port,
-                    ping_interval=20,
-                    ping_timeout=60
+                    ping_interval=None,  # 禁用 ping
+                    ping_timeout=None    # 禁用 ping timeout
                 ):
                     self.server = True  # 标记服务器已启动
                     logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket服务器正在监听 {self.host}:{self.port}")
