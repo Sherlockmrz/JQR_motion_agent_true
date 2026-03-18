@@ -458,9 +458,13 @@ class ROS2Interface:
         self.robot_state_monitoring_active = False  # 机器人状态监控是否激活标志
         self.motor_control_publisher = None  # 电机控制发布对象
         self.head_motor_control_publisher = None  # 头部电机控制发布对象
+        self.combine_motor_control_publisher = None  # 组合电机控制发布对象
+        self.combine_motor_result_subscription = None  # 组合电机控制结果订阅对象
         self.rgb_control_publisher = None  # RGB灯控制发布对象
         self.rgb_state_subscription = None  # RGB灯状态订阅对象
         self.rgb_monitoring_active = False  # RGB监控是否激活标志
+        self.combine_motor_monitoring_active = False  # 组合电机监控是否激活标志
+        self.combine_motor_result = {}  # 组合电机执行结果 {task_id: {"progress": 0-100, "status": 101/102/103}}
         self.robot_state = {
             "screen_tilt": 0.0,  # 屏幕俯仰角度
             "robot_tilt": 0.0,  # 机身俯仰角度
@@ -855,6 +859,53 @@ class ROS2Interface:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止RGB灯状态监控失败: {e}")
             return False
 
+    def _combine_motor_result_callback(self, msg):
+        """组合电机控制结果回调函数"""
+        if not self.combine_motor_monitoring_active:
+            return
+        try:
+            data = msg.data
+            if len(data) >= 2:
+                task_id = int(data[0])
+                result = data[1]
+                self.combine_motor_result[task_id] = {"result": result}
+                logger.info(f"组合电机任务 {task_id} 结果: {result}")
+        except Exception as e:
+            logger.error(f"组合电机结果回调失败: {e}")
+
+    def start_combine_motor_monitoring(self):
+        """启动组合电机控制结果监控"""
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                return False
+            if self.combine_motor_result_subscription is None:
+                from std_msgs.msg import Float32MultiArray
+                self.combine_motor_result_subscription = self.node.create_subscription(
+                    Float32MultiArray,
+                    '/combine_motor_control_result',
+                    self._combine_motor_result_callback,
+                    10
+                )
+                self.combine_motor_monitoring_active = True
+                logger.info("组合电机控制结果监控已启动")
+            return True
+        except Exception as e:
+            logger.error(f"启动组合电机监控失败: {e}")
+            return False
+
+    def stop_combine_motor_monitoring(self):
+        """停止组合电机控制结果监控"""
+        try:
+            self.combine_motor_monitoring_active = False
+            if self.combine_motor_result_subscription:
+                self.combine_motor_result_subscription.destroy()
+                self.combine_motor_result_subscription = None
+            logger.info("组合电机控制结果监控已停止")
+            return True
+        except Exception as e:
+            logger.error(f"停止组合电机监控失败: {e}")
+            return False
+
     def get_robot_state(self) -> Dict[str, Any]:
         """获取机器人状态"""
         return self.robot_state.copy()
@@ -960,6 +1011,271 @@ class ROS2Interface:
         except Exception as e:
             logger.error(f"发布头部电机控制失败: {e}")
             return {"success": False, "error_msg": f"未知错误: {str(e)}"}
+
+    def publish_combine_motor_control(self, task_id: float, control_pitch: bool = False, pitch_angle: float = 0.0,
+                                       control_yaw: bool = False, yaw_angle: float = 0.0,
+                                       control_chassis_move: bool = False, chassis_offset: float = 0.0,
+                                       control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
+                                       speed_level: int = 0) -> Dict[str, Any]:
+        """发布组合电机控制指令到 combine_motor_control 话题
+
+        Args:
+            task_id (float): 任务ID，确保一个工作周期内id唯一
+            control_pitch (bool): 是否控制俯仰
+            pitch_angle (float): pitch角的目标角度，单位：弧度
+            control_yaw (bool): 是否控制偏航
+            yaw_angle (float): yaw角的目标角度，单位：弧度
+            control_chassis_move (bool): 是否控制底盘位移
+            chassis_offset (float): 底盘位置偏移量，正值前进，负值后退，单位：米
+            control_chassis_rotate (bool): 是否控制底盘旋转
+            chassis_rotation (float): 底盘旋转偏移量，正值逆时针，负值顺时针，单位：弧度
+            speed_level (int): 执行档位，0=低速，1=中速，2=快速
+
+        Returns:
+            Dict[str, Any]: 发布结果
+        """
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                logger.warning("ROS2不可用或未初始化，无法发布组合电机控制")
+                return {"success": False, "error_msg": "ROS2不可用或未初始化"}
+
+            if self.combine_motor_control_publisher is None:
+                try:
+                    from std_msgs.msg import Float32MultiArray
+                    self.combine_motor_control_publisher = self.node.create_publisher(
+                        Float32MultiArray,
+                        '/combine_motor_control',
+                        10
+                    )
+                except Exception as e:
+                    logger.error(f"创建组合电机控制发布者失败: {e}")
+                    return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
+
+            try:
+                from std_msgs.msg import Float32MultiArray
+                msg = Float32MultiArray()
+                msg.data = [
+                    float(task_id),
+                    1.0 if control_pitch else 0.0,
+                    float(pitch_angle),
+                    1.0 if control_yaw else 0.0,
+                    float(yaw_angle),
+                    1.0 if control_chassis_move else 0.0,
+                    float(chassis_offset),
+                    1.0 if control_chassis_rotate else 0.0,
+                    float(chassis_rotation),
+                    float(speed_level)
+                ]
+                self.combine_motor_control_publisher.publish(msg)
+                logger.info(f"组合电机控制指令已发布: task_id={task_id}, pitch={control_pitch}/{pitch_angle:.2f}, yaw={control_yaw}/{yaw_angle:.2f}, move={control_chassis_move}/{chassis_offset:.2f}, rotate={control_chassis_rotate}/{chassis_rotation:.2f}, speed={speed_level}")
+                return {"success": True}
+            except Exception as e:
+                logger.error(f"发布组合电机控制指令失败: {e}")
+                return {"success": False, "error_msg": f"发布失败: {str(e)}"}
+
+        except Exception as e:
+            logger.error(f"发布组合电机控制失败: {e}")
+            return {"success": False, "error_msg": f"未知错误: {str(e)}"}
+
+    async def _wait_for_motor_result(self, task_id: int, timeout: float = 30.0) -> Dict[str, Any]:
+        """等待组合电机执行结果
+
+        Args:
+            task_id: 任务ID
+            timeout: 超时时间（秒）
+
+        Returns:
+            Dict[str, Any]: {"success": True/False, "result": 101/102/103, "error_msg": "..."}
+        """
+        import asyncio
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            if task_id in self.combine_motor_result:
+                result_value = self.combine_motor_result[task_id]["result"]
+                if result_value == 101:
+                    return {"success": True, "result": result_value}
+                elif result_value == 103:
+                    return {"success": False, "result": result_value, "error_msg": "电机执行失败"}
+                elif result_value == 102:
+                    return {"success": False, "result": result_value, "error_msg": "电机执行中止"}
+            await asyncio.sleep(0.1)
+
+        return {"success": False, "error_msg": "等待电机反馈超时"}
+
+    async def _execute_motor_step(self, task_id: float, control_pitch: bool = False, pitch_angle: float = 0.0,
+                                   control_yaw: bool = False, yaw_angle: float = 0.0,
+                                   control_chassis_move: bool = False, chassis_offset: float = 0.0,
+                                   control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
+                                   speed_level: int = 0, max_retries: int = 3) -> Dict[str, Any]:
+        """执行单步电机控制并等待反馈，支持重试"""
+        for retry in range(max_retries):
+            result = self.publish_combine_motor_control(
+                task_id=task_id, control_pitch=control_pitch, pitch_angle=pitch_angle,
+                control_yaw=control_yaw, yaw_angle=yaw_angle,
+                control_chassis_move=control_chassis_move, chassis_offset=chassis_offset,
+                control_chassis_rotate=control_chassis_rotate, chassis_rotation=chassis_rotation,
+                speed_level=speed_level
+            )
+            if not result["success"]:
+                return result
+
+            wait_result = await self._wait_for_motor_result(int(task_id))
+            if wait_result["success"]:
+                return wait_result
+
+            if retry < max_retries - 1:
+                logger.warning(f"电机步骤执行失败，重试 {retry + 1}/{max_retries}")
+
+        return {"success": False, "error_msg": f"电机步骤执行失败，已重试{max_retries}次"}
+
+    async def user_position_tracking(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """用户移动位置时的视线跟踪"""
+        import math
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_pitch=True, pitch_angle=math.radians(45),
+            control_yaw=True, yaw_angle=math.radians(45), speed_level=1
+        )
+
+    async def obstacle_avoidance_turn(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """绕行障碍物时的协同转向"""
+        import math
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=1
+        )
+        if not result["success"]:
+            return result
+
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(45), speed_level=1
+        )
+
+    async def patrol_table_inspection(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """巡逻中停至桌子识别记忆物品"""
+        import math
+        import asyncio
+
+        # 步骤1: 头部俯视
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_pitch=True, pitch_angle=math.radians(-15), speed_level=0
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤2: 头部左扫
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=math.radians(-45), speed_level=0
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤3: 头部右扫
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=0
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤4: 头部回正
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_pitch=True, pitch_angle=0.0,
+            control_yaw=True, yaw_angle=0.0, speed_level=1
+        )
+
+    async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """声源在头部转角范围内"""
+        import math
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_pitch=True, pitch_angle=math.radians(45),
+            control_yaw=True, yaw_angle=math.radians(45), speed_level=2
+        )
+
+    async def wake_beyond_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """声源超出头部转角极限"""
+        import math
+
+        # 步骤1: 头部转至极限
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_pitch=True, pitch_angle=math.radians(45),
+            control_yaw=True, yaw_angle=math.radians(90), speed_level=2
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤2: 底盘原地旋转
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(90), speed_level=1
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤3: 头部回正
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
+        )
+
+    async def wake_side_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """行走中侧方被唤醒"""
+        import math
+
+        # 步骤1: 头部转向
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=2
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤2: 底盘旋转
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(45), speed_level=1
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤3: 头部回正
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
+        )
+
+    async def wake_back_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """行走中后方被唤醒并停止"""
+        import math
+
+        # 步骤1: 头部转至极限
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=math.radians(90), speed_level=2
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤2: 底盘原地旋转180度
+        task_id = time.time()
+        result = await self._execute_motor_step(
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(180), speed_level=1
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤3: 头部回正
+        task_id = time.time()
+        return await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
+        )
 
     def _initialize_ros2(self):
         """初始化ROS2"""
@@ -3945,6 +4261,35 @@ Agent已知的能力（可用工具）:
         # 头部电机控制（新头部样机）
         elif task_type == "set_head_motor_control" and hasattr(self, 'ros2_interface'):
             result = self.ros2_interface.set_head_motor_control(**params)
+            result["type"] = task_type
+            return result
+        # 交互场景
+        elif task_type == "user_position_tracking":
+            result = await self.ros2_interface.user_position_tracking(params)
+            result["type"] = task_type
+            return result
+        elif task_type == "obstacle_avoidance_turn":
+            result = await self.ros2_interface.obstacle_avoidance_turn(params)
+            result["type"] = task_type
+            return result
+        elif task_type == "patrol_table_inspection":
+            result = await self.ros2_interface.patrol_table_inspection(params)
+            result["type"] = task_type
+            return result
+        elif task_type == "wake_head_range":
+            result = await self.ros2_interface.wake_head_range(params)
+            result["type"] = task_type
+            return result
+        elif task_type == "wake_beyond_head_range":
+            result = await self.ros2_interface.wake_beyond_head_range(params)
+            result["type"] = task_type
+            return result
+        elif task_type == "wake_side_moving":
+            result = await self.ros2_interface.wake_side_moving(params)
+            result["type"] = task_type
+            return result
+        elif task_type == "wake_back_moving":
+            result = await self.ros2_interface.wake_back_moving(params)
             result["type"] = task_type
             return result
         else:
