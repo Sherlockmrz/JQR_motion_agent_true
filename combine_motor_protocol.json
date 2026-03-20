@@ -1,0 +1,112 @@
+// 组合电机控制协议说明
+// 参数说明:
+//   - 所有角度参数单位为: 弧度 (radian)
+//   - 255 表示使用默认值，agent会根据场景使用内置默认角度
+//   - 弧度与度数转换: 弧度 = 度数 * π / 180
+//   - 示例: 45° = 0.7854 rad, 90° = 1.5708 rad, 180° = 3.1416 rad
+
+// 1. 用户移动位置时的视线跟踪
+// 入参
+{
+  "type": "user_position_tracking",
+  "params": {
+    "yaw_angle": 255,      // 声源水平方向角度(弧度), 255=使用默认值(45°=0.7854rad)
+    "pitch_angle": 255     // 俯仰角度(弧度), 255=使用默认值(45°=0.7854rad)
+  }
+}
+// 返回
+{
+  "type": "user_position_tracking",
+  "success": true,
+  "error_msg": ""
+}
+
+// 2. 巡逻中停至桌子识别记忆物品
+// 入参
+{
+  "type": "patrol_table_inspection",
+  "params": {}
+}
+// 返回
+{
+  "type": "patrol_table_inspection",
+  "success": true,
+  "error_msg": ""
+}
+
+// 3. 声源在头部转角范围内
+// 入参
+{
+  "type": "wake_head_range",
+  "params": {
+    "yaw_angle": 255,      // 声源水平方向角度(弧度), 255=使用默认值(45°=0.7854rad)
+    "pitch_angle": 255     // 俯仰角度(弧度), 255=使用默认值(45°=0.7854rad)
+  }
+}
+// 返回
+{
+  "type": "wake_head_range",
+  "success": true,
+  "error_msg": ""
+}
+
+// 4. 声源超出头部转角极限
+// 入参
+{
+  "type": "wake_beyond_head_range",
+  "params": {
+    "yaw_angle": 255,      // 声源水平方向角度(弧度), 255=使用默认值(90°=1.5708rad)
+    "pitch_angle": 255     // 俯仰角度(弧度), 255=使用默认值(45°=0.7854rad)
+  }
+}
+// 说明: 当提供具体yaw_angle时, 底盘旋转角度 = yaw_angle - 头部偏航极限(90°)
+// 返回
+{
+  "type": "wake_beyond_head_range",
+  "success": true,
+  "error_msg": ""
+}
+
+// 5. 行走中侧方被唤醒
+// 入参
+{
+  "type": "wake_side_moving",
+  "params": {
+    "yaw_angle": 255       // 声源水平方向角度(弧度), 255=使用默认值(45°=0.7854rad)
+  }
+}
+// 说明: 底盘旋转角度 = yaw_angle
+// 返回
+{
+  "type": "wake_side_moving",
+  "success": true,
+  "error_msg": ""
+}
+
+// 6. 行走中后方被唤醒并停止
+// 入参
+{
+  "type": "wake_back_moving",
+  "params": {
+    "yaw_angle": 255       // 声源水平方向角度(弧度), 255=使用默认值(180°=3.1416rad)
+  }
+}
+// 说明: 底盘旋转角度 = yaw_angle
+// 返回
+{
+  "type": "wake_back_moving",
+  "success": true,
+  "error_msg": ""
+}
+
+// ==================== 参数单位说明 ====================
+// 弧度(radian)与角度(degree)对照表:
+//   15°  = 0.2618 rad
+//   45°  = 0.7854 rad
+//   90°  = 1.5708 rad
+//   180° = 3.1416 rad
+//
+// Python转换示例:
+//   import math
+//   radians = math.radians(degrees)  # 度转弧度
+//   degrees = math.degrees(radians)  # 弧度转度

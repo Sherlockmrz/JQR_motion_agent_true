@@ -2,273 +2,263 @@
 # -*- coding: utf-8 -*-
 """WebSocket控制接口测试脚本
 
-用于测试智能机器人Agent的WebSocket控制功能
+按需求场景逐个测试组合电机控制接口，每个场景对应agent中的一个任务方法。
+支持选择单个场景或全部运行。
 """
 import asyncio
 import json
+import math
 import time
 from datetime import datetime
 import websockets
 
 
-async def test_websocket_control():
-    """测试WebSocket控制接口"""
-    
-    # WebSocket服务器地址
-    ws_uri = "ws://localhost:8766"
-    
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 开始测试WebSocket控制接口")
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 连接到: {ws_uri}")
-    print("-" * 80)
-    
-    try:
-        # 连接到WebSocket服务器
-        async with websockets.connect(ws_uri) as websocket:
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✓ 已成功连接到WebSocket服务器")
-            
-            # 测试用例列表
-            test_cases = [
-                {
-                    "name": "测试go_to_door命令",
-                    "command": {
-                        "type": "go_to_door",
-                        "params": {}
-                    }
-                },
-                {
-                    "name": "测试get_move_mode命令",
-                    "command": {
-                        "type": "get_move_mode",
-                        "params": {}
-                    }
-                },
-                {
-                    "name": "测试get_robot_rise_state命令",
-                    "command": {
-                        "type": "get_robot_rise_state",
-                        "params": {}
-                    }
-                },
-                {
-                    "name": "测试set_rgb命令",
-                    "command": {
-                        "type": "set_rgb",
-                        "params": {
-                            "switch": True,
-                            "color": "green",
-                            "mode": 0
-                        }
-                    }
-                },
-                {
-                    "name": "测试无效命令",
-                    "command": {
-                        "type": "invalid_command",
-                        "params": {}
-                    }
-                },
-                {
-                    "name": "测试缺少type字段",
-                    "command": {
-                        "params": {}
-                    }
-                }
-            ]
-            
-            # 执行测试用例
-            for i, test_case in enumerate(test_cases, 1):
-                print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 测试用例 {i}: {test_case['name']}")
-                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 发送命令: {json.dumps(test_case['command'], ensure_ascii=False)}")
-                
-                # 发送命令
-                start_time = time.time()
-                await websocket.send(json.dumps(test_case['command'], ensure_ascii=False))
-                
-                # 接收响应
-                try:
-                    response_str = await asyncio.wait_for(websocket.recv(), timeout=30.0)
-                    elapsed = time.time() - start_time
-                    
-                    response = json.loads(response_str)
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 收到响应 (耗时: {elapsed:.2f}s):")
-                    print(f"  success: {response.get('success')}")
-                    print(f"  error_msg: {response.get('error_msg', '')}")
-                    
-                    # 打印完整响应（格式化）
-                    print(f"  完整响应: {json.dumps(response, ensure_ascii=False, indent=2)}")
-                    
-                except asyncio.TimeoutError:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 等待响应超时")
-                except json.JSONDecodeError as e:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ JSON解析失败: {e}")
-                
-                # 测试间隔
-                if i < len(test_cases):
-                    await asyncio.sleep(1)
-            
-            print("\n" + "-" * 80)
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 所有测试用例执行完成")
-            
-    except ConnectionRefusedError:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
-    except OSError as e:
-        if "Connect call failed" in str(e) or "Connection refused" in str(e):
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
-        else:
-            raise
-    except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 测试失败: {e}")
-        import traceback
-        traceback.print_exc()
+def log(msg):
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {msg}")
 
 
-async def interactive_test():
-    """交互式测试模式 - 菜单选择方式"""
-    
-    ws_uri = "ws://localhost:8766"
-    
-    # 可用命令列表
-    commands = [
-        {"name": "go_to_door", "desc": "前往门口", "params": {}},
-        {"name": "go_to_elevator", "desc": "前往电梯", "params": {}},
-        {"name": "stop_navigate", "desc": "停止导航", "params": {}},
-        {"name": "get_move_mode", "desc": "获取移动模式", "params": {}},
-        {"name": "get_robot_rise_state", "desc": "获取升降状态", "params": {}},
-        {"name": "set_robot_rise", "desc": "控制升降 (输入参数)", "params": {"rise": True}},
-        {"name": "get_screen_tilt_state", "desc": "获取屏幕俯仰状态", "params": {}},
-        {"name": "set_screen_tilt", "desc": "控制屏幕俯仰 (输入参数)", "params": {"tilt": 0}},
-        {"name": "get_rgb_light_strip_state", "desc": "获取RGB灯状态", "params": {}},
-        {"name": "set_rgb", "desc": "设置RGB灯 (输入参数)", "params": {"switch": True, "color": "green", "mode": 0}},
-        {"name": "set_head_motor_control", "desc": "头部电机控制 (输入参数)", "params": {"control_pitch": True, "pitch_angle": 0.0, "control_yaw": True, "yaw_angle": 0.0}},
-        {"name": "get_battery_level", "desc": "获取电池电量", "params": {}},
-        {"name": "get_robot_position", "desc": "获取机器人位置", "params": {}},
-    ]
-    
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 交互式WebSocket控制测试")
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 连接到: {ws_uri}")
-    print("-" * 80)
-    
+async def send_and_recv(websocket, command, timeout=60):
+    """发送命令并等待响应"""
+    msg = json.dumps(command, ensure_ascii=False)
+    log(f"  发送: {msg}")
+    start = time.time()
+    await websocket.send(msg)
     try:
-        async with websockets.connect(ws_uri) as websocket:
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✓ 已连接\n")
-            
-            while True:
-                try:
-                    # 显示菜单
-                    print("=" * 60)
-                    print("可用命令列表:")
-                    print("-" * 60)
-                    for i, cmd in enumerate(commands, 1):
-                        print(f"  {i:2d}. {cmd['name']:30s} - {cmd['desc']}")
-                    print("-" * 60)
-                    print("  q. 退出")
-                    print("=" * 60)
-                    
-                    # 获取用户选择
-                    choice = input("\n请选择命令编号: ").strip()
-                    
-                    if choice.lower() == 'q':
-                        print("退出交互式测试")
-                        break
-                    
-                    # 解析选择
-                    try:
-                        idx = int(choice) - 1
-                        if idx < 0 or idx >= len(commands):
-                            print("✗ 无效的编号，请重新选择\n")
-                            continue
-                    except ValueError:
-                        print("✗ 请输入数字或 'q' 退出\n")
-                        continue
-                    
-                    # 获取选中的命令
-                    selected = commands[idx]
-                    task_type = selected['name']
-                    params = selected['params'].copy()
-                    
-                    # 对于需要参数的命令，让用户输入
-                    if params:
-                        print(f"\n命令: {task_type}")
-                        print(f"默认参数: {json.dumps(params, ensure_ascii=False)}")
-                        custom = input("使用默认参数? (Y/n/输入JSON): ").strip()
-                        
-                        if custom.lower() == 'n':
-                            # 让用户输入每个参数
-                            for key in params:
-                                val = input(f"  {key} (默认: {params[key]}): ").strip()
-                                if val:
-                                    # 尝试解析类型
-                                    try:
-                                        if isinstance(params[key], bool):
-                                            params[key] = val.lower() in ('true', '1', 'yes', 'y')
-                                        elif isinstance(params[key], int):
-                                            params[key] = int(val)
-                                        elif isinstance(params[key], float):
-                                            params[key] = float(val)
-                                        else:
-                                            params[key] = val
-                                    except ValueError:
-                                        pass  # 保持原值
-                        elif custom and custom.lower() != 'y':
-                            # 用户输入完整JSON
-                            try:
-                                params = json.loads(custom)
-                            except json.JSONDecodeError:
-                                print("✗ JSON格式错误，使用默认参数")
-                    
-                    # 构造命令
-                    command = {"type": task_type, "params": params}
-                    
-                    # 发送命令
-                    print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 发送: {json.dumps(command, ensure_ascii=False)}")
-                    await websocket.send(json.dumps(command, ensure_ascii=False))
-                    
-                    # 接收响应
-                    response_str = await asyncio.wait_for(websocket.recv(), timeout=60.0)
-                    response = json.loads(response_str)
-                    
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 响应:")
-                    print(json.dumps(response, ensure_ascii=False, indent=2))
-                    print()
-                    
-                except asyncio.TimeoutError:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 等待响应超时\n")
-                except KeyboardInterrupt:
-                    print("\n退出交互式测试")
-                    break
-                except Exception as e:
-                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 错误: {e}\n")
-                    
-    except ConnectionRefusedError:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
-    except OSError as e:
-        if "Connect call failed" in str(e) or "Connection refused" in str(e):
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 无法连接到WebSocket服务器")
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 请确保SmartRobotAgent已启动并运行WebSocket服务")
+        response = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+        elapsed = time.time() - start
+        resp_data = json.loads(response)
+        log(f"  响应 (耗时{elapsed:.2f}s): {json.dumps(resp_data, ensure_ascii=False, indent=2)}")
+        return resp_data
+    except asyncio.TimeoutError:
+        log("  ✗ 等待响应超时")
+        return None
+
+
+# ========================
+# 场景定义
+# ========================
+SCENARIOS = [
+    # ---------- 交互中 / 用户对话 ----------
+    {
+        "id": 1,
+        "category": "交互中 / 用户对话",
+        "name": "用户移动位置时的视线跟踪（user_position_tracking）",
+        "description": (
+            "用户从机器人正前方起身，走到侧面继续提问。\n"
+            "  头部: 俯仰0°→45°, 水平0°→45°, 同时运动, 速度适中\n"
+            "  底盘: 保持静止\n"
+            "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "user_position_tracking",
+            "params": {
+                "yaw_angle": 255,  # 255表示使用默认值
+                "pitch_angle": 255
+            }
+        }
+    },
+    # ---------- 行走/巡逻 ----------
+    {
+        "id": 2,
+        "category": "行走/巡逻",
+        "name": "巡逻中停至桌子识别记忆物品（patrol_table_inspection）",
+        "description": (
+            "机器人巡逻中检测到桌子，靠近停稳后扫描桌面物品。\n"
+            "  头部: 俯视→左扫→右扫→回正\n"
+            "  底盘: 识别期间保持静止\n"
+            "  多步骤: 步骤1-俯视-15° → 步骤2-左扫-45° → 步骤3-右扫45° → 步骤4-回正"
+        ),
+        "command": {
+            "type": "patrol_table_inspection",
+            "params": {}
+        }
+    },
+    # ---------- 唤醒 / 静止状态 ----------
+    {
+        "id": 3,
+        "category": "唤醒 / 静止状态",
+        "name": "声源在头部转角范围内（wake_head_range）",
+        "description": (
+            "机器人静止充电，用户在正前方45°范围内唤醒。\n"
+            "  头部: 快速转向声源, 俯仰0°→45°, 水平0°→45°, 同时运动\n"
+            "  底盘: 保持静止\n"
+            "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_head_range",
+            "params": {
+                "yaw_angle": 255,
+                "pitch_angle": 255
+            }
+        }
+    },
+    {
+        "id": 4,
+        "category": "唤醒 / 静止状态",
+        "name": "声源超出头部转角极限（wake_beyond_head_range）",
+        "description": (
+            "机器人静止背对用户，用户在后方唤醒。\n"
+            "  头部: 先转至极限(俯仰45°+水平90°), 底盘转向后头部回正\n"
+            "  底盘: 辅助原地旋转正对用户\n"
+            "  多步骤: 步骤1-头部极限 → 步骤2-底盘旋转90° → 步骤3-头部回正\n"
+            "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_beyond_head_range",
+            "params": {
+                "yaw_angle": 255,
+                "pitch_angle": 255
+            }
+        }
+    },
+    # ---------- 唤醒 / 运动状态 ----------
+    {
+        "id": 5,
+        "category": "唤醒 / 运动状态",
+        "name": "行走中侧方被唤醒（wake_side_moving）",
+        "description": (
+            "机器人行走中，用户坐在左侧唤醒。\n"
+            "  头部: 先转向声源(水平45°), 底盘转向后头部回正\n"
+            "  底盘: 行走中平滑左转45°\n"
+            "  多步骤: 步骤1-头部偏航45° → 步骤2-底盘旋转45° → 步骤3-头部回正\n"
+            "  参数: yaw_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_side_moving",
+            "params": {
+                "yaw_angle": 255
+            }
+        }
+    },
+    {
+        "id": 6,
+        "category": "唤醒 / 运动状态",
+        "name": "行走中后方被唤醒并停止（wake_back_moving）",
+        "description": (
+            "机器人巡逻中，用户在后方喊停并唤醒。\n"
+            "  头部: 先转至极限(水平90°), 底盘转向后头部回正\n"
+            "  底盘: 减速并原地旋转180°正对用户\n"
+            "  多步骤: 步骤1-头部偏航90° → 步骤2-底盘旋转180° → 步骤3-头部回正\n"
+            "  参数: yaw_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_back_moving",
+            "params": {
+                "yaw_angle": 255
+            }
+        }
+    },
+]
+
+
+def print_scenario_menu():
+    """打印场景选择菜单"""
+    print("\n" + "=" * 80)
+    print("  组合电机控制 · 场景测试")
+    print("=" * 80)
+
+    current_category = None
+    for s in SCENARIOS:
+        if s["category"] != current_category:
+            current_category = s["category"]
+            print(f"\n  【{current_category}】")
+        print(f"    {s['id']}. {s['name']}")
+
+    print(f"\n    0. 全部运行（按顺序逐个测试）")
+    print("    q. 退出")
+    print("=" * 80)
+
+
+async def run_scenario(websocket, scenario):
+    """运行单个场景测试"""
+    print(f"\n{'━' * 80}")
+    print(f"  场景{scenario['id']}: {scenario['name']}")
+    print(f"  分类: {scenario['category']}")
+    print(f"{'─' * 80}")
+    print(f"  {scenario['description']}")
+    print(f"{'─' * 80}")
+
+    resp = await send_and_recv(websocket, scenario["command"])
+
+    if resp is not None:
+        success = resp.get("success", False)
+        if success:
+            log(f"  ✓ 场景{scenario['id']}测试通过")
         else:
-            raise
-    except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✗ 连接失败: {e}")
+            log(f"  ✗ 场景{scenario['id']}测试失败: {resp.get('error_msg', '未知错误')}")
+        return success
+    else:
+        log(f"  ✗ 场景{scenario['id']}测试失败: 无响应")
+        return False
+
+
+async def main():
+    ws_uri = "ws://localhost:8766"
+
+    while True:
+        print_scenario_menu()
+        choice = input("\n请选择场景编号: ").strip()
+
+        if choice.lower() == 'q':
+            log("退出测试")
+            break
+
+        # 解析选择
+        if choice == '0':
+            selected = SCENARIOS
+        else:
+            try:
+                idx = int(choice)
+                selected = [s for s in SCENARIOS if s["id"] == idx]
+                if not selected:
+                    print(f"  ✗ 无效编号: {idx}")
+                    continue
+            except ValueError:
+                print(f"  ✗ 请输入数字或 'q'")
+                continue
+
+        # 连接并执行
+        log(f"连接到 {ws_uri} ...")
+        try:
+            async with websockets.connect(ws_uri) as websocket:
+                log("✓ 已连接到WebSocket服务器")
+
+                passed = 0
+                failed = 0
+
+                for scenario in selected:
+                    success = await run_scenario(websocket, scenario)
+                    if success:
+                        passed += 1
+                    else:
+                        failed += 1
+
+                    # 场景间间隔
+                    if len(selected) > 1:
+                        await asyncio.sleep(1.5)
+
+                # 汇总（多场景时显示）
+                if len(selected) > 1:
+                    print(f"\n{'━' * 80}")
+                    log(f"测试汇总: 共 {len(selected)} 个场景, 通过 {passed}, 失败 {failed}")
+                    print("━" * 80)
+
+        except ConnectionRefusedError:
+            log("✗ 无法连接到WebSocket服务器，请确保Agent和mock_motor_node已启动")
+        except Exception as e:
+            log(f"✗ 连接失败: {e}")
+
+        # 单场景测试完后回到菜单继续选择
+        if choice != '0':
+            continue
+        else:
+            break
 
 
 if __name__ == "__main__":
-    import sys
-    
-    print("WebSocket控制接口测试工具")
-    print("=" * 80)
-    print("1. 自动测试模式（运行预设测试用例）")
-    print("2. 交互式测试模式（手动输入命令）")
-    print("=" * 80)
-    
-    choice = input("请选择模式 (1/2): ").strip()
-    
-    if choice == "1":
-        asyncio.run(test_websocket_control())
-    elif choice == "2":
-        asyncio.run(interactive_test())
-    else:
-        print("无效选择，退出")
-        sys.exit(1)
+    print("组合电机控制 · 场景测试工具")
+    print("请确保以下服务已启动:")
+    print("  1. SmartRobotAgent (WebSocket端口 8766)")
+    print("  2. mock_motor_node.py --mode progress")
+    print()
+    asyncio.run(main())

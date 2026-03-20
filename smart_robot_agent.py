@@ -465,6 +465,8 @@ class ROS2Interface:
         self.rgb_monitoring_active = False  # RGB监控是否激活标志
         self.combine_motor_monitoring_active = False  # 组合电机监控是否激活标志
         self.combine_motor_result = {}  # 组合电机执行结果 {task_id: {"progress": 0-100, "status": 101/102/103}}
+        self._motor_task_id_counter = 0  # 组合电机任务ID计数器（float32精度安全范围：1~16777215）
+        self._last_motor_task_id = 0  # 上一次生成的task_id，用于去重
         self.robot_state = {
             "screen_tilt": 0.0,  # 屏幕俯仰角度
             "robot_tilt": 0.0,  # 机身俯仰角度
@@ -859,6 +861,20 @@ class ROS2Interface:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止RGB灯状态监控失败: {e}")
             return False
 
+    def _next_motor_task_id(self) -> int:
+        """生成下一个组合电机任务ID（float32精度安全）
+
+        使用当前时分秒 HHMMSS 作为task_id，最大值235959（6位），
+        float32可精确表示。若同一秒内多次调用则自增+1避免重复。
+        """
+        from datetime import datetime
+        now = datetime.now()
+        task_id = now.hour * 10000 + now.minute * 100 + now.second
+        if task_id <= self._last_motor_task_id:
+            task_id = self._last_motor_task_id + 1
+        self._last_motor_task_id = task_id
+        return task_id
+
     def _combine_motor_result_callback(self, msg):
         """组合电机控制结果回调函数"""
         if not self.combine_motor_monitoring_active:
@@ -1099,6 +1115,8 @@ class ROS2Interface:
                     return {"success": False, "result": result_value, "error_msg": "电机执行失败"}
                 elif result_value == 102:
                     return {"success": False, "result": result_value, "error_msg": "电机执行中止"}
+                elif result_value == 104:
+                    return {"success": False, "result": result_value, "error_msg": "电机拒绝执行"}
             await asyncio.sleep(0.1)
 
         return {"success": False, "error_msg": "等待电机反馈超时"}
@@ -1110,6 +1128,9 @@ class ROS2Interface:
                                    speed_level: int = 0, max_retries: int = 3) -> Dict[str, Any]:
         """执行单步电机控制并等待反馈，支持重试"""
         for retry in range(max_retries):
+            # 清除旧的结果缓存，防止残留数据干扰
+            self.combine_motor_result.pop(int(task_id), None)
+
             result = self.publish_combine_motor_control(
                 task_id=task_id, control_pitch=control_pitch, pitch_angle=pitch_angle,
                 control_yaw=control_yaw, yaw_angle=yaw_angle,
@@ -1130,27 +1151,33 @@ class ROS2Interface:
         return {"success": False, "error_msg": f"电机步骤执行失败，已重试{max_retries}次"}
 
     async def user_position_tracking(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """用户移动位置时的视线跟踪"""
+        """用户移动位置时的视线跟踪
+        
+        Args:
+            params: {
+                "yaw_angle": float,  # 声源方向角度（弧度），255表示使用默认值
+                "pitch_angle": float  # 俯仰角度（弧度），255表示使用默认值
+            }
+        """
         import math
-        task_id = time.time()
+        
+        # 默认角度（弧度）
+        DEFAULT_PITCH = math.radians(45)
+        DEFAULT_YAW = math.radians(45)
+        
+        # 解析参数，255表示使用默认值
+        yaw_angle = params.get("yaw_angle", 255)
+        pitch_angle = params.get("pitch_angle", 255)
+        
+        if yaw_angle == 255:
+            yaw_angle = DEFAULT_YAW
+        if pitch_angle == 255:
+            pitch_angle = DEFAULT_PITCH
+            
+        task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=math.radians(45),
-            control_yaw=True, yaw_angle=math.radians(45), speed_level=1
-        )
-
-    async def obstacle_avoidance_turn(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """绕行障碍物时的协同转向"""
-        import math
-        task_id = time.time()
-        result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=1
-        )
-        if not result["success"]:
-            return result
-
-        task_id = time.time()
-        return await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(45), speed_level=1
+            task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
+            control_yaw=True, yaw_angle=yaw_angle, speed_level=1
         )
 
     async def patrol_table_inspection(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1159,7 +1186,7 @@ class ROS2Interface:
         import asyncio
 
         # 步骤1: 头部俯视
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id, control_pitch=True, pitch_angle=math.radians(-15), speed_level=0
         )
@@ -1167,7 +1194,7 @@ class ROS2Interface:
             return result
 
         # 步骤2: 头部左扫
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=math.radians(-45), speed_level=0
         )
@@ -1175,7 +1202,7 @@ class ROS2Interface:
             return result
 
         # 步骤3: 头部右扫
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=0
         )
@@ -1183,96 +1210,187 @@ class ROS2Interface:
             return result
 
         # 步骤4: 头部回正
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_pitch=True, pitch_angle=0.0,
             control_yaw=True, yaw_angle=0.0, speed_level=1
         )
 
     async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """声源在头部转角范围内"""
+        """声源在头部转角范围内
+        
+        Args:
+            params: {
+                "yaw_angle": float,  # 声源方向角度（弧度），255表示使用默认值
+                "pitch_angle": float  # 俯仰角度（弧度），255表示使用默认值
+            }
+        """
         import math
-        task_id = time.time()
+        
+        # 默认角度（弧度）
+        DEFAULT_PITCH = math.radians(45)
+        DEFAULT_YAW = math.radians(45)
+        
+        # 解析参数，255表示使用默认值
+        yaw_angle = params.get("yaw_angle", 255)
+        pitch_angle = params.get("pitch_angle", 255)
+        
+        if yaw_angle == 255:
+            yaw_angle = DEFAULT_YAW
+        if pitch_angle == 255:
+            pitch_angle = DEFAULT_PITCH
+            
+        task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=math.radians(45),
-            control_yaw=True, yaw_angle=math.radians(45), speed_level=2
+            task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
+            control_yaw=True, yaw_angle=yaw_angle, speed_level=2
         )
 
     async def wake_beyond_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """声源超出头部转角极限"""
+        """声源超出头部转角极限
+        
+        Args:
+            params: {
+                "yaw_angle": float,  # 声源方向角度（弧度），255表示使用默认值
+                "pitch_angle": float  # 俯仰角度（弧度），255表示使用默认值
+            }
+            
+        根据声源方向计算底盘旋转角度：底盘旋转角度 = 声源yaw角度 - 头部偏航极限(90°)
+        """
         import math
 
+        # 默认角度（弧度）
+        DEFAULT_PITCH = math.radians(45)
+        DEFAULT_YAW = math.radians(90)  # 头部偏航极限
+        HEAD_YAW_LIMIT = math.radians(90)  # 头部偏航极限
+        
+        # 解析参数，255表示使用默认值
+        yaw_angle = params.get("yaw_angle", 255)
+        pitch_angle = params.get("pitch_angle", 255)
+        
+        if yaw_angle == 255:
+            yaw_angle = DEFAULT_YAW
+            chassis_rotation = math.radians(90)  # 默认底盘旋转90°
+        else:
+            # 计算底盘旋转角度：声源方向 - 头部极限
+            chassis_rotation = yaw_angle - HEAD_YAW_LIMIT
+            
+        if pitch_angle == 255:
+            pitch_angle = DEFAULT_PITCH
+
         # 步骤1: 头部转至极限
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=math.radians(45),
-            control_yaw=True, yaw_angle=math.radians(90), speed_level=2
+            task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
+            control_yaw=True, yaw_angle=HEAD_YAW_LIMIT, speed_level=2
         )
         if not result["success"]:
             return result
 
         # 步骤2: 底盘原地旋转
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(90), speed_level=1
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=chassis_rotation, speed_level=1
         )
         if not result["success"]:
             return result
 
         # 步骤3: 头部回正
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
         )
 
     async def wake_side_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """行走中侧方被唤醒"""
+        """行走中侧方被唤醒
+        
+        Args:
+            params: {
+                "yaw_angle": float  # 声源方向角度（弧度），255表示使用默认值
+            }
+            
+        底盘旋转角度 = 声源yaw角度
+        """
         import math
 
+        # 默认角度（弧度）
+        DEFAULT_YAW = math.radians(45)
+        
+        # 解析参数，255表示使用默认值
+        yaw_angle = params.get("yaw_angle", 255)
+        
+        if yaw_angle == 255:
+            yaw_angle = DEFAULT_YAW
+            chassis_rotation = math.radians(45)  # 默认底盘旋转45°
+        else:
+            chassis_rotation = yaw_angle
+
         # 步骤1: 头部转向
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=2
+            task_id=task_id, control_yaw=True, yaw_angle=yaw_angle, speed_level=2
         )
         if not result["success"]:
             return result
 
         # 步骤2: 底盘旋转
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(45), speed_level=1
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=chassis_rotation, speed_level=1
         )
         if not result["success"]:
             return result
 
         # 步骤3: 头部回正
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
         )
 
     async def wake_back_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """行走中后方被唤醒并停止"""
+        """行走中后方被唤醒并停止
+        
+        Args:
+            params: {
+                "yaw_angle": float  # 声源方向角度（弧度），255表示使用默认值
+            }
+            
+        底盘旋转角度 = 声源yaw角度（后方约为180°）
+        """
         import math
 
+        # 默认角度（弧度）
+        DEFAULT_YAW = math.radians(90)  # 头部偏航极限
+        HEAD_YAW_LIMIT = math.radians(90)  # 头部偏航极限
+        
+        # 解析参数，255表示使用默认值
+        yaw_angle = params.get("yaw_angle", 255)
+        
+        if yaw_angle == 255:
+            yaw_angle = DEFAULT_YAW
+            chassis_rotation = math.radians(180)  # 默认底盘旋转180°
+        else:
+            # 声源在后方，底盘旋转角度 = 声源方向
+            chassis_rotation = yaw_angle
+
         # 步骤1: 头部转至极限
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=math.radians(90), speed_level=2
+            task_id=task_id, control_yaw=True, yaw_angle=HEAD_YAW_LIMIT, speed_level=2
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 底盘原地旋转180度
-        task_id = time.time()
+        # 步骤2: 底盘原地旋转
+        task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=math.radians(180), speed_level=1
+            task_id=task_id, control_chassis_rotate=True, chassis_rotation=chassis_rotation, speed_level=1
         )
         if not result["success"]:
             return result
 
         # 步骤3: 头部回正
-        task_id = time.time()
+        task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
         )
@@ -3202,6 +3320,60 @@ class ROS2Interface:
                 "description": f"头部电机控制失败: {str(e)}"
             }
 
+    # ======================
+    # 组合电机控制接口（combine_motor_control）
+    # ======================
+
+    async def set_combine_motor_control(self, control_pitch: bool = False, pitch_angle: float = 0.0,
+                                         control_yaw: bool = False, yaw_angle: float = 0.0,
+                                         control_chassis_move: bool = False, chassis_offset: float = 0.0,
+                                         control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
+                                         speed_level: int = 0) -> Dict[str, Any]:
+        """组合电机控制（通过WebSocket/USB调用，带反馈等待）
+
+        Args:
+            control_pitch (bool): 是否控制俯仰
+            pitch_angle (float): pitch角的目标角度，单位：弧度
+            control_yaw (bool): 是否控制偏航
+            yaw_angle (float): yaw角的目标角度，单位：弧度
+            control_chassis_move (bool): 是否控制底盘位移
+            chassis_offset (float): 底盘位置偏移量，正值前进，负值后退，单位：米
+            control_chassis_rotate (bool): 是否控制底盘旋转
+            chassis_rotation (float): 底盘旋转偏移量，正值逆时针，负值顺时针，单位：弧度
+            speed_level (int): 执行档位，0=低速，1=中速，2=快速
+
+        Returns:
+            Dict[str, Any]: 控制结果
+        """
+        try:
+            # 启动组合电机监控（如果尚未启动）
+            self.start_combine_motor_monitoring()
+
+            task_id = self._next_motor_task_id()
+            result = await self._execute_motor_step(
+                task_id=task_id,
+                control_pitch=control_pitch, pitch_angle=float(pitch_angle),
+                control_yaw=control_yaw, yaw_angle=float(yaw_angle),
+                control_chassis_move=control_chassis_move, chassis_offset=float(chassis_offset),
+                control_chassis_rotate=control_chassis_rotate, chassis_rotation=float(chassis_rotation),
+                speed_level=int(speed_level)
+            )
+
+            if result.get("success"):
+                logger.info(f"组合电机控制成功: pitch={control_pitch}/{pitch_angle:.2f}, yaw={control_yaw}/{yaw_angle:.2f}, "
+                            f"move={control_chassis_move}/{chassis_offset:.2f}, rotate={control_chassis_rotate}/{chassis_rotation:.2f}, speed={speed_level}")
+            else:
+                logger.error(f"组合电机控制失败: {result.get('error_msg', '未知错误')}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"组合电机控制异常: {e}")
+            return {
+                "success": False,
+                "error_msg": f"组合电机控制异常: {str(e)}"
+            }
+
 def battery_callback(msg):
     """电池电量回调函数 - 收到信息后立马通过USB串口发送
     
@@ -3552,7 +3724,8 @@ class SmartRobotAgent:
             "get_robot_tilt_state", "set_robot_tilt_jqr",
             "get_screen_tilt_state", "set_screen_tilt_jqr",
             "set_laser_pointer", "get_laser_pointer_state",
-            "set_rgb", "get_rgb_light_strip_state", "delete_person"
+            "set_rgb", "get_rgb_light_strip_state", "delete_person",
+            "set_head_motor_control", "set_combine_motor_control"
         }
     
     async def initialize(self):
@@ -3578,6 +3751,13 @@ class SmartRobotAgent:
                     logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人位置订阅已启动")
                 else:
                     logger.warning("机器人位置订阅启动失败")
+
+                # 启动组合电机控制结果监控
+                combine_motor_success = self.ros2_interface.start_combine_motor_monitoring()
+                if combine_motor_success:
+                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 组合电机控制结果监控已启动")
+                else:
+                    logger.warning("组合电机控制结果监控启动失败")
             
             # 初始化USB串口通信
             usb_connected = await self.usb_manager.initialize()
@@ -4263,34 +4443,42 @@ Agent已知的能力（可用工具）:
             result = self.ros2_interface.set_head_motor_control(**params)
             result["type"] = task_type
             return result
+        # 组合电机控制（combine_motor_control）
+        elif task_type == "set_combine_motor_control" and hasattr(self, 'ros2_interface'):
+            result = await self.ros2_interface.set_combine_motor_control(**params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
         # 交互场景
         elif task_type == "user_position_tracking":
             result = await self.ros2_interface.user_position_tracking(params)
             result["type"] = task_type
-            return result
-        elif task_type == "obstacle_avoidance_turn":
-            result = await self.ros2_interface.obstacle_avoidance_turn(params)
-            result["type"] = task_type
+            result.pop("result", None)
             return result
         elif task_type == "patrol_table_inspection":
             result = await self.ros2_interface.patrol_table_inspection(params)
             result["type"] = task_type
+            result.pop("result", None)
             return result
         elif task_type == "wake_head_range":
             result = await self.ros2_interface.wake_head_range(params)
             result["type"] = task_type
+            result.pop("result", None)
             return result
         elif task_type == "wake_beyond_head_range":
             result = await self.ros2_interface.wake_beyond_head_range(params)
             result["type"] = task_type
+            result.pop("result", None)
             return result
         elif task_type == "wake_side_moving":
             result = await self.ros2_interface.wake_side_moving(params)
             result["type"] = task_type
+            result.pop("result", None)
             return result
         elif task_type == "wake_back_moving":
             result = await self.ros2_interface.wake_back_moving(params)
             result["type"] = task_type
+            result.pop("result", None)
             return result
         else:
             return {
