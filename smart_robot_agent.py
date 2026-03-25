@@ -15,8 +15,14 @@ import re
 import queue
 from enum import IntEnum
 
-# 导入USB串口管理器
-from usb_serial_manager import SerialManager
+# 导入USB串口管理器（可选）
+try:
+    from usb_serial_manager import SerialManager
+    SERIAL_AVAILABLE = True
+except ImportError:
+    SerialManager = None
+    SERIAL_AVAILABLE = False
+    logging.getLogger(__name__).info("usb_serial_manager不可用，串口功能已禁用")
 
 # 导入WebSocket控制服务器
 from websocket_control_server import WebSocketControlServer
@@ -3431,17 +3437,26 @@ def battery_callback(msg):
 # ======================
 
 class USBCoordinateManager:
-    """USB坐标管理器，替代WebSocketServer"""
-    
+    """USB坐标管理器 - 串口可选，禁用时仅通过WebSocket通信"""
+
     def __init__(self, agent=None):
         self.agent = agent
-        self.serial_manager = SerialManager(port=USB_SERIAL_PORT, baudrate=USB_SERIAL_BAUDRATE)
         self.connected = False
+        self.serial_enabled = config.USB_SERIAL_ENABLED and SERIAL_AVAILABLE
+
+        if self.serial_enabled:
+            self.serial_manager = SerialManager(port=USB_SERIAL_PORT, baudrate=USB_SERIAL_BAUDRATE)
+        else:
+            self.serial_manager = None
+            logger.info("串口已禁用，仅通过WebSocket通信")
         
 
         
     async def initialize(self):
-        """初始化USB串口连接"""
+        """初始化USB串口连接（串口禁用时直接返回成功）"""
+        if not self.serial_enabled:
+            logger.info("串口已禁用，跳过USB初始化")
+            return True
         try:
             # 连接到串口设备
             self.connected = await self.serial_manager.connect()
@@ -3514,12 +3529,21 @@ class USBCoordinateManager:
             logger.error(f"线程处理消息失败: {e}")
     
     async def send_message(self, message: Dict[Any, Any]) -> bool:
-        """发送消息到客户端"""
+        """发送消息到客户端（串口禁用时通过WebSocket发送）"""
+        if not self.serial_enabled:
+            # 串口禁用，尝试通过WebSocket广播
+            if self.agent and hasattr(self.agent, 'websocket_server'):
+                try:
+                    await self.agent.websocket_server.broadcast_message(message)
+                    return True
+                except Exception as e:
+                    logger.warning(f"WebSocket广播失败: {e}")
+            return False
         try:
             if not self.connected:
                 logger.warning("USB串口未连接，无法发送消息")
                 return False
-            
+
             success = self.serial_manager.send_message(message)
             if success:
                 logger.info(f"已发送USB消息: {message}")
@@ -3534,7 +3558,8 @@ class USBCoordinateManager:
     def cleanup(self):
         """清理资源"""
         try:
-            self.serial_manager.stop_receiving()
+            if self.serial_manager:
+                self.serial_manager.stop_receiving()
             logger.info("USB串口资源已清理")
         except Exception as e:
             logger.error(f"清理USB串口资源失败: {e}")
@@ -3739,15 +3764,14 @@ class SmartRobotAgent:
             # 初始化USB串口通信
             usb_connected = await self.usb_manager.initialize()
             if not usb_connected:
-                logger.warning("USB串口连接失败，无法继续初始化Agent")
-                return False            
-            
+                logger.warning("USB串口连接失败，将仅通过WebSocket通信")
+
             # 启动WebSocket控制服务器
             websocket_started = self.websocket_server.start()
             if websocket_started:
                 logger.info("WebSocket控制服务器启动成功")
             else:
-                logger.warning("WebSocket控制服务器启动失败，但USB通信仍然可用")
+                logger.warning("WebSocket控制服务器启动失败")
             
             # 启动消息处理循环
             self._running = True
@@ -4203,14 +4227,17 @@ Agent已知的能力（可用工具）:
         if not task_type:
             return {"type": task_type or "unknown", "success": False, "error_msg": "任务类型为空"}
         
-        # 检查任务类型并发控制
-        success, error_msg = self.usb_manager.serial_manager.acquire_task_type_lock(task_type)
-        if not success:
-            return {
-                "type": task_type,
-                "success": False,
-                "error_msg": error_msg
-            }
+        # 检查任务类型并发控制（仅串口模式下）
+        has_lock = False
+        if self.usb_manager.serial_manager:
+            success, error_msg = self.usb_manager.serial_manager.acquire_task_type_lock(task_type)
+            if not success:
+                return {
+                    "type": task_type,
+                    "success": False,
+                    "error_msg": error_msg
+                }
+            has_lock = True
 
         try:
             # 直接使用params中的参数，通过_execute_task_by_type执行
@@ -4231,7 +4258,8 @@ Agent已知的能力（可用工具）:
             }
         finally:
             # 任务执行完成，释放任务类型锁
-            self.usb_manager.serial_manager.release_task_type_lock(task_type)
+            if has_lock:
+                self.usb_manager.serial_manager.release_task_type_lock(task_type)
 
     def _convert_agent_result_to_client_response(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """

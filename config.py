@@ -58,6 +58,11 @@ class AgentConfig:
         default_factory=lambda: int(os.getenv("WEBSOCKET_PORT", "8766"))
     )
 
+    # USB串口开关（设为false可禁用串口，仅用WebSocket通信）
+    USB_SERIAL_ENABLED: bool = field(
+        default_factory=lambda: os.getenv("USB_SERIAL_ENABLED", "false").lower() in ("true", "1", "yes")
+    )
+
     # ReAct框架配置
     MAX_REACT_ITERATIONS: int = 8
     AGENT_MEMORY_SIZE: int = 50
