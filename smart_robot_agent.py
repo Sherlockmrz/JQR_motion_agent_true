@@ -9,26 +9,62 @@ import threading
 import time
 import asyncio
 import logging
+from contextlib import contextmanager
 from typing import Optional, Dict, Any, List
 import re
 import queue
+from enum import IntEnum
 
 # 导入USB串口管理器
 from usb_serial_manager import SerialManager
 
-# 导入OpenAI客户端
-# from openai import OpenAI
-
 # 导入WebSocket控制服务器
 from websocket_control_server import WebSocketControlServer
+
+# 导入配置
+from config import config
+
+# ======================
+# 枚举定义
+# ======================
+
+class ResultCode(IntEnum):
+    """ROS2服务调用结果码"""
+    FAILURE = 0
+    SUCCESS = 1
+    PARTIAL = 2
+    COMPLETE = 3
+
+class MotorResultCode(IntEnum):
+    """组合电机执行结果码"""
+    SUCCESS = 101
+    ABORTED = 102
+    FAILED = 103
+    REJECTED = 104
+
+class MedicineBoxStatus(IntEnum):
+    """药箱状态值 (实际协议中为 float，但值为整数)"""
+    CLOSED = 0    # 关闭
+    OPEN = 1      # 开启
+    RUNNING = 2   # 运行中
+
+class CallbackGroupType(IntEnum):
+    """ROS2 回调组类型"""
+    MUTUALLY_EXCLUSIVE = 0  # 默认互斥回调组
+    REENTRANT = 1           # 可重入回调组
+    FACE_RECOGNITION = 2    # 人脸识别专用回调组
 
 # ======================
 # 版本控制
 # ======================
-AGENT_VERSION = "1.0.8"  # 智能机器人Agent版本号
+AGENT_VERSION = config.AGENT_VERSION  # 智能机器人Agent版本号
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s.%(msecs)03d] %(levelname)s - %(name)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 # ROS2 可用性标志
@@ -57,15 +93,105 @@ RgbLightStripState = None
 LaserPointer = None
 LaserPointerState = None
 
-# 电池监控相关全局变量
-battery_node = None
-battery_thread = None
-battery_thread_running = False
-battery_level = 100.0
+# ======================
+# 机器人状态管理器（线程安全单例）
+# ======================
 
-robot_pose_node = None
-robot_pose_thread = None
-robot_pose_thread_running = False
+class RobotStateManager:
+    """机器人状态管理器（线程安全）"""
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
+        self._state_lock = threading.Lock()
+        self._battery_level = 100.0
+        self._battery_node = None
+        self._battery_thread = None
+        self._battery_thread_running = False
+        self._robot_pose_node = None
+        self._robot_pose_thread = None
+        self._robot_pose_thread_running = False
+        self._agent_instance = None
+
+    @property
+    def battery_level(self) -> float:
+        with self._state_lock:
+            return self._battery_level
+
+    @battery_level.setter
+    def battery_level(self, value: float):
+        with self._state_lock:
+            self._battery_level = value
+
+    @property
+    def agent_instance(self):
+        return self._agent_instance
+
+    @agent_instance.setter
+    def agent_instance(self, value):
+        self._agent_instance = value
+
+    @property
+    def battery_node(self):
+        return self._battery_node
+
+    @battery_node.setter
+    def battery_node(self, value):
+        self._battery_node = value
+
+    @property
+    def battery_thread(self):
+        return self._battery_thread
+
+    @battery_thread.setter
+    def battery_thread(self, value):
+        self._battery_thread = value
+
+    @property
+    def battery_thread_running(self) -> bool:
+        return self._battery_thread_running
+
+    @battery_thread_running.setter
+    def battery_thread_running(self, value: bool):
+        self._battery_thread_running = value
+
+    @property
+    def robot_pose_node(self):
+        return self._robot_pose_node
+
+    @robot_pose_node.setter
+    def robot_pose_node(self, value):
+        self._robot_pose_node = value
+
+    @property
+    def robot_pose_thread(self):
+        return self._robot_pose_thread
+
+    @robot_pose_thread.setter
+    def robot_pose_thread(self, value):
+        self._robot_pose_thread = value
+
+    @property
+    def robot_pose_thread_running(self) -> bool:
+        return self._robot_pose_thread_running
+
+    @robot_pose_thread_running.setter
+    def robot_pose_thread_running(self, value: bool):
+        self._robot_pose_thread_running = value
+
+
+robot_state = RobotStateManager()
 # 尝试导入rclpy，如果不存在则忽略
 try:
     import rclpy
@@ -90,18 +216,16 @@ try:
             FaceDelete
         )
         jqr_ros_msgs = True
-        # logger.info("jqr_ros_msgs 导入成功")
     except ImportError as e:
-        logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] jqr_ros_msgs 导入失败 (ImportError): {e}")
-        logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 请检查ROS2工作空间是否正确配置和source")
+        logger.warning(f"jqr_ros_msgs 导入失败 (ImportError): {e}")
+        logger.warning("请检查ROS2工作空间是否正确配置和source")
         jqr_ros_msgs = False
     except Exception as e:
-        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] jqr_ros_msgs 导入失败 (未知错误): {e}")
+        logger.error(f"jqr_ros_msgs 导入失败 (未知错误): {e}")
         jqr_ros_msgs = False
     ROS2_AVAILABLE = True
-    # logger.info("ROS2 rclpy 导入成功")
 except ImportError as e:
-    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2 rclpy 不可用: {e}")
+    logger.warning(f"ROS2 rclpy 不可用: {e}")
     geometry_msgs = None
     jqr_ros_msgs = False
 
@@ -110,7 +234,7 @@ try:
     import cv2
 except ImportError:
     cv2 = None
-    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] cv2模块未安装,视频处理功能将不可用")
+    logger.warning("cv2模块未安装,视频处理功能将不可用")
 
 # 导入subprocess用于系统调用
 import subprocess
@@ -118,16 +242,15 @@ import subprocess
 # ======================
 # 配置
 # ======================
-ASM_JSON_PATH = "asm_data.json"
-VIDEO_BASE_DIR = "videos"
-DB_PATH = "history.db"
+ASM_JSON_PATH = config.ASM_JSON_PATH
+VIDEO_BASE_DIR = config.VIDEO_BASE_DIR
+DB_PATH = config.DB_PATH
 
 os.makedirs(VIDEO_BASE_DIR, exist_ok=True)
-# os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # USB串口配置
-USB_SERIAL_PORT = "/dev/ttyACM0"
-USB_SERIAL_BAUDRATE = 115200
+USB_SERIAL_PORT = config.USB_SERIAL_PORT
+USB_SERIAL_BAUDRATE = config.USB_SERIAL_BAUDRATE
 
 # ======================
 # JSON修复函数
@@ -219,7 +342,7 @@ def parse_ros2_response(response: str) -> Dict[str, Any]:
 def fix_asm_json_format():
     """修复ASM JSON文件格式 - 只修复格式问题，不修改数据内容"""
     if not os.path.exists(ASM_JSON_PATH):
-        logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ASM JSON文件不存在: {ASM_JSON_PATH}")
+        logger.warning(f"ASM JSON文件不存在: {ASM_JSON_PATH}")
         return False
     
     try:
@@ -286,42 +409,48 @@ def fix_asm_json_format():
 # 数据库操作
 # ======================
 
+@contextmanager
+def get_db_connection(db_path: str = DB_PATH):
+    """数据库连接上下文管理器，确保连接正确关闭"""
+    conn = sqlite3.connect(db_path)
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 def init_database():
     """初始化数据库"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                command TEXT NOT NULL,
-                response TEXT NOT NULL
-            )
-        ''')
-        
-        conn.commit()
-        conn.close()
-        # logger.info("数据库初始化成功")
-    except Exception as e:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    command TEXT NOT NULL,
+                    response TEXT NOT NULL
+                )
+            ''')
+    except sqlite3.Error as e:
         logger.error(f"数据库初始化失败: {e}")
 
 def save_to_history(command: str, response: str):
     """保存命令和响应到数据库"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute(
-            'INSERT INTO history (timestamp, command, response) VALUES (?, ?, ?)',
-            (timestamp, command, response)
-        )
-        
-        conn.commit()
-        conn.close()
-    except Exception as e:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute(
+                'INSERT INTO history (timestamp, command, response) VALUES (?, ?, ?)',
+                (timestamp, command, response)
+            )
+    except sqlite3.Error as e:
         logger.error(f"保存到数据库失败: {e}")
 
 # ======================
@@ -530,7 +659,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/set_laser_pointer",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/LaserPointer",
                 {"laser_pointer": laser_pointer_value},
                 timeout=10.0
@@ -547,17 +676,17 @@ class ROS2Interface:
             response_dict = result.get("response", {})
             result_number = response_dict.get("result_number", 0)
             result_msg = response_dict.get("result_msg", "")
-            success = (result_number in [1, 2, 3])
+            success = (result_number in (ResultCode.SUCCESS, ResultCode.PARTIAL, ResultCode.COMPLETE))
 
             if success:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 激光笔控制成功: {result_msg}")
+                logger.info(f"激光笔控制成功: {result_msg}")
                 return {
                     "success": True,
                     "description": result_msg,
                     "result_number": result_number
                 }
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 激光笔控制失败: {result_msg}")
+                logger.error(f"激光笔控制失败: {result_msg}")
                 return {
                     "success": False,
                     "description": result_msg,
@@ -565,7 +694,7 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置激光笔失败: {e}")
+            logger.error(f"设置激光笔失败: {e}")
             return {
                 "success": False,
                 "description": f"设置激光笔失败: {str(e)}"
@@ -581,7 +710,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/get_laser_pointer_state",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/LaserPointerState",
                 {},
                 timeout=10.0
@@ -599,10 +728,10 @@ class ROS2Interface:
             laser_pointer_state = response_dict.get("laser_pointer_state", False)
             result_number = response_dict.get("result_number", 0)
             result_msg = response_dict.get("result_msg", "")
-            success = (result_number == 1)
+            success = (result_number == ResultCode.SUCCESS)
 
             if success:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取激光笔状态成功: state={laser_pointer_state}")
+                logger.info(f"获取激光笔状态成功: state={laser_pointer_state}")
                 return {
                     "success": True,
                     "laser_pointer_state": laser_pointer_state,
@@ -610,7 +739,7 @@ class ROS2Interface:
                     "result_number": result_number
                 }
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取激光笔状态失败: {result_msg}")
+                logger.error(f"获取激光笔状态失败: {result_msg}")
                 return {
                     "success": False,
                     "laser_pointer_state": laser_pointer_state,
@@ -619,7 +748,7 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取激光笔状态失败: {e}")
+            logger.error(f"获取激光笔状态失败: {e}")
             return {
                 "success": False,
                 "description": f"获取激光笔状态失败: {str(e)}"
@@ -638,7 +767,7 @@ class ROS2Interface:
             # 使用异步服务调用
             result = self._call_ros2_service_async(
                 "/delete_person",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/FaceDelete",
                 {"person_id": person_id},
                 timeout=10.0
@@ -657,14 +786,14 @@ class ROS2Interface:
             err_msg = response_dict.get("err_msg", "")
 
             if result_value:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 删除人员成功: {person_id}")
+                logger.info(f"删除人员成功: {person_id}")
                 return {
                     "success": True,
                     "obj_name": person_id,
                     "error_msg": ""
                 }
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 删除人员失败: {person_id}, {err_msg}")
+                logger.error(f"删除人员失败: {person_id}, {err_msg}")
                 return {
                     "success": False,
                     "obj_name": person_id,
@@ -672,7 +801,7 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 删除人员失败: {e}")
+            logger.error(f"删除人员失败: {e}")
             return {
                 "success": False,
                 "obj_name": person_id,
@@ -702,11 +831,11 @@ class ROS2Interface:
     def start_robot_state_monitoring(self) -> bool:
         """开始机器人状态监控（订阅 robot_state_update 和 rgb_state 话题）"""
         if hasattr(self, 'robot_state_subscribed') and self.robot_state_subscribed:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，跳过重复订阅")
+            logger.info("机器人状态监控已启动，跳过重复订阅")
             return True
 
         try:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 正在启动机器人状态监控...")
+            logger.info("正在启动机器人状态监控...")
             if not ROS2_AVAILABLE:
                 logger.error("ROS2不可用，无法启动机器人状态监控")
                 return False
@@ -732,7 +861,7 @@ class ROS2Interface:
             )
             self.robot_state_monitoring_active = True
             self.robot_state_subscribed = True
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态监控已启动，订阅话题: /robot_state_update")
+            logger.info("机器人状态监控已启动，订阅话题: /robot_state_update")
 
             # 同时启动RGB状态监控
             self.start_rgb_state_monitoring()
@@ -740,7 +869,7 @@ class ROS2Interface:
             return True
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 启动机器人状态监控失败: {e}")
+            logger.error(f"启动机器人状态监控失败: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -771,18 +900,16 @@ class ROS2Interface:
 
         try:
             data = msg.data
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到 robot_state_update 消息，数据长度: {len(data)}")
             if len(data) >= 5:
                 self.robot_state["screen_tilt"] = float(data[0])
                 self.robot_state["robot_tilt"] = float(data[1])
                 self.robot_state["robot_rise"] = float(data[2])
                 self.robot_state["medicine_box"] = float(data[3])
                 self.robot_state["battery"] = float(data[4])
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态更新: 屏幕={self.robot_state['screen_tilt']:.1f}, 机身={self.robot_state['robot_tilt']:.1f}, 升降={self.robot_state['robot_rise']:.1f}, 药盒={self.robot_state['medicine_box']:.1f}, 电池={self.robot_state['battery']:.1f}%")
             else:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] robot_state_update 数据长度不足: {len(data)}，需要至少5个元素")
+                logger.warning(f"robot_state_update 数据长度不足: {len(data)}，需要至少5个元素")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人状态回调处理失败: {e}")
+            logger.error(f"机器人状态回调处理失败: {e}")
             import traceback
             traceback.print_exc()
 
@@ -794,7 +921,6 @@ class ROS2Interface:
 
         try:
             data = msg.data
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到 rgb_state 消息，数据长度: {len(data)}")
             with self.rgb_state_lock:
                 if len(data) >= 6:
                     self.rgb_state["rgb_switch"] = int(data[0])
@@ -803,11 +929,10 @@ class ROS2Interface:
                     self.rgb_state["is_incremental"] = int(data[3])
                     self.rgb_state["brightness"] = int(data[4])
                     self.rgb_state["color"] = int(data[5])
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态更新: 开关={self.rgb_state['rgb_switch']}, 模式={self.rgb_state['rgb_mode']}, 速度={self.rgb_state['rgb_speed']}, 增量={self.rgb_state['is_incremental']}, 亮度={self.rgb_state['brightness']}, 颜色={self.rgb_state['color']}")
                 else:
-                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_state 数据长度不足: {len(data)}，需要至少6个元素")
+                    logger.warning(f"rgb_state 数据长度不足: {len(data)}，需要至少6个元素")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态回调处理失败: {e}")
+            logger.error(f"RGB灯状态回调处理失败: {e}")
             import traceback
             traceback.print_exc()
 
@@ -831,11 +956,11 @@ class ROS2Interface:
                 10
             )
             self.rgb_monitoring_active = True  # 设置监控激活标志
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态监控已启动，订阅话题: /rgb_state")
+            logger.info("RGB灯状态监控已启动，订阅话题: /rgb_state")
             return True
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 启动RGB状态监控失败: {e}")
+            logger.error(f"启动RGB状态监控失败: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -854,11 +979,11 @@ class ROS2Interface:
             # 短暂等待，确保所有回调都已处理完毕
             time.sleep(0.1)
 
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] RGB灯状态监控已停止")
+            logger.info("RGB灯状态监控已停止")
             return True
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止RGB灯状态监控失败: {e}")
+            logger.error(f"停止RGB灯状态监控失败: {e}")
             return False
 
     def _next_motor_task_id(self) -> int:
@@ -1109,13 +1234,13 @@ class ROS2Interface:
         while time.time() - start_time < timeout:
             if task_id in self.combine_motor_result:
                 result_value = self.combine_motor_result[task_id]["result"]
-                if result_value == 101:
+                if result_value == MotorResultCode.SUCCESS:
                     return {"success": True, "result": result_value}
-                elif result_value == 103:
+                elif result_value == MotorResultCode.FAILED:
                     return {"success": False, "result": result_value, "error_msg": "电机执行失败"}
-                elif result_value == 102:
+                elif result_value == MotorResultCode.ABORTED:
                     return {"success": False, "result": result_value, "error_msg": "电机执行中止"}
-                elif result_value == 104:
+                elif result_value == MotorResultCode.REJECTED:
                     return {"success": False, "result": result_value, "error_msg": "电机拒绝执行"}
             await asyncio.sleep(0.1)
 
@@ -1400,43 +1525,15 @@ class ROS2Interface:
         global rclpy
         try:
             if not rclpy:
-                logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rclpy模块不可用，跳过初始化")
+                logger.warning("rclpy模块不可用，跳过初始化")
                 self.initialized = False
                 return False
 
-            # # 检查是否已经初始化
-            # try:
-            #     # 尝试获取rclpy状态来判断是否已初始化
-            #     # Pylance 可能不认识 get_instance，但在某些rclpy版本中存在
-            #     if hasattr(rclpy, 'get_instance'):
-            #         instance = rclpy.get_instance()  # type: ignore
-            #         if instance is not None:
-            #             # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rclpy已经初始化")
-            #             # 如果rclpy已初始化但没有节点，创建节点
-            #             if self.node is None:
-            #                 self.node = rclpy.create_node('smart_robot_agent_ros2')
-            #                 # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 节点创建成功: smart_robot_agent_ros2")
-            #             # 创建回调组
-            #             self._create_callback_groups()
-            #             self.initialized = True
-            #             # 启动ROS2处理线程
-            #             self._start_ros2_spin_thread()
-            #             return True
-            #     else:
-            #         # 备用检查方法
-            #         logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 检查rclpy初始化状态")
-            # except Exception as check_error:
-            #     logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 检查初始化状态时出错: {check_error}")
-            #     # 未初始化，进行初始化
-            #     pass
-
             # 初始化rclpy
             rclpy.init()
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rclpy初始化成功")
 
             # 创建节点
             self.node = rclpy.create_node('smart_robot_agent_ros2')
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 节点创建成功: smart_robot_agent_ros2")
 
             # 创建回调组
             self._create_callback_groups()
@@ -1445,7 +1542,6 @@ class ROS2Interface:
             from rclpy.executors import MultiThreadedExecutor
             self.executor = MultiThreadedExecutor(num_threads=4)
             self.executor.add_node(self.node)
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] MultiThreadedExecutor 已创建，线程数: 4")
 
             self.initialized = True
             # 启动ROS2处理线程
@@ -1453,21 +1549,20 @@ class ROS2Interface:
             return True
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 初始化失败: {e}")
+            logger.error(f"初始化失败: {e}")
             self.initialized = False
             return False
     
     def _start_ros2_spin_thread(self):
         """启动ROS2独立处理线程"""
         if self.ros2_thread is not None and self.ros2_thread.is_alive():
-            logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程已在运行")
+            logger.warning("ROS2处理线程已在运行")
             return
             
         self.ros2_thread_running = True
         self.ros2_thread = threading.Thread(target=self._ros2_spin_worker, daemon=True)
         self.ros2_thread.start()
-        # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 独立处理线程已启动")
-    
+
     def _create_callback_groups(self):
         """创建回调组以支持并发服务调用"""
         try:
@@ -1475,18 +1570,15 @@ class ROS2Interface:
 
             # 创建互斥回调组（串行执行，用于需要互斥的操作）
             self.mutually_exclusive_callback_group = MutuallyExclusiveCallbackGroup()
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 互斥回调组创建成功")
 
             # 创建可重入回调组（并发执行，用于支持并发的服务调用）
             self.reentrant_callback_group = ReentrantCallbackGroup()
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 可重入回调组创建成功")
 
             # 创建独立的人脸识别回调组（用于耗时的人脸识别服务）
             self.face_recognition_callback_group = ReentrantCallbackGroup()
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 人脸识别回调组创建成功")
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建回调组失败: {e}")
+            logger.error(f"创建回调组失败: {e}")
             self.mutually_exclusive_callback_group = None
             self.reentrant_callback_group = None
             self.face_recognition_callback_group = None
@@ -1495,7 +1587,7 @@ class ROS2Interface:
         """ROS2独立处理线程工作函数"""
         global rclpy
         try:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2处理线程开始运行")
+            logger.info("ROS2处理线程开始运行")
             spin_count = 0
             while self.ros2_thread_running and rclpy and rclpy.ok() and self.node:
                 rclpy.spin_once(self.node, timeout_sec=0.1)
@@ -1503,13 +1595,13 @@ class ROS2Interface:
                 time.sleep(0.05)
                 spin_count += 1
                 if spin_count % 200 == 0:  # 每200次输出一次心跳日志（约10秒一次）
-                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2 spin 线程运行中，已执行 {spin_count} 次")
+                    logger.debug(f"ROS2 spin 线程运行中，已执行 {spin_count} 次")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程出错: {e}")
+            logger.error(f"处理线程出错: {e}")
             import traceback
             traceback.print_exc()
         finally:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已退出")
+            logger.info("处理线程已退出")
     
     def stop_ros2_spin_thread(self):
         """停止ROS2处理线程"""
@@ -1517,9 +1609,9 @@ class ROS2Interface:
             self.ros2_thread_running = False
             if self.ros2_thread and self.ros2_thread.is_alive():
                 self.ros2_thread.join(timeout=2.0)
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理线程已停止")
+            logger.info("处理线程已停止")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止处理线程失败: {e}")
+            logger.error(f"停止处理线程失败: {e}")
 
     def cleanup_ros2(self):
         """清理ROS2资源"""
@@ -1545,7 +1637,7 @@ class ROS2Interface:
                     else:
                         raise
                 self.initialized = False
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 资源已清理")
+                logger.info("资源已清理")
         except Exception as e:
             logger.error(f"清理ROS2资源时出错: {e}")
         
@@ -1567,13 +1659,12 @@ class ROS2Interface:
             services = result.split('\n')
             for service in services:
                 if service.strip() == service_name:
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 存在")
                     return True
             
-            logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 不存在")
+            logger.warning(f"服务 {service_name} 不存在")
             return False
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 检查服务存在性失败: {e}")
+            logger.error(f"检查服务存在性失败: {e}")
             return False
     
     def _check_ros2_action_exists(self, action_name: str) -> bool:
@@ -1594,13 +1685,12 @@ class ROS2Interface:
             actions = result.split('\n')
             for action in actions:
                 if action.strip() == action_name:
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作 {action_name} 存在")
                     return True
 
-            logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作 {action_name} 不存在")
+            logger.warning(f"动作 {action_name} 不存在")
             return False
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 检查动作存在性失败: {e}")
+            logger.error(f"检查动作存在性失败: {e}")
             return False
 
     def _get_or_create_service_client(self, service_name: str, service_type: str, use_concurrent: int):
@@ -1623,7 +1713,7 @@ class ROS2Interface:
             # 格式: "package_name/srv/ServiceName"
             parts = service_type.split('/')
             if len(parts) != 3:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 无效的服务类型格式: {service_type}")
+                logger.error(f"无效的服务类型格式: {service_type}")
                 return None
 
             package_name = parts[0]
@@ -1634,20 +1724,20 @@ class ROS2Interface:
                 module = __import__(f'{package_name}.srv', fromlist=[srv_name])
                 srv_class = getattr(module, srv_name)
             except (ImportError, AttributeError) as e:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 无法导入服务类型 {service_type}: {e}")
+                logger.error(f"无法导入服务类型 {service_type}: {e}")
                 return None
 
             # 选择回调组
-            if use_concurrent == 2:  # 人脸识别专用回调组
+            if use_concurrent == CallbackGroupType.FACE_RECOGNITION:  # 人脸识别专用回调组
                 callback_group = self.face_recognition_callback_group
-            elif use_concurrent == 1:  # 可重入回调组
+            elif use_concurrent == CallbackGroupType.REENTRANT:  # 可重入回调组
                 callback_group = self.reentrant_callback_group
             else:  # 默认互斥回调组
                 callback_group = self.mutually_exclusive_callback_group
 
             # 创建服务客户端（如果node为None则返回None）
             if self.node is None:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 节点未初始化，无法创建服务客户端")
+                logger.error("节点未初始化，无法创建服务客户端")
                 return None
 
             # 创建服务客户端
@@ -1660,12 +1750,11 @@ class ROS2Interface:
 
             # 缓存客户端
             self.service_clients[service_name] = (client, callback_group)
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务客户端已创建: {service_name}")
 
             return client
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建服务客户端失败: {e}")
+            logger.error(f"创建服务客户端失败: {e}")
             return None
 
     def _create_sensor_msgs_image(self, pil_image) -> Any:
@@ -1720,7 +1809,7 @@ class ROS2Interface:
             return img_msg
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建 sensor_msgs/Image 失败: {e}")
+            logger.error(f"创建 sensor_msgs/Image 失败: {e}")
             return None
 
     def _set_request_field_complex(self, request, field_name: str, value: Any) -> bool:
@@ -1737,7 +1826,7 @@ class ROS2Interface:
         try:
             # 检查字段是否存在
             if not hasattr(request, field_name):
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 请求类型没有属性: {field_name}")
+                logger.warning(f"请求类型没有属性: {field_name}")
                 return False
 
             # 获取字段类型
@@ -1773,7 +1862,7 @@ class ROS2Interface:
                 return True
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置请求字段失败: {field_name}, {e}")
+            logger.error(f"设置请求字段失败: {field_name}, {e}")
             return False
 
     def _call_ros2_service_async(self, service_name: str, use_concurrent:int,service_type: str, request_data: dict, timeout: float = 10.0) -> Dict[str, Any]:
@@ -1788,20 +1877,12 @@ class ROS2Interface:
         Returns:
             Dict[str, Any]: 服务响应结果
         """
-        # 首先检查服务是否存在
-        # if not self._check_ros2_service_exists(service_name):
-        #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 不存在，无法调用")
-        #     return {
-        #         "success": False,
-        #         "error_msg": f"服务 {service_name} 不存在或调用失败"
-        #     }
-
         try:
             # 获取或创建服务客户端（使用可重入回调组支持并发）
-            if(use_concurrent ==2):
-                client = self._get_or_create_service_client(service_name, service_type, use_concurrent=2)
+            if(use_concurrent == CallbackGroupType.FACE_RECOGNITION):
+                client = self._get_or_create_service_client(service_name, service_type, use_concurrent=CallbackGroupType.FACE_RECOGNITION)
             else:
-                client = self._get_or_create_service_client(service_name, service_type, use_concurrent=1)
+                client = self._get_or_create_service_client(service_name, service_type, use_concurrent=CallbackGroupType.REENTRANT)
             if not client:
                 return {
                     "success": False,
@@ -1811,26 +1892,26 @@ class ROS2Interface:
             # 等待服务可用
             t_wait_start = time.time()
             if not client.wait_for_service(timeout_sec=timeout):
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 未在 {timeout} 秒内变为可用，耗时: {(time.time()-t_wait_start):.2f}s")
+                logger.error(f"服务 {service_name} 未在 {timeout} 秒内变为可用，耗时: {(time.time()-t_wait_start):.2f}s")
                 return {
                     "success": False,
                     "error_msg": f"服务 {service_name} 未在 {timeout} 秒内变为可用"
                 }
-            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 等待可用耗时: {(time.time()-t_wait_start):.2f}s")
+            logger.debug(f"服务 {service_name} 等待可用耗时: {(time.time()-t_wait_start):.2f}s")
 
             # 创建请求对象
             # Pylance 类型检查可能有误，srv_type.Request 在运行时存在
             if hasattr(client, 'srv_type'):
                 request_type = client.srv_type.Request  # type: ignore
                 if request_type is None:
-                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 无法获取服务类型")
+                    logger.error("无法获取服务类型")
                     return {
                         "success": False,
                         "error_msg": "无法获取服务类型"
                     }
                 request = request_type()  # type: ignore
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 客户端没有 srv_type 属性")
+                logger.error("客户端没有 srv_type 属性")
                 return {
                     "success": False,
                     "error_msg": "客户端没有 srv_type 属性"
@@ -1840,27 +1921,27 @@ class ROS2Interface:
             t_set_start = time.time()
             for key, value in request_data.items():
                 self._set_request_field_complex(request, key, value)
-            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置请求字段耗时: {(time.time()-t_set_start):.2f}s")
+            logger.debug(f"设置请求字段耗时: {(time.time()-t_set_start):.2f}s")
 
             # 同步调用服务（由于回调组是可重入的，多个服务调用可以并发执行）
             # 注意：这里使用同步调用但配合可重入回调组，ROS2会在后台处理多个服务请求
             t_call_start = time.time()
             future = client.call_async(request)
-            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] call_async 耗时: {(time.time()-t_call_start):.2f}s")
+            logger.debug(f"call_async 耗时: {(time.time()-t_call_start):.2f}s")
 
             # 等待结果
             start_time = time.time()
             check_count = 0
             while not future.done():
                 if time.time() - start_time > timeout:
-                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用超时: {service_name}, 已检查 {check_count} 次")
+                    logger.error(f"服务调用超时: {service_name}, 已检查 {check_count} 次")
                     return {
                         "success": False,
                         "error_msg": f"服务调用超时: {service_name}"
                     }
                 time.sleep(0.01)
                 check_count += 1
-            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 等待响应完成，检查次数: {check_count}, 耗时: {(time.time()-start_time):.2f}s")
+            logger.debug(f"等待响应完成，检查次数: {check_count}, 耗时: {(time.time()-start_time):.2f}s")
 
             response = future.result()
 
@@ -1885,11 +1966,11 @@ class ROS2Interface:
                                 converted_list.append(item_dict)
                             elif hasattr(item, 'data'):
                                 # std_msgs类型，提取data字段
-                                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 转换数组元素[{i}]为std_msgs类型，提取data字段: type={type(item.data).__name__}")
+                                logger.debug(f"转换数组元素[{i}]为std_msgs类型，提取data字段: type={type(item.data).__name__}")
                                 converted_list.append(item.data)
                             else:
                                 # 其他类型，直接添加
-                                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 转换数组元素[{i}]: type={type(item).__name__}")
+                                logger.debug(f"转换数组元素[{i}]: type={type(item).__name__}")
                                 converted_list.append(item)
                         response_dict[field_name] = converted_list
                     # 处理std_msgs类型
@@ -1901,15 +1982,13 @@ class ROS2Interface:
                 # 如果无法获取字段，尝试直接转换为字典
                 response_dict = vars(response) if hasattr(response, '__dict__') else {}
 
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 异步服务调用成功: {service_name}, 响应: {response_dict}")
-
             # 调试：记录响应的详细信息
             if 'rgb_images_compressed' in response_dict:
-                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed in response_dict")
+                logger.debug("rgb_images_compressed in response_dict")
                 img_list = response_dict['rgb_images_compressed']
-                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed type: {type(img_list).__name__}, len: {len(img_list)}")
+                logger.debug(f"rgb_images_compressed type: {type(img_list).__name__}, len: {len(img_list)}")
                 if img_list:
-                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] type: {type(img_list[0]).__name__}")
+                    logger.debug(f"rgb_images_compressed[0] type: {type(img_list[0]).__name__}")
 
             return {
                 "success": True,
@@ -1917,7 +1996,7 @@ class ROS2Interface:
             }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 异步服务调用失败: {e}")
+            logger.error(f"异步服务调用失败: {e}")
             return {
                 "success": False,
                 "error_msg": f"服务调用失败: {str(e)}"
@@ -1936,7 +2015,7 @@ class ROS2Interface:
         """
         # 首先检查服务是否存在
         if not self._check_ros2_service_exists(service_name):
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 不存在，无法调用")
+            logger.error(f"服务 {service_name} 不存在，无法调用")
             return None
             
         try:
@@ -1949,8 +2028,7 @@ class ROS2Interface:
                 request_str = str(request_data)
             
             cmd = f"ros2 service call {service_name} {service_type} '{request_str}'"
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行命令: {cmd}")
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行命令: {cmd}")
+            logger.info(f"执行命令: {cmd}")
             
             
             # 使用subprocess而不是os.popen来获得更好的控制
@@ -1962,24 +2040,23 @@ class ROS2Interface:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10, env=env)
             
             if result.returncode != 0:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用命令执行失败，返回码: {result.returncode}")
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] stderr: {result.stderr}")
+                logger.error(f"服务调用命令执行失败，返回码: {result.returncode}")
+                logger.error(f"stderr: {result.stderr}")
                 return None
             
             response = result.stdout.strip()
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用结果: {response}")            
-            
+
             # 检查结果是否为空
             if not response:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务 {service_name} 返回空响应")
+                logger.error(f"服务 {service_name} 返回空响应")
                 return None
                 
             return response
         except subprocess.TimeoutExpired:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用超时: {service_name}")
+            logger.error(f"服务调用超时: {service_name}")
             return None
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 服务调用失败: {e}")
+            logger.error(f"服务调用失败: {e}")
             return None    
     
     def subscribe_robot_position(self) -> bool:
@@ -1990,11 +2067,11 @@ class ROS2Interface:
         """
         try:
             if not ROS2_AVAILABLE or not self.initialized or not self.node:
-                logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2不可用或未初始化，无法订阅位置信息")
+                logger.warning("ROS2不可用或未初始化，无法订阅位置信息")
                 return False
             
             if not geometry_msgs:
-                logger.error("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] geometry_msgs不可用，无法订阅位置话题")
+                logger.error("geometry_msgs不可用，无法订阅位置话题")
                 return False
                 
             # 使用主节点创建位置订阅，订阅的回调由主spin循环处理
@@ -2006,11 +2083,10 @@ class ROS2Interface:
             )
             
             self.position_subscribed = True
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已使用主节点订阅机器人位置话题: /tracked_pose")
             return True
             
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 订阅位置信息失败: {e}")
+            logger.error(f"订阅位置信息失败: {e}")
             return False
     
     def _position_callback(self, msg):
@@ -2038,36 +2114,10 @@ class ROS2Interface:
             # 记录初始位置（只在第一次回调时记录）
             if self.initial_position is None:
                 self.initial_position = position
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已记录初始位置: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到位置更新: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
-            
-            # 构造位置更新消息
-            # position_message = {
-            #     "type": "position_update",
-            #     "position": position['position'],
-            #     "orientation": position['orientation'],
-            #     "timestamp": position['header']['stamp']
-            # }
-            
-            # 通过同步方式发送位置信息，避免异步问题
-            # global smart_robot_agent_instance
-            # if smart_robot_agent_instance and hasattr(smart_robot_agent_instance, 'usb_manager'):
-            #     # 创建新的事件循环来处理异步任务
-            #     try:
-            #         loop = asyncio.new_event_loop()
-            #         asyncio.set_event_loop(loop)
-            #         loop.run_until_complete(smart_robot_agent_instance.usb_manager.send_message(position_message))
-            #         loop.close()
-            #         logger.info(f'位置信息已通过USB发送: ({position["position"]["x"]:.2f}, {position["position"]["y"]:.2f})')
-            #     except Exception as async_error:
-            #         logger.error(f'异步发送位置信息失败: {async_error}')
-            #         # 备用方案：添加到消息队列
-            #         smart_robot_agent_instance.message_queue.put(position_message)
-            # else:
-            #     logger.warning('USB管理器不可用，无法发送位置信息')
-            
+                logger.info(f"已记录初始位置: ({position['position']['x']:.2f}, {position['position']['y']:.2f})")
+
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 位置回调处理失败: {e}")
+            logger.error(f"位置回调处理失败: {e}")
     
     def record_current_position(self) -> bool:
         """记录当前位置
@@ -2077,10 +2127,10 @@ class ROS2Interface:
         """
         if self.last_position:
             self.pre_position = self.last_position
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已记录当前位置: {self.pre_position['position']}")
+            logger.info(f"已记录当前位置: {self.pre_position['position']}")
             return True
         else:
-            logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 没有可用的位置信息")
+            logger.warning("没有可用的位置信息")
             return False
     
     def get_last_position(self) -> Optional[Dict[str, Any]]:
@@ -2116,14 +2166,6 @@ class ROS2Interface:
                     "success": False,
                     "error_msg": "无效的位置信息"
                 }
-
-            # 检查导航action是否可用
-            # if not self._check_ros2_action_exists("/navigate_to_pose"):
-            #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航action /navigate_to_pose 不可用")
-            #     return {
-            #         "success": False,
-            #         "error_msg": "导航action /navigate_to_pose 不可用"
-            #     }
 
             # 调用导航action
             # 构造NavigateToPose goal，完全复用position的数据结构
@@ -2190,7 +2232,7 @@ class ROS2Interface:
                 }
                 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到位置失败: {e}")
+            logger.error(f"导航到位置失败: {e}")
             return {
                 "success": False,
                 "error_msg": f"导航失败: {str(e)}"
@@ -2210,7 +2252,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/get_move_mode",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/MoveMode",
                 {},
                 timeout=10.0
@@ -2232,10 +2274,10 @@ class ROS2Interface:
             result_number = response_dict.get("result_number", 1)
             result_msg = response_dict.get("result_msg", "")
 
-            success = (result_number == 1)
+            success = (result_number == ResultCode.SUCCESS)
 
             if success:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取运动模式成功: mode={move_mode}, vel={linear_vel}")
+                logger.info(f"获取运动模式成功: mode={move_mode}, vel={linear_vel}")
                 return {
                     "success": True,
                     "move_mode": move_mode,
@@ -2244,7 +2286,7 @@ class ROS2Interface:
                     "result_number": result_number
                 }
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取运动模式失败: {result_msg}")
+                logger.error(f"获取运动模式失败: {result_msg}")
                 return {
                     "success": False,
                     "move_mode": move_mode,
@@ -2254,7 +2296,7 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取运动模式失败: {e}")
+            logger.error(f"获取运动模式失败: {e}")
             return {
                 "success": False,
                 "move_mode": -1,
@@ -2281,7 +2323,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/set_robot_rise",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/RobotRise",
                 request_data,
                 timeout=10.0
@@ -2299,20 +2341,17 @@ class ROS2Interface:
             result_number = response_dict.get("result_number", 0)
             result_msg = response_dict.get("result_msg", "")
 
-            success = (result_number == 1)
+            success = (result_number == ResultCode.SUCCESS)
 
             if success:
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置机器人升降成功: 上升={rise}, duration={duration}")
                 return {"success": True, "err_msg": ""}
             else:
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置机器人升降失败: {result_msg}")
                 return {
                     "success": False,
                     "err_msg": result_msg
                 }
 
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置机器人升降失败: {e}")
             return {
                 "success": False,
                 "err_msg": f"设置机器人{'上升' if rise else '下降'}失败: {str(e)}"
@@ -2328,7 +2367,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/get_robot_rise",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/RobotRiseState",
                 {},
                 timeout=10.0
@@ -2348,10 +2387,9 @@ class ROS2Interface:
             result_number = response_dict.get("result_number", 0)
             result_msg = response_dict.get("result_msg", "")
 
-            success = (result_number == 1)
+            success = (result_number == ResultCode.SUCCESS)
 
             if success:
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人升降状态成功: state={robot_rise_state}")
                 return {
                     "success": True,
                     "state": robot_rise_state,
@@ -2359,7 +2397,6 @@ class ROS2Interface:
                     "result_number": result_number
                 }
             else:
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人升降状态失败: {result_msg}")
                 return {
                     "success": False,
                     "state": robot_rise_state,
@@ -2368,7 +2405,7 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人升降状态失败: {e}")
+            logger.error(f"获取机器人升降状态失败: {e}")
             return {
                 "success": False,
                 "state": False,
@@ -2398,7 +2435,7 @@ class ROS2Interface:
             # 使用异步服务调用（支持并发）
             result = self._call_ros2_service_async(
                 "/set_robot_tilt",
-                1,
+                CallbackGroupType.REENTRANT,
                 "jqr_ros_msgs/srv/RobotTilt",
                 request_data,
                 timeout=10.0
@@ -2417,10 +2454,9 @@ class ROS2Interface:
             result_number = response_dict.get("result_number", 0)
             result_msg = response_dict.get("result_msg", "")
 
-            success = (result_number == 1)
+            success = (result_number == ResultCode.SUCCESS)
 
             if success:
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置机器人俯仰角度成功: angle={angle}")
                 return {
                     "success": True,
                     "angle": angle,
@@ -2428,7 +2464,6 @@ class ROS2Interface:
                     "result_number": result_number
                 }
             else:
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置机器人俯仰角度失败: {result_msg}")
                 return {
                     "success": False,
                     "angle": angle,
@@ -2437,7 +2472,6 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置机器人俯仰角度失败: {e}")
             return {
                 "success": False,
                 "angle": angle,
@@ -2456,14 +2490,13 @@ class ROS2Interface:
         """
         # 首先检查动作是否存在
         if not self._check_ros2_action_exists(action_name):
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作 {action_name} 不存在，无法调用")
+            logger.error(f"动作 {action_name} 不存在，无法调用")
             return None
             
         try:
             # 构造ROS2动作调用命令
             cmd = f"ros2 action send_goal {action_name} {action_type} '{goal_data}'"
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行命令: {cmd}")
-            
+
             # 使用subprocess而不是os.popen来获得更好的控制
             # 设置ROS环境变量
             import os
@@ -2473,24 +2506,23 @@ class ROS2Interface:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120, env=env)
             
             if result.returncode != 0:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作调用命令执行失败，返回码: {result.returncode}")
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] stderr: {result.stderr}")
+                logger.error(f"动作调用命令执行失败，返回码: {result.returncode}")
+                logger.error(f"stderr: {result.stderr}")
                 return None
             
             response = result.stdout.strip()
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作调用结果: {response}")
-            
+
             # 检查结果是否为空
             if not response:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作 {action_name} 返回空响应")
+                logger.error(f"动作 {action_name} 返回空响应")
                 return None
                 
             return response
         except subprocess.TimeoutExpired:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作调用超时: {action_name}")
+            logger.error(f"动作调用超时: {action_name}")
             return None
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 动作调用失败: {e}")
+            logger.error(f"动作调用失败: {e}")
             return None
             
     # ======================
@@ -2548,13 +2580,13 @@ class ROS2Interface:
             medicine_box_value = self.robot_state["medicine_box"]
 
             # 映射状态值: 0.0=关闭, 1.0=开启, 2.0=运行中
-            if medicine_box_value == 0.0:
+            if medicine_box_value == MedicineBoxStatus.CLOSED:
                 state = False
                 state_desc = "关闭"
-            elif medicine_box_value == 1.0:
+            elif medicine_box_value == MedicineBoxStatus.OPEN:
                 state = True
                 state_desc = "开启"
-            elif medicine_box_value == 2.0:
+            elif medicine_box_value == MedicineBoxStatus.RUNNING:
                 state = True
                 state_desc = "运行中"
             else:
@@ -2789,11 +2821,10 @@ class ROS2Interface:
                 "brightness": brightness,
                 "color": color,
                 "color_name": color_name,
-                # "description": f"RGB灯状态: 开关={rgb_switch}, 模式={mode_desc}, 速度={speed_desc}, 增量={is_incremental}, 亮度={brightness}, 颜色={color_name}"
             }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取RGB灯带状态失败: {e}")
+            logger.error(f"获取RGB灯带状态失败: {e}")
             return {
                 "success": False,
                 "description": f"获取RGB灯带状态失败: {str(e)}"
@@ -2810,10 +2841,9 @@ class ROS2Interface:
             Dict[str, Any]: 找人结果
         """
         try:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始找人: {obj_name}")
+            logger.info(f"开始找人: {obj_name}")
 
             # Step 1: 调用realsense_rgb_image服务获取4个相机的RGB图像
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取相机图像数据...")
             camera_ids = ["cameraF", "cameraB", "cameraL", "cameraR"]
 
             # 构造请求数据 - 按照通信协议
@@ -2826,14 +2856,14 @@ class ROS2Interface:
             # 使用异步服务调用，直接返回Python对象，避免文本解析问题
             result = self._call_ros2_service_async(
                 "/realsense_rgb_image",
-                2,
+                CallbackGroupType.FACE_RECOGNITION,
                 "jqr_ros_msgs/srv/RealSenseRGBImage",
                 request_data,
                 timeout=10.0
             )
 
             if not result.get("success"):
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 相机图像数据获取异常: {result.get('error_msg', '未知错误')}")
+                logger.error(f"相机图像数据获取异常: {result.get('error_msg', '未知错误')}")
                 return {
                     "type": "find_person",
                     "success": False,
@@ -2847,26 +2877,26 @@ class ROS2Interface:
                 returned_camera_ids = response_data.get("camera_ids", [])
                 # rgb_images_compressed 是 sensor_msgs/CompressedImage[] 类型
                 rgb_images_compressed = response_data.get("rgb_images_compressed", [])
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取到 {len(returned_camera_ids)} 个相机的图像数据")
+                logger.info(f"获取到 {len(returned_camera_ids)} 个相机的图像数据")
 
                 # 详细调试：输出响应数据的完整结构
-                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] response_data keys: {list(response_data.keys())}")
-                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed type: {type(rgb_images_compressed).__name__}")
-                logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed length: {len(rgb_images_compressed)}")
+                logger.debug(f"response_data keys: {list(response_data.keys())}")
+                logger.debug(f"rgb_images_compressed type: {type(rgb_images_compressed).__name__}")
+                logger.debug(f"rgb_images_compressed length: {len(rgb_images_compressed)}")
                 if rgb_images_compressed:
-                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] type: {type(rgb_images_compressed[0]).__name__}")
-                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] has get: {hasattr(rgb_images_compressed[0], 'get')}")
-                    logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] has get_fields: {hasattr(rgb_images_compressed[0], 'get_fields_and_field_types')}")
+                    logger.debug(f"rgb_images_compressed[0] type: {type(rgb_images_compressed[0]).__name__}")
+                    logger.debug(f"rgb_images_compressed[0] has get: {hasattr(rgb_images_compressed[0], 'get')}")
+                    logger.debug(f"rgb_images_compressed[0] has get_fields: {hasattr(rgb_images_compressed[0], 'get_fields_and_field_types')}")
                     if isinstance(rgb_images_compressed[0], dict):
-                        logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0] keys: {list(rgb_images_compressed[0].keys())}")
+                        logger.debug(f"rgb_images_compressed[0] keys: {list(rgb_images_compressed[0].keys())}")
                         if 'data' in rgb_images_compressed[0]:
-                            logger.debug(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] rgb_images_compressed[0]['data'] type: {type(rgb_images_compressed[0]['data']).__name__}")
+                            logger.debug(f"rgb_images_compressed[0]['data'] type: {type(rgb_images_compressed[0]['data']).__name__}")
 
                 if len(returned_camera_ids) != 4:
-                    logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 期望4个相机数据，实际获取到 {len(returned_camera_ids)} 个")
+                    logger.warning(f"期望4个相机数据，实际获取到 {len(returned_camera_ids)} 个")
 
             except Exception as e:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析相机图像响应失败: {e}")
+                logger.error(f"解析相机图像响应失败: {e}")
                 return {
                     "type": "find_person",
                     "success": False,
@@ -2891,7 +2921,7 @@ class ROS2Interface:
                     cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
                     if cv_image is None:
-                        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解码相机 {returned_camera_ids[i]} 的图像失败")
+                        logger.error(f"解码相机 {returned_camera_ids[i]} 的图像失败")
                         pil_images.append(None)
                         continue
 
@@ -2899,15 +2929,15 @@ class ROS2Interface:
                     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
                     pil_img = Image.fromarray(cv_image, mode='RGB')
                     pil_images.append(pil_img)
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功解码相机 {returned_camera_ids[i]} 的图像")
+                    logger.info(f"成功解码相机 {returned_camera_ids[i]} 的图像")
 
                 except Exception as e:
-                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解码相机 {returned_camera_ids[i]} 的图像失败: {e}")
+                    logger.error(f"解码相机 {returned_camera_ids[i]} 的图像失败: {e}")
                     pil_images.append(None)
 
             # 检查是否所有图像都成功解码
             if any(img is None for img in pil_images):
-                logger.error("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 部分相机图像解码失败")
+                logger.error("部分相机图像解码失败")
                 return {
                     "type": "find_person",
                     "success": False,
@@ -2916,13 +2946,13 @@ class ROS2Interface:
                 }
 
             # Step 2: 调用人脸识别服务face_recognition
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 进行人脸识别...")
+            logger.info("进行人脸识别...")
             t0 = time.time()
 
             # 构造人脸识别请求 - 直接使用 PIL.Image 列表，_call_ros2_service_async 会自动转换
             # Request格式: person_id (string), camera_ids (string[]), rgb_images (sensor_msgs/Image[])
             t1 = time.time()
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 构造请求耗时: {(t1-t0)*1000:.2f}ms")
+            logger.info(f"构造请求耗时: {(t1-t0)*1000:.2f}ms")
             face_recognition_request = {
                 "person_id": obj_name,
                 "camera_ids": returned_camera_ids,
@@ -2931,19 +2961,19 @@ class ROS2Interface:
 
             # 直接调用服务 - ROS2 spin 线程会正常处理回调，不会阻塞
             t2 = time.time()
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 准备服务调用耗时: {(t2-t1)*1000:.2f}ms")
+            logger.info(f"准备服务调用耗时: {(t2-t1)*1000:.2f}ms")
             face_result = self._call_ros2_service_async(
                 "/face_recognition",
-                2,
+                CallbackGroupType.FACE_RECOGNITION,
                 "jqr_ros_msgs/srv/FaceRecognition",
                 face_recognition_request,
                 timeout=30.0  # 给足够长的时间
             )
             t3 = time.time()
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 人脸识别服务调用完成，总耗时: {(t3-t2)*1000:.2f}ms")
+            logger.info(f"人脸识别服务调用完成，总耗时: {(t3-t2)*1000:.2f}ms")
 
             if not face_result.get("success"):
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 人脸识别服务调用失败: {face_result.get('error_msg', '未知错误')}")
+                logger.error(f"人脸识别服务调用失败: {face_result.get('error_msg', '未知错误')}")
                 return {
                     "type": "find_person",
                     "success": False,
@@ -2953,7 +2983,7 @@ class ROS2Interface:
 
             # 解析人脸识别响应 - 使用异步服务返回的字典格式
             t4 = time.time()
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析响应耗时: {(t4-t3)*1000:.2f}ms")
+            logger.info(f"解析响应耗时: {(t4-t3)*1000:.2f}ms")
             try:
                 response_data = face_result.get("response", {})
                 camera_id = response_data.get("camera_id", "")
@@ -2962,7 +2992,7 @@ class ROS2Interface:
                 if camera_id:
                     # 找到目标人
                     result_msg = f"目标人{obj_name}在相机 {camera_id} 里找到"
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {result_msg}, bbox: {bbox}")
+                    logger.info(f"{result_msg}, bbox: {bbox}")
 
                     return {
                         "type": "find_person",
@@ -2973,7 +3003,7 @@ class ROS2Interface:
                 else:
                     # 未找到目标人
                     result_msg = "未找到目标人"
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {result_msg}")
+                    logger.info(f"{result_msg}")
 
                     return {
                         "type": "find_person",
@@ -2983,7 +3013,7 @@ class ROS2Interface:
                     }
 
             except Exception as e:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析人脸识别响应失败: {e}")
+                logger.error(f"解析人脸识别响应失败: {e}")
                 return {
                     "type": "find_person",
                     "success": False,
@@ -2992,7 +3022,7 @@ class ROS2Interface:
                 }
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找人过程异常: {e}")
+            logger.error(f"找人过程异常: {e}")
             import traceback
             traceback.print_exc()
             return {
@@ -3023,12 +3053,10 @@ class ROS2Interface:
                     "angle": 0.0,
                     "description": "服务 /get_robot_tilt_state 不存在或调用失败"
                 }
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人俯仰状态失败: {result}")
                 return result
             else:
                 # 检查响应是否为空或无效
                 if not response or not response.strip():
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人俯仰状态服务返回空响应")
                     return {
                         "success": False,
                         "angle": 0.0,
@@ -3045,7 +3073,7 @@ class ROS2Interface:
                     result_number = response_data.get("result_number", 1)  # 0表示成功
                     result_msg = response_data.get("result_msg", "")
                     
-                    success = (result_number == 1)
+                    success = (result_number == ResultCode.SUCCESS)
                     
                     result = {
                         "success": success,
@@ -3055,21 +3083,19 @@ class ROS2Interface:
                     }
                     
                     if success:
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人俯仰状态成功: {result}")
+                        logger.info(f"获取机器人俯仰状态成功: {result}")
                     else:
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人俯仰状态失败: {result}")
+                        logger.info(f"获取机器人俯仰状态失败: {result}")
                     
                     return result
                     
                 except Exception as e:
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人俯仰状态响应解析失败: {e}, 原始响应: {response}")
                     return {
                         "success": False,
                         "angle": 0.0,
                         "description": f"响应解析失败: {str(e)}"
                     }
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机器人俯仰状态失败: {e}")
             return {
                 "success": False,
                 "angle": 0.0,
@@ -3104,17 +3130,15 @@ class ROS2Interface:
                     "height": height,  # 从响应中提取的实际值
                     "description": f"机身升降高度为 {height} 米"
                 }
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机身升降状态: {result}")
+                logger.info(f"获取机身升降状态: {result}")
                 return result
             else:
                 # 如果服务调用失败，返回默认值
                 result = {
                     "success": False,
                 }
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机身升降状态(默认值): {result}")
                 return result
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取机身升降状态失败: {e}")
             return {
                 "success": False,
                 "height": 0.0,
@@ -3156,12 +3180,10 @@ class ROS2Interface:
                     "angle": angle,
                     "description": "服务 /set_screen_tilt 不存在或调用失败"
                 }
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度失败: {result}")
                 return result
             else:
                 # 检查响应是否为空或无效
                 if not response or not response.strip():
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 屏幕俯仰服务返回空响应")
                     return {
                         "success": False,
                         "angle": angle,
@@ -3177,7 +3199,7 @@ class ROS2Interface:
                     result_number = response_data.get("result_number", 0)
                     result_msg = response_data.get("result_msg", "")
                     
-                    success = (result_number == 1)
+                    success = (result_number == ResultCode.SUCCESS)
                     
                     result = {
                         "success": success,
@@ -3187,20 +3209,18 @@ class ROS2Interface:
                     }
                     
                     if success:
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度成功: {result}")
+                        logger.info(f"设置屏幕俯仰角度成功: {result}")
                     else:
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度失败: {result}")
+                        logger.info(f"设置屏幕俯仰角度失败: {result}")
                     return result
                     
                 except (json.JSONDecodeError, KeyError) as e:
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度响应解析失败: {e}, 原始响应: {response}")
                     return {
                         "success": False,
                         "angle": angle,
                         "description": f"响应解析失败: {str(e)}"
                     }
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 设置屏幕俯仰角度失败: {e}")
             return {
                 "success": False,
                 "angle": angle,
@@ -3228,12 +3248,10 @@ class ROS2Interface:
                     "angle": 0.0,
                     "description": "服务 /get_screen_tilt_state 不存在或调用失败"
                 }
-                # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取屏幕俯仰状态失败: {result}")
                 return result
             else:
                 # 检查响应是否为空或无效
                 if not response or not response.strip():
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 屏幕俯仰状态服务返回空响应")
                     return {
                         "success": False,
                         "angle": 0.0,
@@ -3249,7 +3267,7 @@ class ROS2Interface:
                     result_number = response_data.get("result_number", 1)  # 0表示成功
                     result_msg = response_data.get("result_msg", "")
                     
-                    success = (result_number == 1)
+                    success = (result_number == ResultCode.SUCCESS)
                     
                     result = {
                         "success": success,
@@ -3257,23 +3275,16 @@ class ROS2Interface:
                         "description": result_msg if success else f"获取失败: {result_msg}",
                         "result_number": result_number
                     }
-                    
-                    # if success:
-                    #     logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取屏幕俯仰状态成功: {result}")
-                    # else:
-                    #     logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取屏幕俯仰状态失败: {result}")
-                    
+
                     return result
-                    
+
                 except Exception as e:
-                    # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 屏幕俯仰状态响应解析失败: {e}, 原始响应: {response}")
                     return {
                         "success": False,
                         "angle": 0.0,
                         "description": f"响应解析失败: {str(e)}"
                     }
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 获取屏幕俯仰状态失败: {e}")
             return {
                 "success": False,
                 "angle": 0.0,
@@ -3307,14 +3318,14 @@ class ROS2Interface:
             )
 
             if result.get("success"):
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 头部电机控制成功: pitch={pitch_angle if control_pitch else 'N/A'}, yaw={yaw_angle if control_yaw else 'N/A'}")
+                logger.info(f"头部电机控制成功: pitch={pitch_angle if control_pitch else 'N/A'}, yaw={yaw_angle if control_yaw else 'N/A'}")
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 头部电机控制失败: {result.get('error_msg', '未知错误')}")
+                logger.error(f"头部电机控制失败: {result.get('error_msg', '未知错误')}")
 
             return result
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 头部电机控制失败: {e}")
+            logger.error(f"头部电机控制失败: {e}")
             return {
                 "success": False,
                 "description": f"头部电机控制失败: {str(e)}"
@@ -3376,65 +3387,43 @@ class ROS2Interface:
 
 def battery_callback(msg):
     """电池电量回调函数 - 收到信息后立马通过USB串口发送
-    
+
     Args:
         msg: 电池电量消息
     """
-    global battery_level, smart_robot_agent_instance
-    
     try:
         # 更新电池电量
-        battery_level = msg.battery_power_state
-        # logger.info(f"[BATTERY] 收到电池电量更新: {battery_level}%")
-        
+        robot_state.battery_level = msg.battery_power_state
+
         # 构造电池电量消息
         battery_message = {
             "type": "battery_update",
-            "battery_level": battery_level,
+            "battery_level": robot_state.battery_level,
             "timestamp": int(time.time())
         }
-        
+
         # 通过USB串口发送电池电量信息
-        if smart_robot_agent_instance and hasattr(smart_robot_agent_instance, 'usb_manager'):
+        if robot_state.agent_instance and hasattr(robot_state.agent_instance, 'usb_manager'):
             try:
                 # 尝试获取当前事件循环
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     # 如果事件循环正在运行，创建任务
-                    asyncio.create_task(smart_robot_agent_instance.usb_manager.send_message(battery_message))
+                    asyncio.create_task(robot_state.agent_instance.usb_manager.send_message(battery_message))
                 else:
                     # 如果事件循环没有运行，使用run_until_complete
-                    loop.run_until_complete(smart_robot_agent_instance.usb_manager.send_message(battery_message))
+                    loop.run_until_complete(robot_state.agent_instance.usb_manager.send_message(battery_message))
             except RuntimeError:
                 # 如果没有事件循环，创建一个新的
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                loop.run_until_complete(smart_robot_agent_instance.usb_manager.send_message(battery_message))
-            # logger.info(f'电池电量已通过USB发送: {battery_level:.1f}%')
+                loop.run_until_complete(robot_state.agent_instance.usb_manager.send_message(battery_message))
         else:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}]USB管理器不可用,无法发送电池电量信息") 
+            logger.info("USB管理器不可用,无法发送电池电量信息")
     except Exception as e:
         logger.error(f'处理电池电量回调时出错: {e}')
 
 # 注释：不再需要单独的spin循环，使用主节点的spin
-# def ros2_spin_loop():
-#     """ROS2 spin循环（已弃用，使用主节点spin）"""
-#     global battery_node, battery_thread_running
-#     
-#     if not ROS2_AVAILABLE:
-#         logger.error("ROS2不可用，无法启动ROS2 spin循环")
-#         return
-#         
-#     try:
-#         while rclpy is not None and rclpy.ok() and battery_thread_running and battery_node:
-#             rclpy.spin_once(battery_node, timeout_sec=0.1)
-#             time.sleep(0.1)  # 短暂休眠以避免CPU占用过高
-#     except Exception as e:
-#         logger.error(f"ROS2 spin循环出错: {e}")
-#     finally:
-#         if battery_node:
-#             battery_node.destroy_node()
-#             battery_node = None
 
 
 # ======================
@@ -3457,12 +3446,10 @@ class USBCoordinateManager:
             # 连接到串口设备
             self.connected = await self.serial_manager.connect()
             if self.connected:
-                # logger.info("USB串口连接成功")
                 # 添加消息回调
                 self.serial_manager.add_callback(self._handle_received_message)
                 # 开始接收数据
                 self.serial_manager.start_receiving()
-                # logger.info("USB串口通信已启动，直接双向通信")
                 return True
             else:
                 logger.error("USB串口连接失败")
@@ -3474,7 +3461,7 @@ class USBCoordinateManager:
     def _handle_received_message(self, message: Dict[Any, Any]):
         """处理接收到的消息 - 使用线程池实现真正的并发"""
         try:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 接收到USB消息: {message}")
+            logger.info(f"接收到USB消息: {message}")
 
             # 将消息转发给agent处理
             if self.agent and hasattr(self.agent, 'handle_client_message'):
@@ -3488,16 +3475,16 @@ class USBCoordinateManager:
                 )
                 thread.start()
             else:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Agent或handle_client_message方法不可用")
+                logger.warning("Agent或handle_client_message方法不可用")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理USB消息失败: {e}")
+            logger.error(f"处理USB消息失败: {e}")
 
     def _process_message_in_thread(self, message: Dict[str, Any]):
         """在独立线程中处理消息 - 使用线程独立的事件循环和WebSocket连接"""
         try:
             # 检查agent是否存在
             if not self.agent:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Agent不可用，无法处理消息")
+                logger.error("Agent不可用，无法处理消息")
                 return
             
             # 在线程中创建新的事件循环来运行异步任务
@@ -3524,23 +3511,23 @@ class USBCoordinateManager:
                 loop.close()
                 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 线程处理消息失败: {e}")
+            logger.error(f"线程处理消息失败: {e}")
     
     async def send_message(self, message: Dict[Any, Any]) -> bool:
         """发送消息到客户端"""
         try:
             if not self.connected:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口未连接，无法发送消息")
+                logger.warning("USB串口未连接，无法发送消息")
                 return False
             
             success = self.serial_manager.send_message(message)
             if success:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已发送USB消息: {message}")
+                logger.info(f"已发送USB消息: {message}")
             else:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送USB消息失败: {message}")
+                logger.error(f"发送USB消息失败: {message}")
             return success
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送USB消息异常: {e}")
+            logger.error(f"发送USB消息异常: {e}")
             return False    
 
     
@@ -3548,7 +3535,7 @@ class USBCoordinateManager:
         """清理资源"""
         try:
             self.serial_manager.stop_receiving()
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口资源已清理")
+            logger.info("USB串口资源已清理")
         except Exception as e:
             logger.error(f"清理USB串口资源失败: {e}")
 
@@ -3669,8 +3656,8 @@ class SmartRobotAgent:
         # 创建WebSocket控制服务器（局域网控制接口）
         self.websocket_server = WebSocketControlServer(
             agent=self,
-            host="0.0.0.0",  # 监听所有网卡
-            port=8766        # WebSocket端口
+            host=config.WEBSOCKET_HOST,  # 监听所有网卡
+            port=config.WEBSOCKET_PORT   # WebSocket端口
         )
 
         # 任务中断标志
@@ -3684,9 +3671,7 @@ class SmartRobotAgent:
         # 本地模型连接相关
         self.local_model_websocket = None
         self.local_model_connected = False
-        # self.local_model_uri = "ws://localhost:8769"
-        self.local_model_uri = "ws://192.168.31.43:8000/ws/navigate"
-        # self.local_model_uri = "ws://192.168.8.229:8000/ws/navigate"
+        self.local_model_uri = config.LOCAL_MODEL_URI
         # 任务执行状态跟踪
         self.active_navigation_tasks = set()  # 正在执行的导航任务ID集合
         self.task_execution_lock = asyncio.Lock()  # 任务执行锁
@@ -3694,13 +3679,6 @@ class SmartRobotAgent:
         # 本地模型连接锁
         self.local_model_lock = asyncio.Lock()
 
-        # OpenAI 客户端（用于本地模型）
-        # self.openai_client = OpenAI(
-        #     api_key="0",
-        #     base_url="http://192.168.31.43:9000/v1",
-        # )
-        # self.openai_model = "Qwen3-VL-30B-A3B-Instruct"
-        
         # 消息队列用于处理USB接收的消息
         self.message_queue = queue.Queue()
         
@@ -3710,9 +3688,9 @@ class SmartRobotAgent:
         # ======================
         # ReAct框架组件
         # ======================
-        self.memory = AgentMemory(max_history=50)  # Agent记忆系统
+        self.memory = AgentMemory(max_history=config.AGENT_MEMORY_SIZE)  # Agent记忆系统
         self.react_enabled = True  # 是否启用ReAct模式
-        self.max_react_iterations = 8  # 最大思考-行动循环次数
+        self.max_react_iterations = config.MAX_REACT_ITERATIONS  # 最大思考-行动循环次数
         self.current_react_task = None  # 当前ReAct任务
         
         # 已知的任务类型列表（可直接执行，无需LLM）
@@ -3732,15 +3710,14 @@ class SmartRobotAgent:
         """初始化agent"""
         try:
             # 设置全局实例引用
-            global smart_robot_agent_instance
-            smart_robot_agent_instance = self
+            robot_state.agent_instance = self
             
             # 启动ROS2订阅
             if ROS2_AVAILABLE:
                 # 启动电池电量监控
                 battery_success = self.ros2_interface.start_battery_monitoring()
                 if battery_success:
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 电池电量监控已启动")
+                    logger.info("电池电量监控已启动")
                     
                 else:
                     logger.warning("电池电量监控启动失败")
@@ -3748,35 +3725,34 @@ class SmartRobotAgent:
                 # 启动位置订阅
                 position_success = self.ros2_interface.subscribe_robot_position()
                 if position_success:
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 机器人位置订阅已启动")
+                    logger.info("机器人位置订阅已启动")
                 else:
                     logger.warning("机器人位置订阅启动失败")
 
                 # 启动组合电机控制结果监控
                 combine_motor_success = self.ros2_interface.start_combine_motor_monitoring()
                 if combine_motor_success:
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 组合电机控制结果监控已启动")
+                    logger.info("组合电机控制结果监控已启动")
                 else:
                     logger.warning("组合电机控制结果监控启动失败")
             
             # 初始化USB串口通信
             usb_connected = await self.usb_manager.initialize()
             if not usb_connected:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] USB串口连接失败，无法继续初始化Agent")
+                logger.warning("USB串口连接失败，无法继续初始化Agent")
                 return False            
             
             # 启动WebSocket控制服务器
             websocket_started = self.websocket_server.start()
             if websocket_started:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket控制服务器启动成功")
+                logger.info("WebSocket控制服务器启动成功")
             else:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket控制服务器启动失败，但USB通信仍然可用")
+                logger.warning("WebSocket控制服务器启动失败，但USB通信仍然可用")
             
             # 启动消息处理循环
             self._running = True
             asyncio.create_task(self._message_processor())
-            
-            # logger.info("SmartRobotAgent初始化完成")
+
             return True
         except Exception as e:
             logger.error(f"初始化SmartRobotAgent失败: {e}")
@@ -3797,8 +3773,6 @@ class SmartRobotAgent:
         4. Agent执行任务或直接返回答案
         """
         try:
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到客户端消息: {message}")
-            
             # 重置任务状态
             self.memory.clear_episode()
             
@@ -3811,20 +3785,18 @@ class SmartRobotAgent:
                 # 检查是否为已知任务类型
                 if task_type in self.known_task_types:
                     # 已知任务类型，后台并发执行，不等待完成
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已知任务类型 '{task_type}'，后台并发执行")
                     # 创建后台任务执行，不等待完成
                     asyncio.create_task(self._execute_task_async(task_to_execute))
                     # 立即返回，不等待任务完成
                     return
                 else:
                     # 未知任务类型，发给LLM处理
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 未知任务类型 '{task_type}'，发送给LLM分析")
+                    logger.info(f"未知任务类型 '{task_type}'，发送给LLM分析")
                     user_prompt = f"执行任务: {task_type}，参数: {task_params}"
                     llm_result = await self.analyze_with_llm(user_prompt, task_type)
                     result = llm_result
                     await self.send_response_to_client(result)
                     return
-                return
             
             # 2. 自然语言任务（不含type字段）
             user_prompt = None
@@ -3832,25 +3804,24 @@ class SmartRobotAgent:
             # 情况A: 消息本身就是字符串（自然语言内容）
             if isinstance(message, str):
                 user_prompt = message
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到自然语言字符串任务: {user_prompt}")
+                logger.info(f"收到自然语言字符串任务: {user_prompt}")
             
             # 情况B: 其他字典格式（不含type，提取第一个字符串值作为user_prompt）
             elif isinstance(message, dict):
                 for key, value in message.items():
                     if isinstance(value, str) and len(value.strip()) > 0:
                         user_prompt = value
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 从字段 '{key}' 中提取自然语言任务: {user_prompt}")
+                        logger.info(f"从字段 '{key}' 中提取自然语言任务: {user_prompt}")
                         break
             
             # 发送自然语言任务给LLM分析
             if user_prompt:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送自然语言任务给LLM分析")
+                logger.info("发送自然语言任务给LLM分析")
                 llm_result = await self.analyze_with_llm(user_prompt, "talk")
                 await self.send_response_to_client(llm_result)
                 return
         
         except Exception as e:
-            # logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理客户端消息失败: {e}", exc_info=True)
             error_response = {
                 "type": message.get("type", "unknown") if isinstance(message, dict) else "unknown",
                 "success": False,
@@ -3863,10 +3834,6 @@ class SmartRobotAgent:
         try:
             # 发送到串口
             success = await self.usb_manager.send_message(response)
-            # if success:
-            #     logger.info(f"响应已发送到客户端: {response.get('type', 'unknown')}")
-            # else:
-            #     logger.error(f"发送响应失败: {response}")
         except Exception as e:
             logger.error(f"发送响应失败: {e}")
 
@@ -3879,7 +3846,6 @@ class SmartRobotAgent:
         task_type = None
         try:
             task_type = task.get("type") if task else None
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始后台执行任务: {task_type}")
 
             # 执行任务
             result = await self.execute_task(task)
@@ -3889,9 +3855,9 @@ class SmartRobotAgent:
 
             # 发送响应到客户端
             await self.send_response_to_client(result)
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 任务执行完成: {task_type}")
+            logger.info(f"任务执行完成: {task_type}")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 后台任务执行异常: {task_type}, 错误: {e}")
+            logger.error(f"后台任务执行异常: {task_type}, 错误: {e}")
 
     async def _execute_task_concurrent(self, message: Dict[str, Any]):
         """并发执行消息处理（直接执行任务，不经过handle_client_message）
@@ -3900,19 +3866,15 @@ class SmartRobotAgent:
         避免消息在事件循环中排队等待
         """
         try:
-            # logger.info(f"[CONCURRENT_EXECUTE] 开始并发处理消息: {message}")
-
             # 重置任务状态
             self.memory.clear_episode()
 
             # 只处理已知任务类型
             if isinstance(message, dict) and "type" in message:
                 task_type = message.get("type", "")
-                
+
                 # 检查是否为已知任务类型
                 if task_type in self.known_task_types:
-                    # 已知任务类型，直接执行
-                    # logger.info(f"[CONCURRENT_EXECUTE] 已知任务类型 '{task_type}'，直接执行")
                     result = await self.execute_task(message)
                     # 记录到记忆
                     self.memory.add_task(message, result)
@@ -3920,12 +3882,10 @@ class SmartRobotAgent:
                     await self.send_response_to_client(result)
                 else:
                     # 未知任务类型，调用 handle_client_message
-                    # logger.info(f"[CONCURRENT_EXECUTE] 未知任务类型 '{task_type}'，使用常规处理")
                     await self.handle_client_message(message)
 
-            # logger.info(f"[CONCURRENT_EXECUTE] 消息处理完成")
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 并发处理消息失败: {e}")
+            logger.error(f"并发处理消息失败: {e}")
 
     # ======================
     # LLM智能分析核心方法
@@ -3941,9 +3901,9 @@ class SmartRobotAgent:
         Returns:
             Dict[str, Any]: 执行结果或回答
         """
-        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ===== 开始LLM分析 =====")
-        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 任务类型: {task_type}")
-        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 用户指令: {user_prompt}")
+        logger.info("===== 开始LLM分析 =====")
+        logger.info(f"任务类型: {task_type}")
+        logger.info(f"用户指令: {user_prompt}")
         
         # 记录初始任务
         initial_task = {
@@ -3974,7 +3934,7 @@ class SmartRobotAgent:
         
         # 调用LLM
         llm_response = await self._call_llm_for_analysis(full_prompt)
-        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应: {llm_response}")
+        logger.info(f"LLM响应: {llm_response}")
         
         # 解析LLM响应
         try:
@@ -3992,7 +3952,7 @@ class SmartRobotAgent:
             # 判断任务类型
             if result_type == "default":
                 # 交互问答类，直接返回回答
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 交互问答类，直接返回回答")
+                logger.info("交互问答类，直接返回回答")
                 response_content = result_params.get("response", llm_response)
                 return {
                     "type": task_type,
@@ -4002,7 +3962,7 @@ class SmartRobotAgent:
                 }
             elif result_type in self.known_task_types:
                 # 已知任务类型，执行任务
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行已知任务: {result_type}")
+                logger.info(f"执行已知任务: {result_type}")
                 task_to_execute = {
                     "type": result_type,
                     "params": result_params
@@ -4021,7 +3981,7 @@ class SmartRobotAgent:
                 return result
             else:
                 # 未知任务类型
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 未知任务类型: {result_type}")
+                logger.warning(f"未知任务类型: {result_type}")
                 return {
                     "type": task_type,
                     "success": False,
@@ -4029,7 +3989,7 @@ class SmartRobotAgent:
                 }
                 
         except json.JSONDecodeError as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应JSON解析失败: {e}, 原始响应: {llm_response}")
+            logger.error(f"LLM响应JSON解析失败: {e}, 原始响应: {llm_response}")
             # 如果解析失败，尝试直接作为自然语言回复
             return {
                 "type": task_type,
@@ -4038,7 +3998,7 @@ class SmartRobotAgent:
                 "description": llm_response
             }
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 处理LLM响应失败: {e}")
+            logger.error(f"处理LLM响应失败: {e}")
             return {
                 "type": task_type,
                 "success": False,
@@ -4060,7 +4020,6 @@ Agent已知的能力（可用工具）:
 
         # 添加每个工具的说明
         tool_descriptions = {
-            # "find_object": "查找指定对象",
             "find_person": "静态查找指定人员",
             "go_to_object": "导航到指定对象位置",
             "go_find_person": "去寻找指定的人",
@@ -4130,7 +4089,6 @@ Agent已知的能力（可用工具）:
                 "message": json.dumps(messages),
             }
 
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 发送分析请求给LLM")
             response = await self.send_to_local_model(llm_request)
             
             # 提取LLM的响应内容
@@ -4141,12 +4099,12 @@ Agent已知的能力（可用工具）:
             elif isinstance(response, str):
                 return response
             else:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应格式异常: {response}")
+                logger.warning(f"LLM响应格式异常: {response}")
                 # 返回默认的default
                 return json.dumps({"type": "default", "params": {"response": "抱歉，我无法理解您的指令"}})
                 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 调用LLM失败: {e}")
+            logger.error(f"调用LLM失败: {e}")
             # 返回默认的default
             return json.dumps({"type": "default", "params": {"response": f"分析失败: {str(e)}"}})
 
@@ -4181,7 +4139,7 @@ Agent已知的能力（可用工具）:
 """
 
         try:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始任务拆解: {user_prompt}")
+            logger.info(f"开始任务拆解: {user_prompt}")
 
             # 构造消息数组格式（使用 OpenAI 兼容格式）
             messages = [
@@ -4202,32 +4160,30 @@ Agent已知的能力（可用工具）:
             )
             llm_response = completion.choices[0].message.content
 
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM响应: {llm_response}")
+            logger.info(f"LLM响应: {llm_response}")
 
             # 解析LLM响应
             task_data = json.loads(llm_response)
 
             # 检查返回格式
             if isinstance(task_data, list):
-                # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 拆解出 {len(task_data)} 个子任务")
                 return task_data
             elif isinstance(task_data, dict):
                 # 如果返回的是单个任务，包装成列表
                 if "type" in task_data:
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 拆解出 1 个子任务")
                     return [task_data]
                 # 如果是natural_response或其他类型，返回空列表
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM返回自然语言响应，无需拆解")
+                logger.info("LLM返回自然语言响应，无需拆解")
                 return []
             else:
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM返回格式异常: {task_data}")
+                logger.warning(f"LLM返回格式异常: {task_data}")
                 return []
 
         except json.JSONDecodeError as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] JSON解析失败: {e}, 原始响应: {llm_response}")
+            logger.error(f"JSON解析失败: {e}, 原始响应: {llm_response}")
             return []
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 任务拆解失败: {e}")
+            logger.error(f"任务拆解失败: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -4243,16 +4199,13 @@ Agent已知的能力（可用工具）:
         """
         task_type = task.get("type")
         task_params = task.get("params", {})
-        
-        # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行任务类型: {task_type}, 参数: {task_params}")
-        
+
         if not task_type:
             return {"type": task_type or "unknown", "success": False, "error_msg": "任务类型为空"}
         
         # 检查任务类型并发控制
         success, error_msg = self.usb_manager.serial_manager.acquire_task_type_lock(task_type)
         if not success:
-            # logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {error_msg}")
             return {
                 "type": task_type,
                 "success": False,
@@ -4541,27 +4494,26 @@ Agent已知的能力（可用工具）:
     def query_history_db(self,obj_name: str) -> Optional[Dict[str, Any]]:
         """查询历史数据库中的对象信息"""
         try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS objects (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT,
-                    world_x REAL,
-                    world_y REAL,
-                    last_show_time TEXT TIMESTAMP,
-                    exist_or_not INTEGER,
-                    object_description TEXT
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS objects (
+                        id INTEGER PRIMARY KEY,
+                        name TEXT,
+                        world_x REAL,
+                        world_y REAL,
+                        last_show_time TEXT TIMESTAMP,
+                        exist_or_not INTEGER,
+                        object_description TEXT
+                    )
+                """)
+                cursor.execute(
+                    "SELECT id, name, world_x, world_y, last_show_time, exist_or_not, object_description FROM objects WHERE name = ? ORDER BY last_show_time DESC LIMIT 1",
+                    (obj_name,)
                 )
-            """)
-            cursor.execute(
-                "SELECT id, name, world_x, world_y, last_show_time, exist_or_not, object_description FROM objects WHERE name = ? ORDER BY last_show_time DESC LIMIT 1",
-                (obj_name,)
-            )
-            row = cursor.fetchone()
-            conn.close()
+                row = cursor.fetchone()
             if row:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Found object {obj_name} with id {row[0]} at location ({row[2]}, {row[3]})")
+                logger.info(f"Found object {obj_name} with id {row[0]} at location ({row[2]}, {row[3]})")
                 return {
                     "object_id": row[0],
                     "name": row[1],
@@ -4572,8 +4524,8 @@ Agent已知的能力（可用工具）:
                     "object_description": row[6]
                 }
             else:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] Object {obj_name} not found in database")
-        except Exception as e:
+                logger.info(f"Object {obj_name} not found in database")
+        except sqlite3.Error as e:
             logger.error(f"[ERROR] DB query failed: {e}")
         return None
     async def find_object(self, obj_name: str, user_prompt: str = "") -> Dict[str, Any]:
@@ -4587,7 +4539,7 @@ Agent已知的能力（可用工具）:
         Returns:
             Dict[str, Any]: 工具执行结果
         """
-        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始查找物品/人员: {obj_name}, 用户指令: {user_prompt}")
+        logger.info(f"开始查找物品/人员: {obj_name}, 用户指令: {user_prompt}")
 
         # 存储初始查询结果
         initial_find_result = None
@@ -4598,7 +4550,7 @@ Agent已知的能力（可用工具）:
                 # 打印asm_res
                 print(asm_res)
                 loc = asm_res["location"]
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
+                logger.info(f"在ASM中找到 {obj_name} 位置: ({loc['x']}, {loc['y']})")
 
                 # ASM找到：返回位置信息
                 initial_find_result = {
@@ -4612,7 +4564,7 @@ Agent已知的能力（可用工具）:
             if not initial_find_result:
                 db_res = self.query_history_db(obj_name)
                 if db_res:
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
+                    logger.info(f"在DB中找到 {obj_name} 记录，时间: {db_res['last_show_time']}")
                     initial_find_result = {
                         "type": "find_object",
                         "success": True,
@@ -4631,22 +4583,22 @@ Agent已知的能力（可用工具）:
             # Step 3: 先发送找物结果给客户端
             if initial_find_result:
                 await self.send_response_to_client(initial_find_result)
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已发送找物结果给客户端")
+                logger.info("已发送找物结果给客户端")
 
             # Step 4: 使用LLM对user_prompt进行任务拆解并执行
             if user_prompt:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始对用户指令进行任务拆解: {user_prompt}")
+                logger.info(f"开始对用户指令进行任务拆解: {user_prompt}")
                 task_list = await self._decompose_find_object_task(user_prompt)
                 success_count = 0
                 response = {}
                 if task_list and len(task_list) > 0:
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM拆解出 {len(task_list)} 个子任务，开始执行")
+                    logger.info(f"LLM拆解出 {len(task_list)} 个子任务，开始执行")
                     # 依次执行所有go_to_object任务
                     for task in task_list:
                         if task.get("type") == "go_to_object":
                             task_params = task.get("params", {})
                             obj_name_sub = task_params.get("obj_name", obj_name)
-                            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 执行子任务: go_to_object {obj_name_sub}")
+                            logger.info(f"执行子任务: go_to_object {obj_name_sub}")
                             response = await self.go_to_object(obj_name_sub, task_params.get("pixel_position"))
                             if (response.get("success") == True):
                                 success_count += 1
@@ -4655,14 +4607,14 @@ Agent已知的能力（可用工具）:
                         if initial_find_result:
                             initial_find_result["success"] = True
                             initial_find_result["position_description"] = response.get("error_msg", "")
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 所有找物子任务执行成功")
+                        logger.info("所有找物子任务执行成功")
                     else:
-                        logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找物子任务执行完成，成功 {success_count} 个，失败 {len(task_list) - success_count} 个")
+                        logger.info(f"找物子任务执行完成，成功 {success_count} 个，失败 {len(task_list) - success_count} 个")
                 else:
-                    logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] LLM未拆解出子任务")
+                    logger.info("LLM未拆解出子任务")
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 找物过程异常: {e}")
+            logger.error(f"找物过程异常: {e}")
             initial_find_result = {
                 "type": "find_object",
                 "success": False,
@@ -4676,8 +4628,6 @@ Agent已知的能力（可用工具）:
     async def go_to_object(self, obj_name: str, pixel_position: Optional[List[float]] = None) -> Dict[str, Any]:
         """导航到物体位置"""
         try:
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始导航到物体: {obj_name}")
-
             # 构造符合导航服务期望的数据格式
             model_data = {
                 "type": "go_to_object",
@@ -4706,7 +4656,7 @@ Agent已知的能力（可用工具）:
             return result_msg
 
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到物体失败: {e}")
+            logger.error(f"导航到物体失败: {e}")
             result_msg = {
                 "type": "go_to_object",
                 "success": False,
@@ -4718,12 +4668,10 @@ Agent已知的能力（可用工具）:
     async def follow_person(self, location_info: Optional[str] = None) -> Dict[str, Any]:
         """跟随人员"""
         try:
-            # logger.info(f"[FOLLOW_PERSON] 开始跟随人员")
             model_data = {
                 "type": "follow_person",
                 "user_prompt": location_info or "跟随人员"
             }
-            # final_sent = False
             result_msg = {
                         "type": "follow_person",
                         "success": False,
@@ -4735,26 +4683,8 @@ Agent已知的能力（可用工具）:
             result_msg["success"] = response.get("success", False)
             result_msg["err_msg"] = response.get("error_msg", "")
             return result_msg
-            # while not final_sent:
-            # # 发送到本地模型并获取响应
-            #     if isinstance(response, dict) and "command" in response:
-            #         cmd = response["command"]
-            #         logger.info(f"[follow_person] 收到中间信息: {cmd}")
-            #         await self.usb_manager.send_message({"type": "follow_person", "command": cmd})
-            #         continue                
-            #     if isinstance(response, dict) and "success" in response:
-            #         success = response["success"]
-            #         logger.info(f"[follow_person] 收到最终结果: success={success}")
-            #         if not success:
-            #             result_msg["error_msg"] = response.get("error_msg", "导航失败")
-            #         # 通过 USB 发给客户端
-            #         result_msg["success"] = success
-            #         await self.usb_manager.send_message(result_msg)
-            #         final_sent = True
-            #     await asyncio.sleep(0.2)
-            # return result_msg    
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到物体失败: {e}")
+            logger.error(f"导航到物体失败: {e}")
             result_msg = {
                 "type": "follow_person",
                 "success": False,
@@ -4798,14 +4728,11 @@ Agent已知的能力（可用工具）:
     async def go_find_person(self, obj_name: str, user_prompt: str, **kwargs) -> Dict[str, Any]:
         """查找人员"""
         try:
-            # logger.info(f"[GO_FIND_PERSON] 开始查找人员: {obj_name}")
-            
             model_data = {
                 "type": "go_to_person",
                 "user_prompt": user_prompt,
                 "person_id": obj_name
             }
-            # final_sent = False
             result_msg = {
                         "type": "go_find_person",
                         "success": False,
@@ -4820,28 +4747,6 @@ Agent已知的能力（可用工具）:
             result_msg["success"] = response.get("success", False)
             result_msg["err_msg"] = response.get("error_msg", "")
             return result_msg
-            # while not final_sent:
-            #     # 中间信息 command
-            #     if isinstance(response, dict) and "command" in response:
-            #         cmd = response["command"]
-            #         logger.info(f"[GO_FIND_PERSON] 收到中间信息: {cmd}")
-            #         # 立即通过 USB 发给客户端
-            #         await self.usb_manager.send_message({"type": "go_find_person", "command": cmd})
-            #         continue
-
-            #     # 最终结果
-            #     if isinstance(response, dict) and "success" in response:
-            #         success = response["success"]
-            #         if not success:
-            #             result_msg["error_msg"] = response.get("error_msg", "目标人没找到")
-            #         logger.info(f"[GO_FIND_PERSON] 收到最终结果: success={success}")
-            #         # 通过 USB 发给客户端
-            #         result_msg["success"] = success
-            #         # await self.usb_manager.send_message(result_msg)
-            #         final_sent = True
-            #         break
-            #     await asyncio.sleep(0.2)
-            # return result_msg    
 
         except Exception as e:
             logger.error(f"[GO_FIND_PERSON] 查找人员失败: {e}")
@@ -4864,7 +4769,6 @@ Agent已知的能力（可用工具）:
             
             # 1. 检查当前是否有本地模型导航任务在执行，如果有，停止模型任务
             if self.has_active_navigation_tasks():
-                # logger.info(f"[STOP_MOVE] 检测到 {len(self.active_navigation_tasks)} 个活跃导航任务，发送停止命令")
                 try:
                     # 发送停止命令到本地模型
                     stop_data = {
@@ -4880,8 +4784,7 @@ Agent已知的能力（可用工具）:
                     # 清空活跃任务集合
                     async with self.task_execution_lock:
                         self.active_navigation_tasks.clear()
-                    # logger.info("[STOP_MOVE] 已清空活跃任务集合")
-                        
+
                 except Exception as e:
                     logger.warning(f"[STOP_MOVE] 发送停止命令到本地模型失败: {e}")
             else:
@@ -4892,13 +4795,8 @@ Agent已知的能力（可用工具）:
                 try:
                     # 使用ros2 topic publish命令发布速度为0的消息
                     cmd = "ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'"
-                    # logger.info(f"[STOP_MOVE] 执行命令: {cmd}")
                     os.system(cmd)
-                    # logger.info(f"[STOP_MOVE] 发布速度命令结果: {result}")
-                    
-                    # success_msg = "已停止机器人移动"
-                    # logger.info(f"[STOP_MOVE] {success_msg}")
-                    
+
                     result_data = {
                         "type": "stop_move",
                         "success": True,
@@ -4955,25 +4853,19 @@ Agent已知的能力（可用工具）:
             bool: 记录是否成功
         """
         try:
-            # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] record_position_before_navigation 调用，self类型: {type(self)}")
             # 确保位置订阅已启动
             if hasattr(self, 'ros2_interface') and not self.ros2_interface.position_subscribed:
-                # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 启动位置订阅")
                 self.ros2_interface.subscribe_robot_position()
-            
+
             # 记录当前位置
             if hasattr(self, 'ros2_interface'):
                 success = self.ros2_interface.record_current_position()
-                # if success:
-                #     logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已在导航前记录当前位置")
-                # else:
-                #     logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 无法记录当前位置，可能还没有位置信息")
                 return success
             else:
-                logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] ROS2接口不可用")
+                logger.warning("ROS2接口不可用")
                 return False
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 记录位置失败: {e}")
+            logger.error(f"记录位置失败: {e}")
             return False
     
     async def back_to_last_position(self) -> Dict[str, Any]:
@@ -4983,27 +4875,26 @@ Agent已知的能力（可用工具）:
             Dict[str, Any]: 返回导航结果
         """
         try:
-            # logger.info("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始返回到初始位置")
             # 获取初始位置
             initial_position = self.ros2_interface.get_initial_position()
             if not initial_position:
-                logger.warning("[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 没有记录的初始位置信息")
+                logger.warning("没有记录的初始位置信息")
                 return {
                     "success": False,
                     "error_msg": "没有记录的初始位置信息，无法返回"
                 }
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 返回到初始位置: {initial_position['position']}")
+            logger.info(f"返回到初始位置: {initial_position['position']}")
             # 调用导航功能
             result = self.ros2_interface.navigate_to_position(initial_position)
             # 确保返回结果包含type字段
             result["type"] = "back_to_last_position"
             if result["success"]:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功返回到初始位置")
+                logger.info("成功返回到初始位置")
             else:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 返回初始位置失败: {result.get('error_msg', '未知错误')}")
+                logger.info(f"返回初始位置失败: {result.get('error_msg', '未知错误')}")
             return result
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 返回初始位置时出错: {e}")
+            logger.error(f"返回初始位置时出错: {e}")
             return {
                 "success": False,
                 "error_msg": f"返回位置失败: {str(e)}"
@@ -5016,11 +4907,11 @@ Agent已知的能力（可用工具）:
             Dict[str, Any]: 返回导航结果
         """
         try:
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 开始导航到门口位置")
+            logger.info("开始导航到门口位置")
             # 读取 position.txt 文件
             position_file = "/home/sunrise/welcome_position.txt"
             if not os.path.exists(position_file):
-                logger.warning(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] position.txt 文件不存在")
+                logger.warning("position.txt 文件不存在")
                 return {
                     "success": False,
                     "error_msg": f"position.txt 文件不存在"
@@ -5033,7 +4924,7 @@ Agent已知的能力（可用工具）:
             try:
                 parts = content.split()
                 if len(parts) != 7:
-                    logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] position.txt 格式错误，需要6个浮点数，实际得到 {len(parts)} 个")
+                    logger.error(f"position.txt 格式错误，需要6个浮点数，实际得到 {len(parts)} 个")
                     return {
                         "success": False,
                         "error_msg": f"position.txt 格式错误，需要7个浮点数 (x y z qx qy qz qw)"
@@ -5055,13 +4946,13 @@ Agent已知的能力（可用工具）:
                 }
 
             except ValueError as e:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 解析 position.txt 数值失败: {e}")
+                logger.error(f"解析 position.txt 数值失败: {e}")
                 return {
                     "success": False,
                     "error_msg": f"position.txt 数值格式错误: {str(e)}"
                 }
 
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 门口位置: {door_position['position']}, 方向: {door_position['orientation']}")
+            logger.info(f"门口位置: {door_position['position']}, 方向: {door_position['orientation']}")
 
             # 调用导航功能
             result = self.ros2_interface.navigate_to_position(door_position)
@@ -5069,13 +4960,13 @@ Agent已知的能力（可用工具）:
             result["type"] = "go_to_door"
 
             if result["success"]:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功导航到门口")
+                logger.info("成功导航到门口")
             else:
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到门口失败: {result.get('error_msg', '未知错误')}")
+                logger.info(f"导航到门口失败: {result.get('error_msg', '未知错误')}")
 
             return result
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 导航到门口时出错: {e}")
+            logger.error(f"导航到门口时出错: {e}")
             return {
                 "success": False,
                 "error_msg": f"导航到门口失败: {str(e)}"
@@ -5107,10 +4998,10 @@ Agent已知的能力（可用工具）:
         try:
             connect_func = getattr(websockets, 'connect')
             thread_local.websocket = await connect_func(self.local_model_uri)
-            logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功建立线程本地连接: {self.local_model_uri}")
+            logger.info(f"成功建立线程本地连接: {self.local_model_uri}")
             return True
         except Exception as e:
-            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 建立线程本地连接失败: {e}")
+            logger.error(f"建立线程本地连接失败: {e}")
             thread_local.websocket = None
             return False
     
@@ -5148,9 +5039,9 @@ Agent已知的能力（可用工具）:
                     ping_timeout=None,     # 禁用ping超时
                     close_timeout=10.0       # 关闭超时10秒
                 )
-                logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 成功建立线程本地连接: {self.local_model_uri}")
+                logger.info(f"成功建立线程本地连接: {self.local_model_uri}")
             except Exception as e:
-                logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 创建线程本地连接失败: {e}")
+                logger.error(f"创建线程本地连接失败: {e}")
                 return {"success": False, "error_msg": f"无法连接到本地模型服务器: {str(e)}"}
         
         websocket = thread_local.websocket
@@ -5159,8 +5050,7 @@ Agent已知的能力（可用工具）:
             # 发送数据
             message_str = json.dumps(model_data, ensure_ascii=False)
             await websocket.send(message_str)
-            # logger.info(f"已发送到本地模型: {model_data}")
-            
+
             intermediate_data = {
                 "type": "",
                 "command": ""
@@ -5171,16 +5061,14 @@ Agent已知的能力（可用工具）:
             while self._running and websocket is not None:
                 try:
                     response_str = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 原始响应: {response_str}")
                     try:
                         response_data = json.loads(response_str)
                     except json.JSONDecodeError as e:
-                        logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] JSON解析失败: {e}, 原始数据: {response_str}")
+                        logger.error(f"JSON解析失败: {e}, 原始数据: {response_str}")
                         # 尝试将非JSON响应作为最终结果返回
                         final_response = {"success": False, "error_msg": f"本地模型返回非JSON数据: {response_str}"}
                         break
-                    # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 收到响应: {response_data}")
-                    
+
                     # 检查是否是最终结果（包含success字段或result字段）
                     if ("success" in response_data or "result" in response_data or "answer" in response_data) and "command" not in response_data:
                         final_response = response_data
@@ -5194,7 +5082,6 @@ Agent已知的能力（可用工具）:
                         else:
                             intermediate_data["command"] = response_data.get("command", "")
                         await self.usb_manager.send_message(intermediate_data)
-                        # logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 已转发中间信息给客户端: {intermediate_data}")
                 except asyncio.TimeoutError:
                     # 超时检查运行状态
                     continue
@@ -5284,8 +5171,6 @@ Agent已知的能力（可用工具）:
 async def main():
     """主函数"""
     print(f"Smart Robot Agent v{AGENT_VERSION} is running...")
-    # print(f"USB串口通信端口: {USB_SERIAL_PORT}@{USB_SERIAL_BAUDRATE}")
-    # print("Type 'exit' to quit.")
 
     # 保存事件循环引用
     loop = asyncio.get_running_loop()
@@ -5297,17 +5182,15 @@ async def main():
     fix_asm_json_format()
 
     # 创建智能机器人Agent
-    global smart_robot_agent_instance
     agent = SmartRobotAgent()
     agent.event_loop = loop  # 保存事件循环引用
-    smart_robot_agent_instance = agent
+    robot_state.agent_instance = agent
     # 初始化agent
     try:
         success = await agent.initialize()
         if not success:
             logger.error("SmartRobotAgent初始化失败，退出程序")
             return
-        # logger.info("SmartRobotAgent启动成功")
 
         # 保持运行
         try:
@@ -5322,8 +5205,6 @@ async def main():
         logger.info("Smart Robot Agent 正在关闭...")
         agent.cleanup()
 
-# 全局变量
-smart_robot_agent_instance = None
 
 if __name__ == "__main__":
     try:
@@ -5332,10 +5213,5 @@ if __name__ == "__main__":
         print("程序被用户中断")
     except Exception as e:
         print(f"程序运行出错: {e}")
-
-
-
-
-
 
 
