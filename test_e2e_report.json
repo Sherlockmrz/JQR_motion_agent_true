@@ -1,0 +1,88 @@
+{
+  "test_date": "2026-03-25 11:03:13",
+  "test_type": "全流程端到端测试 (Agent + Mock电机 + WebSocket)",
+  "passed": 6,
+  "failed": 0,
+  "total": 6,
+  "all_passed": true,
+  "results": [
+    {
+      "id": 1,
+      "name": "用户移动位置时的视线跟踪",
+      "type": "user_position_tracking",
+      "status": "PASS",
+      "success": true,
+      "elapsed": "2.11s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "user_position_tracking"
+      }
+    },
+    {
+      "id": 2,
+      "name": "巡逻中停至桌子识别记忆物品",
+      "type": "patrol_table_inspection",
+      "status": "PASS",
+      "success": true,
+      "elapsed": "11.15s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "patrol_table_inspection"
+      }
+    },
+    {
+      "id": 3,
+      "name": "声源在头部转角范围内",
+      "type": "wake_head_range",
+      "status": "PASS",
+      "success": true,
+      "elapsed": "1.11s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "wake_head_range"
+      }
+    },
+    {
+      "id": 4,
+      "name": "声源超出头部转角极限",
+      "type": "wake_beyond_head_range",
+      "status": "PASS",
+      "success": true,
+      "elapsed": "4.22s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "wake_beyond_head_range"
+      }
+    },
+    {
+      "id": 5,
+      "name": "行走中侧方被唤醒",
+      "type": "wake_side_moving",
+      "status": "PASS",
+      "success": true,
+      "elapsed": "4.32s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "wake_side_moving"
+      }
+    },
+    {
+      "id": 6,
+      "name": "行走中后方被唤醒并停止",
+      "type": "wake_back_moving",
+      "status": "PASS",
+      "success": true,
+      "elapsed": "4.32s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "wake_back_moving"
+      }
+    }
+  ]
+}
