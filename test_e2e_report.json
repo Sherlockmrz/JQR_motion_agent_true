@@ -1,6 +1,6 @@
 {
-  "test_date": "2026-03-25 11:03:13",
-  "test_type": "全流程端到端测试 (Agent + Mock电机 + WebSocket)",
+  "test_date": "2026-03-25 11:16:36",
+  "test_type": "全流程E2E (Agent + mock_motor_node + WebSocket)",
   "passed": 6,
   "failed": 0,
   "total": 6,
@@ -12,7 +12,7 @@
       "type": "user_position_tracking",
       "status": "PASS",
       "success": true,
-      "elapsed": "2.11s",
+      "elapsed": "0.60s",
       "response": {
         "success": true,
         "error_msg": "",
@@ -25,7 +25,7 @@
       "type": "patrol_table_inspection",
       "status": "PASS",
       "success": true,
-      "elapsed": "11.15s",
+      "elapsed": "2.41s",
       "response": {
         "success": true,
         "error_msg": "",
@@ -38,7 +38,7 @@
       "type": "wake_head_range",
       "status": "PASS",
       "success": true,
-      "elapsed": "1.11s",
+      "elapsed": "0.60s",
       "response": {
         "success": true,
         "error_msg": "",
@@ -51,7 +51,7 @@
       "type": "wake_beyond_head_range",
       "status": "PASS",
       "success": true,
-      "elapsed": "4.22s",
+      "elapsed": "1.81s",
       "response": {
         "success": true,
         "error_msg": "",
@@ -64,7 +64,7 @@
       "type": "wake_side_moving",
       "status": "PASS",
       "success": true,
-      "elapsed": "4.32s",
+      "elapsed": "1.81s",
       "response": {
         "success": true,
         "error_msg": "",
@@ -77,7 +77,7 @@
       "type": "wake_back_moving",
       "status": "PASS",
       "success": true,
-      "elapsed": "4.32s",
+      "elapsed": "1.81s",
       "response": {
         "success": true,
         "error_msg": "",
