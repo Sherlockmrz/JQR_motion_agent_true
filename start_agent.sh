@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # 1. 设置设备权限
-echo "正在设置设备权限..."
-echo "sunrise" | sudo -S chmod 777 /dev/ttyACM0
+# echo "正在设置设备权限..."
+# echo "sunrise" | sudo -S chmod 777 /dev/ttyACM0
 
-# 检查权限设置是否成功
-if [ $? -ne 0 ]; then
-    echo "错误：设置设备权限失败"
-    exit 1
-fi
+# # 检查权限设置是否成功
+# if [ $? -ne 0 ]; then
+#     echo "错误：设置设备权限失败"
+#     exit 1
+# fi
 
 # 2. 配置日志目录
 data_name=`date +"%Y%m%d_%H%M%S"`
