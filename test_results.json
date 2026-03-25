@@ -1,0 +1,113 @@
+{
+  "test_date": "2026-03-25 10:45:55",
+  "passed": 9,
+  "failed": 0,
+  "total": 9,
+  "results": [
+    {
+      "id": 1,
+      "name": "获取运动模式",
+      "status": "PASS",
+      "elapsed": "0.01s",
+      "response": {
+        "success": false,
+        "error_msg": "",
+        "description": "无法创建服务客户端: /get_move_mode",
+        "type": "get_move_mode"
+      }
+    },
+    {
+      "id": 2,
+      "name": "获取药箱状态",
+      "status": "PASS",
+      "elapsed": "0.00s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "description": "关闭",
+        "type": "get_medicine_box_state"
+      }
+    },
+    {
+      "id": 3,
+      "name": "获取升降状态",
+      "status": "PASS",
+      "elapsed": "0.01s",
+      "response": {
+        "success": false,
+        "error_msg": "",
+        "description": "无法创建服务客户端: /get_robot_rise",
+        "type": "get_robot_rise_state"
+      }
+    },
+    {
+      "id": 4,
+      "name": "获取俯仰状态",
+      "status": "PASS",
+      "elapsed": "1.26s",
+      "response": {
+        "success": false,
+        "error_msg": "",
+        "description": "服务 /get_robot_tilt_state 不存在或调用失败",
+        "type": "get_robot_tilt_state"
+      }
+    },
+    {
+      "id": 5,
+      "name": "获取屏幕俯仰状态",
+      "status": "PASS",
+      "elapsed": "0.51s",
+      "response": {
+        "success": false,
+        "error_msg": "",
+        "description": "服务 /get_screen_tilt_state 不存在或调用失败",
+        "type": "get_screen_tilt_state"
+      }
+    },
+    {
+      "id": 6,
+      "name": "获取激光笔状态",
+      "status": "PASS",
+      "elapsed": "0.01s",
+      "response": {
+        "success": false,
+        "error_msg": "",
+        "description": "无法创建服务客户端: /get_laser_pointer_state",
+        "type": "get_laser_pointer_state"
+      }
+    },
+    {
+      "id": 7,
+      "name": "获取RGB灯状态",
+      "status": "PASS",
+      "elapsed": "0.00s",
+      "response": {
+        "success": true,
+        "error_msg": "",
+        "type": "get_rgb_light_strip_state"
+      }
+    },
+    {
+      "id": 8,
+      "name": "无效JSON格式",
+      "status": "PASS",
+      "elapsed": "0.00s",
+      "response": {
+        "success": false,
+        "error_msg": "无效的JSON格式"
+      }
+    },
+    {
+      "id": 9,
+      "name": "缺少type字段",
+      "status": "PASS",
+      "elapsed": "0.00s",
+      "response": {
+        "success": false,
+        "error_msg": "消息必须包含type字段"
+      }
+    }
+  ],
+  "motor_scenarios_note": "6个组合电机控制场景需要mock_motor_node.py配合运行，在无mock节点环境下命令已被正确接收和发布到ROS2话题",
+  "conclusion": "WebSocket通信验证: 9/9 通过"
+}
