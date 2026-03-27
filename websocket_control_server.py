@@ -26,7 +26,7 @@ class WebSocketControlServer:
     返回: {"success": true/false, "error_msg": "..."}
     """
     
-    def __init__(self, agent, host: str = "0.0.0.0", port: int = 8766):
+    def __init__(self, agent, host: str = "127.0.0.1", port: int = 8766):
         """初始化WebSocket控制服务器
         
         Args:

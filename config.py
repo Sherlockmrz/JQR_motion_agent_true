@@ -52,7 +52,7 @@ class AgentConfig:
 
     # WebSocket配置
     WEBSOCKET_HOST: str = field(
-        default_factory=lambda: os.getenv("WEBSOCKET_HOST", "0.0.0.0")
+        default_factory=lambda: os.getenv("WEBSOCKET_HOST", "127.0.0.1")
     )
     WEBSOCKET_PORT: int = field(
         default_factory=lambda: int(os.getenv("WEBSOCKET_PORT", "8766"))
