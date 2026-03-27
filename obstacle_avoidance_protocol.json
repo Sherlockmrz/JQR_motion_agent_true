@@ -1,0 +1,105 @@
+{
+  "protocol_version": "1.0",
+  "scenario_name": "obstacle_avoidance_turn",
+  "description": "绕行障碍物时的协同转向",
+
+  "scenario_detail": {
+    "description": "机器人遇到障碍物需要绕行，路径需要向右转弯",
+    "head_behavior": "头部提前向绕行方向（右侧）缓慢预转，引导视线",
+    "chassis_behavior": "底盘执行转向动作，配合头部完成路径调整，底盘绕行后头部回正",
+    "speed_characteristics": {
+      "chassis": "较快转动速度完成避障（speed_level=2）",
+      "head": "转动速度较慢（30°/s），保持视野平滑过渡，避免画面剧烈抖动"
+    }
+  },
+
+  "websocket_api": {
+    "request": {
+      "type": "obstacle_avoidance_turn",
+      "params": {
+        "turn_angle": "float (optional) - 转向角度（弧度），默认0.785（45°）",
+        "head_speed": "float (optional) - 头部转速（°/s），默认30"
+      }
+    },
+    "response": {
+      "success": "boolean - 执行是否成功",
+      "type": "string - obstacle_avoidance_turn",
+      "error_msg": "string (optional) - 错误信息"
+    }
+  },
+
+  "motor_actions": [
+    {
+      "step": 1,
+      "description": "头部预转右侧45°（慢速引导视线）",
+      "control": {
+        "control_yaw": true,
+        "yaw_angle": 0.785,
+        "speed_level": 0
+      },
+      "comment": "使用低速档位保持视野平滑，模拟30°/s的效果"
+    },
+    {
+      "step": 2,
+      "description": "底盘右转 + 头部回正（底盘快速避障）",
+      "control": {
+        "control_yaw": true,
+        "yaw_angle": 0.0,
+        "control_chassis_rotate": true,
+        "chassis_rotation": 0.785,
+        "speed_level": 2
+      },
+      "comment": "底盘和头部同时动作：底盘右转，头部回正，快速完成避障"
+    }
+  ],
+
+  "ros2_topics": {
+    "publish": {
+      "topic": "/combine_motor_control",
+      "type": "std_msgs/Float32MultiArray",
+      "fields": [
+        "task_id",
+        "control_pitch",
+        "pitch_angle",
+        "control_yaw",
+        "yaw_angle",
+        "control_chassis_move",
+        "chassis_offset",
+        "control_chassis_rotate",
+        "chassis_rotation",
+        "speed_level"
+      ]
+    },
+    "subscribe": {
+      "topic": "/combine_motor_control_result",
+      "type": "std_msgs/Float32MultiArray",
+      "fields": [
+        "task_id",
+        "result"
+      ]
+    }
+  },
+
+  "result_codes": {
+    "101": "SUCCESS - 执行成功",
+    "102": "ABORTED - 执行中止",
+    "103": "FAILED - 执行失败",
+    "104": "REJECTED - 拒绝执行",
+    "0-100": "PROGRESS - 执行进度百分比"
+  },
+
+  "test_example": {
+    "websocket_message": {
+      "type": "obstacle_avoidance_turn",
+      "params": {
+        "turn_angle": 0.785,
+        "head_speed": 30
+      }
+    },
+    "expected_behavior": [
+      "头部慢速右转45°（约3秒，低速档位）",
+      "底盘快速右转45° + 头部回正（约1秒，快速档位）",
+      "整体动作流畅，视野平滑过渡"
+    ]
+  }
+}

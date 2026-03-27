@@ -1526,6 +1526,56 @@ class ROS2Interface:
             task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
         )
 
+    async def obstacle_avoidance_turn(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """绕行障碍物时的协同转向
+
+        场景描述：机器人遇到障碍物需要绕行，路径需要向右转弯。
+
+        Args:
+            params: {
+                "turn_angle": float,  # 转向角度（弧度），默认45°右转
+                "head_speed": float,  # 头部转速（°/s），默认30°/s
+            }
+
+        动作流程：
+        1. 头部提前向绕行方向（右侧）缓慢预转，引导视线（头部水平0°→45°）
+        2. 底盘执行转向动作，配合头部完成路径调整
+        3. 底盘绕行，头部"回正"
+
+        速度特点：
+        - 底盘以较快转动速度完成避障（speed_level=2）
+        - 头部转动速度较慢（30°/s），保持视野平滑过渡，避免画面剧烈抖动
+        """
+        import math
+
+        # 解析参数
+        turn_angle = params.get("turn_angle", math.radians(45))  # 默认45°右转
+        head_speed = params.get("head_speed", 30)  # 默认30°/s
+
+        # 步骤1: 头部预转右侧45°（慢速引导视线）
+        # 使用低速档位(speed_level=0)来实现慢速转动，模拟30°/s的效果
+        task_id = self._next_motor_task_id()
+        result = await self._execute_motor_step(
+            task_id=task_id,
+            control_yaw=True,
+            yaw_angle=turn_angle,  # 头部右转45°
+            speed_level=0  # 低速档位，保持视野平滑
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤2: 底盘右转 + 头部回正（底盘快速避障）
+        # 底盘和头部同时动作：底盘右转，头部回正
+        task_id = self._next_motor_task_id()
+        return await self._execute_motor_step(
+            task_id=task_id,
+            control_yaw=True,
+            yaw_angle=0.0,  # 头部回正
+            control_chassis_rotate=True,
+            chassis_rotation=turn_angle,  # 底盘右转45°
+            speed_level=2  # 快速档位，快速完成避障
+        )
+
     def _initialize_ros2(self):
         """初始化ROS2"""
         global rclpy
@@ -4458,6 +4508,11 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "wake_back_moving":
             result = await self.ros2_interface.wake_back_moving(params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
+        elif task_type == "obstacle_avoidance_turn":
+            result = await self.ros2_interface.obstacle_avoidance_turn(params)
             result["type"] = task_type
             result.pop("result", None)
             return result
