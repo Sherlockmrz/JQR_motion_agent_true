@@ -6,13 +6,8 @@ import logging
 import threading
 import time
 from datetime import datetime
-from typing import Dict, Any, Set, Optional
+from typing import Dict, Any, Optional
 import websockets
-try:
-    from websockets.server import WebSocketServerProtocol
-except ImportError:
-    # websockets 11.0+ 不再需要此导入，使用类型注解字符串
-    WebSocketServerProtocol = None
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +34,7 @@ class WebSocketControlServer:
         self.port = port
         
         # 连接管理
-        self.connected_clients: Set[WebSocketServerProtocol] = set()
+        self.connected_clients: set = set()
         self.clients_lock = threading.Lock()
         
         # 服务器状态
