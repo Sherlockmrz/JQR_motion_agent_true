@@ -1312,39 +1312,78 @@ class ROS2Interface:
         )
 
     async def patrol_table_inspection(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """巡逻中停至桌子识别记忆物品"""
+        """巡逻中停至桌子识别记忆物品
+
+        场景描述：机器人巡逻途中检测到桌子，自主靠近并停稳，识别记忆桌面物品后恢复巡逻。
+
+        动作流程：
+        1. 底盘平稳驶向桌子，在合适位置精准减速停止
+        2. 停稳后头部俯视桌面（头部俯仰0°→-15°）
+        3. 头部左右扫描（头部水平0→-45°→45°→0°）
+        4. 识别完成后头部抬头回正
+
+        速度特点：
+        - 底盘接近时逐渐减速，识别期间保持车身绝对静止稳定
+        - 头部俯仰15°/s，头部水平30°/s，缓慢均匀扫描，体现观察节奏感
+        """
         import math
         import asyncio
 
-        # 步骤1: 头部俯视
+        # 步骤1: 底盘驶向桌子并停稳（假设桌子在前方0.5米处）
+        # 使用低速档位平稳接近，精准停止
+        approach_distance = params.get("approach_distance", 0.5)  # 默认前进0.5米
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=math.radians(-15), speed_level=0
+            task_id=task_id,
+            control_chassis_move=True,
+            chassis_offset=approach_distance,
+            speed_level=0  # 低速档位，平稳接近
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 头部左扫
+        # 步骤2: 头部俯视桌面（俯仰15°/s速度）
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=math.radians(-45), speed_level=0
+            task_id=task_id,
+            control_pitch=True,
+            pitch_angle=math.radians(-15),
+            speed_level=0  # 低速档位，对应15°/s
         )
         if not result["success"]:
             return result
 
-        # 步骤3: 头部右扫
+        # 步骤3: 头部左扫（水平30°/s速度）
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=math.radians(45), speed_level=0
+            task_id=task_id,
+            control_yaw=True,
+            yaw_angle=math.radians(-45),
+            speed_level=0  # 低速档位，对应30°/s
         )
         if not result["success"]:
             return result
 
-        # 步骤4: 头部回正
+        # 步骤4: 头部右扫（水平30°/s速度）
+        task_id = self._next_motor_task_id()
+        result = await self._execute_motor_step(
+            task_id=task_id,
+            control_yaw=True,
+            yaw_angle=math.radians(45),
+            speed_level=0  # 低速档位，对应30°/s
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤5: 头部回正（适中速度）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=0.0,
-            control_yaw=True, yaw_angle=0.0, speed_level=1
+            task_id=task_id,
+            control_pitch=True,
+            pitch_angle=0.0,
+            control_yaw=True,
+            yaw_angle=0.0,
+            speed_level=1  # 中速档位，适中回正速度
         )
 
     async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1531,49 +1570,49 @@ class ROS2Interface:
 
         场景描述：机器人遇到障碍物需要绕行，路径需要向右转弯。
 
-        Args:
-            params: {
-                "turn_angle": float,  # 转向角度（弧度），默认45°右转
-                "head_speed": float,  # 头部转速（°/s），默认30°/s
-            }
-
         动作流程：
-        1. 头部提前向绕行方向（右侧）缓慢预转，引导视线（头部水平0°→45°）
-        2. 底盘执行转向动作，配合头部完成路径调整
-        3. 底盘绕行，头部"回正"
-
-        速度特点：
-        - 底盘以较快转动速度完成避障（speed_level=2）
-        - 头部转动速度较慢（30°/s），保持视野平滑过渡，避免画面剧烈抖动
+        1. 底盘前进
+        2. 头部向绕行方向预转，引导视线
+        3. 底盘一边前进一边右转绕行，头部回正
         """
         import math
 
-        # 解析参数
-        turn_angle = params.get("turn_angle", math.radians(45))  # 默认45°右转
-        head_speed = params.get("head_speed", 30)  # 默认30°/s
+        turn_angle = params.get("turn_angle", math.radians(45))
+        move_distance = params.get("move_distance", 0.5)
 
-        # 步骤1: 头部预转右侧45°（慢速引导视线）
-        # 使用低速档位(speed_level=0)来实现慢速转动，模拟30°/s的效果
+        # 步骤1: 底盘前进
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id,
-            control_yaw=True,
-            yaw_angle=turn_angle,  # 头部右转45°
-            speed_level=0  # 低速档位，保持视野平滑
+            control_chassis_move=True,
+            chassis_offset=move_distance,
+            speed_level=1
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 底盘右转 + 头部回正（底盘快速避障）
-        # 底盘和头部同时动作：底盘右转，头部回正
+        # 步骤2: 头部预转右侧（慢速引导视线）
+        task_id = self._next_motor_task_id()
+        result = await self._execute_motor_step(
+            task_id=task_id,
+            control_yaw=True,
+            yaw_angle=turn_angle,
+            speed_level=0
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤3: 底盘一边前进一边右转，头部回正
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=0.0,  # 头部回正
+            yaw_angle=0.0,
+            control_chassis_move=True,
+            chassis_offset=move_distance,
             control_chassis_rotate=True,
-            chassis_rotation=turn_angle,  # 底盘右转45°
-            speed_level=2  # 快速档位，快速完成避障
+            chassis_rotation=turn_angle,
+            speed_level=2
         )
 
     def _initialize_ros2(self):
