@@ -280,6 +280,6 @@ if __name__ == "__main__":
     print("组合电机控制 · 场景测试工具")
     print("请确保以下服务已启动:")
     print("  1. SmartRobotAgent (WebSocket端口 8766)")
-    print("  2. mock_motor_node.py --mode progress")
+    # print("  2. mock_motor_node.py --mode progress")
     print()
     asyncio.run(main())

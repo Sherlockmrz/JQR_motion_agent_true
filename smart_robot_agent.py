@@ -1224,7 +1224,7 @@ class ROS2Interface:
             logger.error(f"发布组合电机控制失败: {e}")
             return {"success": False, "error_msg": f"未知错误: {str(e)}"}
 
-    async def _wait_for_motor_result(self, task_id: int, timeout: float = 30.0) -> Dict[str, Any]:
+    async def _wait_for_motor_result(self, task_id: int, timeout: float = 20.0) -> Dict[str, Any]:
         """等待组合电机执行结果
 
         Args:
