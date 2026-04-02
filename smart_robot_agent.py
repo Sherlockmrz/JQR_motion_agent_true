@@ -1425,14 +1425,14 @@ class ROS2Interface:
                 "pitch_angle": float  # 俯仰角度（弧度），255表示使用默认值
             }
             
-        根据声源方向计算底盘旋转角度：底盘旋转角度 = 声源yaw角度 - 头部偏航极限(90°)
+        根据声源方向计算底盘旋转角度：底盘旋转角度 = 声源yaw角度 - 头部偏航极限(60°)
         """
         import math
 
         # 默认角度（弧度）
         DEFAULT_PITCH = math.radians(45)
-        DEFAULT_YAW = math.radians(90)  # 头部偏航极限
-        HEAD_YAW_LIMIT = math.radians(90)  # 头部偏航极限
+        DEFAULT_YAW = math.radians(60)  # 头部偏航极限
+        HEAD_YAW_LIMIT = math.radians(60)  # 头部偏航极限
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1530,8 +1530,8 @@ class ROS2Interface:
         import math
 
         # 默认角度（弧度）
-        DEFAULT_YAW = math.radians(90)  # 头部偏航极限
-        HEAD_YAW_LIMIT = math.radians(90)  # 头部偏航极限
+        DEFAULT_YAW = math.radians(60)  # 头部偏航极限
+        HEAD_YAW_LIMIT = math.radians(60)  # 头部偏航极限
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
