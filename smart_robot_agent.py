@@ -1615,6 +1615,21 @@ class ROS2Interface:
             speed_level=2
         )
 
+    async def head_reset_to_zero(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """头部回归0位
+
+        将头部的yaw和pitch都回归到0度位置
+        """
+        task_id = self._next_motor_task_id()
+        return await self._execute_motor_step(
+            task_id=task_id,
+            control_pitch=True,
+            pitch_angle=0.0,
+            control_yaw=True,
+            yaw_angle=0.0,
+            speed_level=1
+        )
+
     def _initialize_ros2(self):
         """初始化ROS2"""
         global rclpy
@@ -3817,7 +3832,7 @@ class SmartRobotAgent:
             "get_screen_tilt_state", "set_screen_tilt_jqr",
             "set_laser_pointer", "get_laser_pointer_state",
             "set_rgb", "get_rgb_light_strip_state", "delete_person",
-            "set_head_motor_control", "set_combine_motor_control"
+            "set_head_motor_control", "set_combine_motor_control", "head_reset_to_zero"
         }
     
     async def initialize(self):
@@ -4552,6 +4567,11 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "obstacle_avoidance_turn":
             result = await self.ros2_interface.obstacle_avoidance_turn(params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
+        elif task_type == "head_reset_to_zero":
+            result = await self.ros2_interface.head_reset_to_zero(params)
             result["type"] = task_type
             result.pop("result", None)
             return result
