@@ -264,12 +264,12 @@ def build_head_motor_command():
     yaw_deg = input_float("    yaw角度(度, 正=左转, 负=右转, 0=不控制): ", 0.0)
     speed = input_int("    速度档位(0=低速, 1=中速, 2=快速) [默认1]: ", 1)
 
-    control_pitch = pitch_deg != 0.0
-    control_yaw = yaw_deg != 0.0
+    control_pitch = True
+    control_yaw = True
 
-    if not control_pitch and not control_yaw:
-        print("  ⚠ pitch和yaw都为0，无操作")
-        return None
+    # if not control_pitch and not control_yaw:
+    #     print("  ⚠ pitch和yaw都为0，无操作")
+    #     return None
 
     pitch_rad = math.radians(pitch_deg)
     yaw_rad = math.radians(yaw_deg)
