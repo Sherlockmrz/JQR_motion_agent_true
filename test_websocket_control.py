@@ -172,19 +172,17 @@ SCENARIOS = [
     # ---------- 头部控制 ----------
     {
         "id": 8,
-        "category": "头部控制",
-        "name": "头部回归0位（head_reset_to_zero）",
+        "category": "头部电机归零位",
+        "name": "头部电机回归0位（head_reset_to_zero）",
         "description": (
             "将头部的yaw和pitch都回归到0度位置。\n"
             "  头部: yaw 0°, pitch 0°\n"
-            "  底盘: 保持静止\n"
-            "  快捷键: z"
+            "  底盘: 保持静止"
         ),
         "command": {
             "type": "head_reset_to_zero",
             "params": {}
-        },
-        "hotkey": "z"
+        }
     },
 ]
 
@@ -200,8 +198,7 @@ def print_scenario_menu():
         if s["category"] != current_category:
             current_category = s["category"]
             print(f"\n  【{current_category}】")
-        hotkey_info = f" (快捷键: {s['hotkey']})" if "hotkey" in s else ""
-        print(f"    {s['id']}. {s['name']}{hotkey_info}")
+        print(f"    {s['id']}. {s['name']}")
 
     print(f"\n    0. 全部运行（按顺序逐个测试）")
     print("    q. 退出")
@@ -246,20 +243,15 @@ async def main():
         if choice == '0':
             selected = SCENARIOS
         else:
-            # 检查是否是快捷键
-            hotkey_match = [s for s in SCENARIOS if s.get("hotkey") == choice.lower()]
-            if hotkey_match:
-                selected = hotkey_match
-            else:
-                try:
-                    idx = int(choice)
-                    selected = [s for s in SCENARIOS if s["id"] == idx]
-                    if not selected:
-                        print(f"  ✗ 无效编号: {idx}")
-                        continue
-                except ValueError:
-                    print(f"  ✗ 请输入数字、快捷键或 'q'")
+            try:
+                idx = int(choice)
+                selected = [s for s in SCENARIOS if s["id"] == idx]
+                if not selected:
+                    print(f"  ✗ 无效编号: {idx}")
                     continue
+            except ValueError:
+                print(f"  ✗ 请输入数字或 'q'")
+                continue
 
         # 连接并执行
         log(f"连接到 {ws_uri} ...")
