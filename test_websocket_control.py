@@ -52,8 +52,8 @@ SCENARIOS = [
         "command": {
             "type": "user_position_tracking",
             "params": {
-                "yaw_angle": 255,  # 255表示使用默认值
-                "pitch_angle": 255
+                "yaw_angle": -30,  # 255表示使用默认值
+                "pitch_angle": -30
             }
         }
     },
@@ -87,8 +87,8 @@ SCENARIOS = [
         "command": {
             "type": "wake_head_range",
             "params": {
-                "yaw_angle": 255,
-                "pitch_angle": 255
+                "yaw_angle": -30,
+                "pitch_angle": -30
             }
         }
     },
@@ -184,6 +184,34 @@ SCENARIOS = [
             "params": {}
         }
     },
+    # ---------- 手动输入控制 ----------
+    {
+        "id": 9,
+        "category": "手动输入控制",
+        "name": "头部电机手动控制（输入pitch/yaw角度）",
+        "description": (
+            "手动输入头部俯仰(pitch)和偏航(yaw)角度（单位：度），转换为弧度后下发控制。\n"
+            "  pitch: 正值=抬头, 负值=低头\n"
+            "  yaw: 正值=左转, 负值=右转\n"
+            "  输入0跳过该轴控制"
+        ),
+        "command": None,  # 交互式输入，不使用预设command
+        "interactive": "head_motor"
+    },
+    {
+        "id": 10,
+        "category": "手动输入控制",
+        "name": "底盘手动控制（输入前进距离/旋转角度）",
+        "description": (
+            "手动输入底盘前进距离(米)和旋转角度(度)，转换后下发控制。\n"
+            "  前进: 正值=前进, 负值=后退, 单位：米\n"
+            "  旋转: 正值=逆时针, 负值=顺时针, 单位：度→弧度\n"
+            "  输入0跳过该项控制\n"
+            "  速度档位: 0=低速, 1=中速, 2=快速"
+        ),
+        "command": None,  # 交互式输入，不使用预设command
+        "interactive": "chassis"
+    },
 ]
 
 
@@ -205,6 +233,91 @@ def print_scenario_menu():
     print("=" * 80)
 
 
+def input_float(prompt, default=0.0):
+    """安全读取浮点数输入"""
+    try:
+        val = input(prompt).strip()
+        if val == '':
+            return default
+        return float(val)
+    except ValueError:
+        print("  输入无效，使用默认值:", default)
+        return default
+
+
+def input_int(prompt, default=0):
+    """安全读取整数输入"""
+    try:
+        val = input(prompt).strip()
+        if val == '':
+            return default
+        return int(val)
+    except ValueError:
+        print("  输入无效，使用默认值:", default)
+        return default
+
+
+def build_head_motor_command():
+    """交互式构建头部电机控制命令"""
+    print("  ── 头部电机参数输入 ──")
+    pitch_deg = input_float("    pitch角度(度, 正=抬头, 负=低头, 0=不控制): ", 0.0)
+    yaw_deg = input_float("    yaw角度(度, 正=左转, 负=右转, 0=不控制): ", 0.0)
+    speed = input_int("    速度档位(0=低速, 1=中速, 2=快速) [默认1]: ", 1)
+
+    control_pitch = pitch_deg != 0.0
+    control_yaw = yaw_deg != 0.0
+
+    if not control_pitch and not control_yaw:
+        print("  ⚠ pitch和yaw都为0，无操作")
+        return None
+
+    pitch_rad = math.radians(pitch_deg)
+    yaw_rad = math.radians(yaw_deg)
+
+    print(f"  → pitch={pitch_deg}°({pitch_rad:.4f}rad), yaw={yaw_deg}°({yaw_rad:.4f}rad), speed={speed}")
+
+    return {
+        "type": "set_combine_motor_control",
+        "params": {
+            "control_pitch": control_pitch,
+            "pitch_angle": pitch_rad,
+            "control_yaw": control_yaw,
+            "yaw_angle": yaw_rad,
+            "speed_level": speed
+        }
+    }
+
+
+def build_chassis_command():
+    """交互式构建底盘控制命令"""
+    print("  ── 底盘控制参数输入 ──")
+    move_dist = input_float("    前进距离(米, 正=前进, 负=后退, 0=不移动): ", 0.0)
+    rotate_deg = input_float("    旋转角度(度, 正=逆时针, 负=顺时针, 0=不旋转): ", 0.0)
+    speed = input_int("    速度档位(0=低速, 1=中速, 2=快速) [默认1]: ", 1)
+
+    control_move = move_dist != 0.0
+    control_rotate = rotate_deg != 0.0
+
+    if not control_move and not control_rotate:
+        print("  ⚠ 移动和旋转都为0，无操作")
+        return None
+
+    rotate_rad = math.radians(rotate_deg)
+
+    print(f"  → 移动={move_dist}m, 旋转={rotate_deg}°({rotate_rad:.4f}rad), speed={speed}")
+
+    return {
+        "type": "set_combine_motor_control",
+        "params": {
+            "control_chassis_move": control_move,
+            "chassis_offset": move_dist,
+            "control_chassis_rotate": control_rotate,
+            "chassis_rotation": rotate_rad,
+            "speed_level": speed
+        }
+    }
+
+
 async def run_scenario(websocket, scenario):
     """运行单个场景测试"""
     print(f"\n{'━' * 80}")
@@ -214,7 +327,24 @@ async def run_scenario(websocket, scenario):
     print(f"  {scenario['description']}")
     print(f"{'─' * 80}")
 
-    resp = await send_and_recv(websocket, scenario["command"])
+    # 交互式场景：需要用户输入参数
+    interactive = scenario.get("interactive")
+    if interactive:
+        if interactive == "head_motor":
+            command = build_head_motor_command()
+        elif interactive == "chassis":
+            command = build_chassis_command()
+        else:
+            log(f"  ✗ 未知交互类型: {interactive}")
+            return False
+
+        if command is None:
+            log("  跳过（无操作参数）")
+            return True
+
+        resp = await send_and_recv(websocket, command)
+    else:
+        resp = await send_and_recv(websocket, scenario["command"])
 
     if resp is not None:
         success = resp.get("success", False)
