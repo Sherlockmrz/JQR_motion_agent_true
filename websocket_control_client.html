@@ -302,6 +302,7 @@
                 <div class="custom-command">
                     <h3 style="margin-bottom: 15px; color: #555;">组合电机场景</h3>
                     <div class="button-group">
+                        <!-- 255表示使用默认角度值 -->
                         <button class="btn btn-primary" onclick="sendCommand('user_position_tracking', {yaw_angle: 255, pitch_angle: 255})">👤 用户位置跟踪</button>
                         <button class="btn btn-primary" onclick="sendCommand('patrol_table_inspection', {})">🔍 巡逻桌面扫描</button>
                         <button class="btn btn-primary" onclick="sendCommand('wake_head_range', {yaw_angle: 255, pitch_angle: 255})">👋 唤醒(头部范围)</button>
@@ -360,17 +361,32 @@
         let errorCount = 0;
         
         function connectWebSocket() {
-            const wsUrl = document.getElementById('wsUrl').value;
-            
+            const wsUrl = document.getElementById('wsUrl').value.trim();
+
+            // 验证WebSocket URL格式
+            if (!wsUrl.match(/^wss?:\/\/.+/)) {
+                addLog('无效的WebSocket URL，必须以ws://或wss://开头', 'error');
+                return;
+            }
+
             if (websocket && websocket.readyState === WebSocket.OPEN) {
                 addLog('已经连接，无需重复连接', 'warning');
                 return;
             }
-            
+
+            // 设置连接超时
+            let connectionTimeout = setTimeout(() => {
+                if (websocket && websocket.readyState === WebSocket.CONNECTING) {
+                    websocket.close();
+                    addLog('连接超时（5秒）', 'error');
+                }
+            }, 5000);
+
             try {
                 websocket = new WebSocket(wsUrl);
                 
                 websocket.onopen = function() {
+                    clearTimeout(connectionTimeout);
                     updateConnectionStatus(true);
                     addLog('✓ WebSocket连接成功', 'success');
                 };
@@ -442,22 +458,33 @@
         function sendCustomCommand() {
             const type = document.getElementById('customType').value.trim();
             const paramsStr = document.getElementById('customParams').value.trim();
-            
+
             if (!type) {
                 addLog('请输入任务类型', 'error');
                 return;
             }
-            
+
+            // 验证任务类型格式（只允许字母、数字和下划线）
+            if (!type.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+                addLog('任务类型格式无效，只能包含字母、数字和下划线', 'error');
+                return;
+            }
+
             let params = {};
             try {
                 if (paramsStr) {
                     params = JSON.parse(paramsStr);
+                    // 确保params是对象，不是数组或原始类型
+                    if (typeof params !== 'object' || Array.isArray(params)) {
+                        addLog('参数必须是JSON对象格式', 'error');
+                        return;
+                    }
                 }
             } catch (e) {
                 addLog('参数JSON格式错误: ' + e.message, 'error');
                 return;
             }
-            
+
             sendCommand(type, params);
         }
         
@@ -480,25 +507,35 @@
         function addLog(message, type = 'info', data = null) {
             const logBox = document.getElementById('responseLog');
             const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-            
+
             const item = document.createElement('div');
             item.className = 'response-item ' + type;
-            
-            let content = '<div class="timestamp">' + timestamp + '</div>';
-            content += '<div>' + message + '</div>';
-            
+
+            // 使用textContent防止XSS攻击
+            const timestampDiv = document.createElement('div');
+            timestampDiv.className = 'timestamp';
+            timestampDiv.textContent = timestamp;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = message;
+
+            item.appendChild(timestampDiv);
+            item.appendChild(messageDiv);
+
             if (data) {
-                content += '<div style="margin-top: 8px; color: #666;">' + JSON.stringify(data, null, 2) + '</div>';
+                const dataDiv = document.createElement('div');
+                dataDiv.style.marginTop = '8px';
+                dataDiv.style.color = '#666';
+                dataDiv.textContent = JSON.stringify(data, null, 2);
+                item.appendChild(dataDiv);
             }
-            
-            item.innerHTML = content;
-            
+
             // 插入到最前面
             if (logBox.firstChild && logBox.firstChild.className !== 'response-item') {
                 logBox.innerHTML = '';
             }
             logBox.insertBefore(item, logBox.firstChild);
-            
+
             // 限制日志数量
             while (logBox.children.length > 50) {
                 logBox.removeChild(logBox.lastChild);
