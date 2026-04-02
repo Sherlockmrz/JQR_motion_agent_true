@@ -1302,8 +1302,12 @@ class ROS2Interface:
         
         if yaw_angle == 255:
             yaw_angle = DEFAULT_YAW
+        else:
+            yaw_angle = math.radians(yaw_angle)
         if pitch_angle == 255:
             pitch_angle = DEFAULT_PITCH
+        else:
+            pitch_angle = math.radians(pitch_angle)
             
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
@@ -1407,9 +1411,13 @@ class ROS2Interface:
         
         if yaw_angle == 255:
             yaw_angle = DEFAULT_YAW
+        else:
+            yaw_angle = math.radians(yaw_angle)
         if pitch_angle == 255:
             pitch_angle = DEFAULT_PITCH
-            
+        else:
+            pitch_angle = math.radians(pitch_angle)
+
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
@@ -1442,11 +1450,14 @@ class ROS2Interface:
             yaw_angle = DEFAULT_YAW
             chassis_rotation = math.radians(90)  # 默认底盘旋转90°
         else:
-            # 计算底盘旋转角度：声源方向 - 头部极限
+            # 先转弧度，再计算底盘旋转角度：声源方向 - 头部极限
+            yaw_angle = math.radians(yaw_angle)
             chassis_rotation = yaw_angle - HEAD_YAW_LIMIT
-            
+
         if pitch_angle == 255:
             pitch_angle = DEFAULT_PITCH
+        else:
+            pitch_angle = math.radians(pitch_angle)
 
         # 步骤1: 头部转至极限
         task_id = self._next_motor_task_id()
@@ -1493,7 +1504,8 @@ class ROS2Interface:
             yaw_angle = DEFAULT_YAW
             chassis_rotation = math.radians(45)  # 默认底盘旋转45°
         else:
-            chassis_rotation = yaw_angle
+            chassis_rotation = math.radians(yaw_angle)
+            yaw_angle = math.radians(yaw_angle)
 
         # 步骤1: 头部转向
         task_id = self._next_motor_task_id()
@@ -1540,8 +1552,9 @@ class ROS2Interface:
             yaw_angle = DEFAULT_YAW
             chassis_rotation = math.radians(180)  # 默认底盘旋转180°
         else:
-            # 声源在后方，底盘旋转角度 = 声源方向
-            chassis_rotation = yaw_angle
+            # 声源在后方，底盘旋转角度 = 声源方向（转弧度）
+            chassis_rotation = math.radians(yaw_angle)
+            yaw_angle = math.radians(yaw_angle)
 
         # 步骤1: 头部转至极限
         task_id = self._next_motor_task_id()
