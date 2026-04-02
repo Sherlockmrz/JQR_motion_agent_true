@@ -256,35 +256,71 @@
         
         <div class="main-content">
             <div class="panel">
-                <h2>控制命令</h2>
-                
+                <h2>导航控制</h2>
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="sendCommand('go_to_door', {})">🚪 去门口</button>
                     <button class="btn btn-primary" onclick="sendCommand('back_to_last_position', {})">🔙 返回起点</button>
-                    <button class="btn btn-success" onclick="sendCommand('get_move_mode', {})">📊 获取运动模式</button>
-                    <button class="btn btn-success" onclick="sendCommand('get_robot_rise_state', {})">📏 获取升降状态</button>
-                    <button class="btn btn-success" onclick="sendCommand('get_medicine_box_state', {})">💊 获取药箱状态</button>
                     <button class="btn btn-warning" onclick="sendCommand('stop_move', {})">⏹️ 停止移动</button>
                     <button class="btn btn-danger" onclick="sendCommand('stop_navigate', {})">🛑 停止导航</button>
                     <button class="btn btn-danger" onclick="sendCommand('stop_follow', {})">🚫 停止跟随</button>
                 </div>
-                
+
+                <h2 style="margin-top: 25px;">机身控制</h2>
                 <div class="button-group">
-                    <button class="btn btn-success" onclick="sendCommand('set_rgb', {switch: true, color: 'green', mode: 0})">💡 开启RGB灯(绿)</button>
-                    <button class="btn btn-danger" onclick="sendCommand('set_rgb', {switch: false})">💡 关闭RGB灯</button>
                     <button class="btn btn-success" onclick="sendCommand('set_robot_rise_jqr', {rise: true})">⬆️ 升起机身</button>
                     <button class="btn btn-danger" onclick="sendCommand('set_robot_rise_jqr', {rise: false})">⬇️ 降下机身</button>
+                    <button class="btn btn-success" onclick="sendCommand('get_robot_rise_state', {})">📏 获取升降状态</button>
+                    <button class="btn btn-success" onclick="sendCommand('get_robot_tilt_state', {})">📐 获取俯仰状态</button>
+                </div>
+
+                <h2 style="margin-top: 25px;">头部控制</h2>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="sendCommand('head_reset_to_zero', {})">🔄 头部归零</button>
+                    <button class="btn btn-primary" onclick="sendCommand('set_head_motor_control', {control_pitch: true, pitch_angle: 0.785, control_yaw: false, yaw_angle: 0})">⬆️ 抬头45°</button>
+                    <button class="btn btn-primary" onclick="sendCommand('set_head_motor_control', {control_pitch: true, pitch_angle: -0.785, control_yaw: false, yaw_angle: 0})">⬇️ 低头45°</button>
+                    <button class="btn btn-primary" onclick="sendCommand('set_head_motor_control', {control_pitch: false, pitch_angle: 0, control_yaw: true, yaw_angle: 0.785})">⬅️ 左转45°</button>
+                    <button class="btn btn-primary" onclick="sendCommand('set_head_motor_control', {control_pitch: false, pitch_angle: 0, control_yaw: true, yaw_angle: -0.785})">➡️ 右转45°</button>
+                </div>
+
+                <h2 style="margin-top: 25px;">RGB灯控制</h2>
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="sendCommand('set_rgb', {switch: true, color: 'green', mode: 0})">💡 绿灯</button>
+                    <button class="btn btn-success" onclick="sendCommand('set_rgb', {switch: true, color: 'red', mode: 0})">💡 红灯</button>
+                    <button class="btn btn-success" onclick="sendCommand('set_rgb', {switch: true, color: 'blue', mode: 0})">💡 蓝灯</button>
+                    <button class="btn btn-danger" onclick="sendCommand('set_rgb', {switch: false})">💡 关闭</button>
+                    <button class="btn btn-success" onclick="sendCommand('get_rgb_light_strip_state', {})">📊 获取RGB状态</button>
+                </div>
+
+                <h2 style="margin-top: 25px;">其他控制</h2>
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="sendCommand('set_laser_pointer', {laser_pointer: true})">🔴 激光笔开</button>
+                    <button class="btn btn-danger" onclick="sendCommand('set_laser_pointer', {laser_pointer: false})">🔴 激光笔关</button>
+                    <button class="btn btn-success" onclick="sendCommand('get_move_mode', {})">📊 获取运动模式</button>
+                    <button class="btn btn-success" onclick="sendCommand('get_medicine_box_state', {})">💊 获取药箱状态</button>
                 </div>
                 
+                <div class="custom-command">
+                    <h3 style="margin-bottom: 15px; color: #555;">组合电机场景</h3>
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="sendCommand('user_position_tracking', {yaw_angle: 255, pitch_angle: 255})">👤 用户位置跟踪</button>
+                        <button class="btn btn-primary" onclick="sendCommand('patrol_table_inspection', {})">🔍 巡逻桌面扫描</button>
+                        <button class="btn btn-primary" onclick="sendCommand('wake_head_range', {yaw_angle: 255, pitch_angle: 255})">👋 唤醒(头部范围)</button>
+                        <button class="btn btn-primary" onclick="sendCommand('wake_beyond_head_range', {yaw_angle: 255, pitch_angle: 255})">👋 唤醒(超出范围)</button>
+                        <button class="btn btn-primary" onclick="sendCommand('wake_side_moving', {yaw_angle: 255})">👋 侧方唤醒</button>
+                        <button class="btn btn-primary" onclick="sendCommand('wake_back_moving', {yaw_angle: 255})">👋 后方唤醒</button>
+                        <button class="btn btn-warning" onclick="sendCommand('obstacle_avoidance_turn', {turn_angle: 0.785, head_speed: 30})">🚧 避障转向</button>
+                    </div>
+                </div>
+
                 <div class="custom-command">
                     <h3 style="margin-bottom: 15px; color: #555;">自定义命令</h3>
                     <div class="input-group">
                         <label>任务类型 (type)</label>
-                        <input type="text" id="customType" placeholder="例如: go_to_door">
+                        <input type="text" id="customType" placeholder="例如: find_person, go_to_object, set_combine_motor_control">
                     </div>
                     <div class="input-group">
                         <label>参数 (params) - JSON格式</label>
-                        <textarea id="customParams" placeholder='例如: {"obj_name": "遥控器"}'>{}</textarea>
+                        <textarea id="customParams" placeholder='例如: {"obj_name": "遥控器"} 或 {"control_pitch": true, "pitch_angle": 0.785}'>{}</textarea>
                     </div>
                     <button class="btn btn-primary" style="width: 100%;" onclick="sendCustomCommand()">发送自定义命令</button>
                 </div>
