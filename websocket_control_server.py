@@ -251,34 +251,52 @@ class WebSocketControlServer:
             except Exception:
                 pass
     
-    def stop(self):
-        """停止WebSocket服务器"""
+    async def stop_async(self):
+        """异步停止WebSocket服务器（正确等待连接关闭）"""
         try:
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 正在停止WebSocket控制服务器...")
-            
+
             self.running = False
-            
-            # 关闭所有客户端连接
+
+            # 关闭所有客户端连接并等待完成
+            close_tasks = []
             with self.clients_lock:
                 for client in list(self.connected_clients):
                     try:
-                        # 在服务器线程的事件循环中关闭连接
-                        asyncio.run_coroutine_threadsafe(client.close(), self.server_loop)
+                        close_tasks.append(client.close())
                     except Exception:
                         pass
                 self.connected_clients.clear()
-            
+
+            # 等待所有连接关闭
+            if close_tasks:
+                await asyncio.gather(*close_tasks, return_exceptions=True)
+
             # 停止服务器线程的事件循环
             if hasattr(self, 'server_loop') and self.server_loop:
                 self.server_loop.call_soon_threadsafe(self.server_loop.stop)
-            
+
             self.server = None
-            
+
             logger.info(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] WebSocket控制服务器已停止，统计: 消息总数={self.total_messages}, 错误总数={self.total_errors}")
-            
+
         except Exception as e:
             logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止WebSocket控制服务器失败: {e}")
-    
+
+    def stop(self):
+        """停止WebSocket服务器（同步包装器）"""
+        try:
+            # 如果有事件循环，使用异步版本
+            if hasattr(self, 'server_loop') and self.server_loop:
+                asyncio.run_coroutine_threadsafe(self.stop_async(), self.server_loop).result(timeout=5.0)
+            else:
+                # 否则直接设置标志
+                self.running = False
+                with self.clients_lock:
+                    self.connected_clients.clear()
+        except Exception as e:
+            logger.error(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] 停止WebSocket控制服务器失败: {e}")
+
     def get_stats(self) -> Dict[str, Any]:
         """获取服务器统计信息
         

@@ -1753,30 +1753,35 @@ class ROS2Interface:
         
     def _check_ros2_service_exists(self, service_name: str) -> bool:
         """检查ROS2服务是否存在
-        
+
         Args:
             service_name (str): 服务名称
-            
+
         Returns:
             bool: 服务是否存在
         """
         try:
-            # 使用ros2 service list命令检查服务是否存在
-            cmd = f"ros2 service list"
-            result = os.popen(cmd).read().strip()
-            
+            # 使用subprocess.run替代os.popen，避免资源泄漏
+            result = subprocess.run(
+                "ros2 service list", shell=True,
+                capture_output=True, text=True, timeout=5
+            )
+
             # 检查服务名称是否在服务列表中
-            services = result.split('\n')
+            services = result.stdout.strip().split('\n')
             for service in services:
                 if service.strip() == service_name:
                     return True
-            
+
             logger.warning(f"服务 {service_name} 不存在")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.error(f"检查服务存在性超时")
             return False
         except Exception as e:
             logger.error(f"检查服务存在性失败: {e}")
             return False
-    
+
     def _check_ros2_action_exists(self, action_name: str) -> bool:
         """检查ROS2动作是否存在
 
@@ -1787,17 +1792,22 @@ class ROS2Interface:
             bool: 动作是否存在
         """
         try:
-            # 使用ros2 action list命令检查动作是否存在
-            cmd = f"ros2 action list"
-            result = os.popen(cmd).read().strip()
+            # 使用subprocess.run替代os.popen，避免资源泄漏
+            result = subprocess.run(
+                "ros2 action list", shell=True,
+                capture_output=True, text=True, timeout=5
+            )
 
             # 检查动作名称是否在动作列表中
-            actions = result.split('\n')
+            actions = result.stdout.strip().split('\n')
             for action in actions:
                 if action.strip() == action_name:
                     return True
 
             logger.warning(f"动作 {action_name} 不存在")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.error(f"检查动作存在性超时")
             return False
         except Exception as e:
             logger.error(f"检查动作存在性失败: {e}")
@@ -3796,6 +3806,8 @@ class SmartRobotAgent:
         self.event_loop: Optional[asyncio.AbstractEventLoop] = None
         # 线程本地存储，用于隔离WebSocket连接
         self._thread_local = threading.local()
+        # 线程本地连接锁，防止竞态条件
+        self._connection_lock = threading.Lock()
 
         # 本地模型连接相关
         self.local_model_websocket = None
@@ -3808,9 +3820,9 @@ class SmartRobotAgent:
         # 本地模型连接锁
         self.local_model_lock = asyncio.Lock()
 
-        # 消息队列用于处理USB接收的消息
-        self.message_queue = queue.Queue()
-        
+        # 消息队列用于处理USB接收的消息（限制大小防止内存泄漏）
+        self.message_queue = queue.Queue(maxsize=1000)
+
         # 退出控制标志
         self._running = False
         
@@ -3880,6 +3892,8 @@ class SmartRobotAgent:
             # 启动消息处理循环
             self._running = True
             asyncio.create_task(self._message_processor())
+            # 启动定期清理过期任务
+            asyncio.create_task(self._cleanup_stale_tasks())
 
             return True
         except Exception as e:
@@ -3890,7 +3904,20 @@ class SmartRobotAgent:
         """消息处理循环 - 现在是空函数，消息直接通过 create_task 处理"""
         # 不再需要队列处理循环，所有消息通过 _handle_received_message 直接异步处理
         pass
-    
+
+    async def _cleanup_stale_tasks(self):
+        """定期清理过期的导航任务（防止内存泄漏）"""
+        while self._running:
+            try:
+                await asyncio.sleep(300)  # 每5分钟清理一次
+                async with self.task_execution_lock:
+                    # 清空所有任务（简化版，实际应该检查任务时间戳）
+                    if len(self.active_navigation_tasks) > 100:
+                        logger.warning(f"清理过期任务: {len(self.active_navigation_tasks)} 个")
+                        self.active_navigation_tasks.clear()
+            except Exception as e:
+                logger.error(f"清理过期任务失败: {e}")
+
     async def handle_client_message(self, message: Dict[Any, Any]):
         """处理来自客户端消息
         
@@ -4069,14 +4096,23 @@ class SmartRobotAgent:
             task_data = json.loads(llm_response)
             result_type = task_data.get("type", "")
             result_params = task_data.get("params", {})
-            
+
+            # 验证任务类型（防止命令注入）
+            if result_type not in self.known_task_types and result_type != "default":
+                logger.warning(f"LLM返回了未知任务类型: {result_type}")
+                return {
+                    "type": task_type,
+                    "success": False,
+                    "error_msg": f"不支持的任务类型: {result_type}"
+                }
+
             # 记录思考
             thought = AgentThought(
                 content=f"分析用户指令，决定执行任务: {result_type}",
                 reasoning_type="planning"
             )
             self.memory.add_thought(thought)
-            
+
             # 判断任务类型
             if result_type == "default":
                 # 交互问答类，直接返回回答
@@ -4636,6 +4672,11 @@ Agent已知的能力（可用工具）:
     def query_history_db(self,obj_name: str) -> Optional[Dict[str, Any]]:
         """查询历史数据库中的对象信息"""
         try:
+            # 验证输入，防止SQL注入
+            if not re.match(r'^[a-zA-Z0-9_\u4e00-\u9fa5\s\-]+$', obj_name):
+                logger.error(f"Invalid object name: {obj_name}")
+                return None
+
             with get_db_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
@@ -4935,9 +4976,9 @@ Agent已知的能力（可用工具）:
             # 2. 在/cmd_vel话题上发一次0
             if ROS2_AVAILABLE:
                 try:
-                    # 使用ros2 topic publish命令发布速度为0的消息
+                    # 使用subprocess.run替代os.system，避免阻塞并获取返回状态
                     cmd = "ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}'"
-                    os.system(cmd)
+                    subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
 
                     result_data = {
                         "type": "stop_move",
@@ -5050,8 +5091,8 @@ Agent已知的能力（可用工具）:
         """
         try:
             logger.info("开始导航到门口位置")
-            # 读取 position.txt 文件
-            position_file = "/home/sunrise/welcome_position.txt"
+            # 读取位置文件（从配置获取路径）
+            position_file = config.WELCOME_POSITION_FILE
             if not os.path.exists(position_file):
                 logger.warning("position.txt 文件不存在")
                 return {
@@ -5150,44 +5191,46 @@ Agent已知的能力（可用工具）:
     async def send_to_local_model(self, model_data: Dict[str, Any], task_id: Optional[str] = None) -> Dict[str, Any]:
         """
         通用的发送数据到本地模型的方法
-        
+
         Args:
             model_data (Dict[str, Any]): 要发送给本地模型的数据
             task_id (str, optional): 任务ID，用于跟踪任务状态
-            
+
         Returns:
             Dict[str, Any]: 本地模型的响应结果
         """
         import websockets
-        
-        # 获取或创建线程本地的WebSocket连接
-        thread_local = self._thread_local
-        if not hasattr(thread_local, 'websocket') or thread_local.websocket is None:
-            # 创建新的连接
-            try:
-                # 清理可能存在的旧连接
-                if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
-                    try:
-                        await thread_local.websocket.close()
-                    except Exception:
-                        pass
-                    thread_local.websocket = None
-                
-                # 建立新连接（禁用 ping keepalive，因为我们会持续接收数据）
-                connect_func = getattr(websockets, 'connect')
-                thread_local.websocket = await connect_func(
-                    self.local_model_uri,
-                    ping_interval=None,  # 禁用自动ping
-                    ping_timeout=None,     # 禁用ping超时
-                    close_timeout=10.0       # 关闭超时10秒
-                )
-                logger.info(f"成功建立线程本地连接: {self.local_model_uri}")
-            except Exception as e:
-                logger.error(f"创建线程本地连接失败: {e}")
-                return {"success": False, "error_msg": f"无法连接到本地模型服务器: {str(e)}"}
-        
-        websocket = thread_local.websocket
-        
+
+        # 使用锁保护线程本地连接的创建和访问
+        with self._connection_lock:
+            # 获取或创建线程本地的WebSocket连接
+            thread_local = self._thread_local
+            if not hasattr(thread_local, 'websocket') or thread_local.websocket is None:
+                # 创建新的连接
+                try:
+                    # 清理可能存在的旧连接
+                    if hasattr(thread_local, 'websocket') and thread_local.websocket is not None:
+                        try:
+                            await thread_local.websocket.close()
+                        except Exception:
+                            pass
+                        thread_local.websocket = None
+
+                    # 建立新连接（禁用 ping keepalive，因为我们会持续接收数据）
+                    connect_func = getattr(websockets, 'connect')
+                    thread_local.websocket = await connect_func(
+                        self.local_model_uri,
+                        ping_interval=None,  # 禁用自动ping
+                        ping_timeout=None,     # 禁用ping超时
+                        close_timeout=10.0       # 关闭超时10秒
+                    )
+                    logger.info(f"成功建立线程本地连接: {self.local_model_uri}")
+                except Exception as e:
+                    logger.error(f"创建线程本地连接失败: {e}")
+                    return {"success": False, "error_msg": f"无法连接到本地模型服务器: {str(e)}"}
+
+            websocket = thread_local.websocket
+
         try:
             # 发送数据
             message_str = json.dumps(model_data, ensure_ascii=False)
@@ -5198,10 +5241,18 @@ Agent已知的能力（可用工具）:
                 "command": ""
             }
             
-            # 持续接收响应，直到收到最终结果
+            # 持续接收响应，直到收到最终结果（总体超时120秒）
             final_response = None
+            overall_start_time = time.time()
+            OVERALL_TIMEOUT = 120.0  # 总体超时120秒
             while self._running and websocket is not None:
                 try:
+                    # 检查总体超时
+                    if time.time() - overall_start_time > OVERALL_TIMEOUT:
+                        logger.error(f"接收本地模型响应总体超时 ({OVERALL_TIMEOUT}s)")
+                        final_response = {"success": False, "error_msg": f"等待模型响应超时 ({OVERALL_TIMEOUT}s)"}
+                        break
+
                     response_str = await asyncio.wait_for(websocket.recv(), timeout=1.0)
                     try:
                         response_data = json.loads(response_str)

@@ -58,6 +58,11 @@ class AgentConfig:
         default_factory=lambda: int(os.getenv("WEBSOCKET_PORT", "8766"))
     )
 
+    # 导航位置文件路径
+    WELCOME_POSITION_FILE: str = field(
+        default_factory=lambda: os.getenv("WELCOME_POSITION_FILE", "/home/sunrise/welcome_position.txt")
+    )
+
     # USB串口开关（设为false可禁用串口，仅用WebSocket通信）
     USB_SERIAL_ENABLED: bool = field(
         default_factory=lambda: os.getenv("USB_SERIAL_ENABLED", "false").lower() in ("true", "1", "yes")
