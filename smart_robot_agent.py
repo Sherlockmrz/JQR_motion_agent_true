@@ -61,6 +61,32 @@ class CallbackGroupType(IntEnum):
     FACE_RECOGNITION = 2    # 人脸识别专用回调组
 
 # ======================
+# 头部电机物理限位（弧度）
+# ======================
+import math
+HEAD_PITCH_MIN = math.radians(-20)   # 俯仰下限 -20°
+HEAD_PITCH_MAX = math.radians(25)    # 俯仰上限 25°
+HEAD_YAW_MIN = math.radians(-35)     # 偏航下限 -35°
+HEAD_YAW_MAX = math.radians(35)      # 偏航上限 35°
+
+
+def clamp_head_angle(axis: str, angle_rad: float) -> float:
+    """将头部角度钳位到物理限位范围内
+    
+    Args:
+        axis: "pitch" 或 "yaw"
+        angle_rad: 目标角度（弧度）
+    
+    Returns:
+        钳位后的角度（弧度）
+    """
+    if axis == "pitch":
+        return max(HEAD_PITCH_MIN, min(HEAD_PITCH_MAX, angle_rad))
+    elif axis == "yaw":
+        return max(HEAD_YAW_MIN, min(HEAD_YAW_MAX, angle_rad))
+    return angle_rad
+
+# ======================
 # 版本控制
 # ======================
 AGENT_VERSION = config.AGENT_VERSION  # 智能机器人Agent版本号
@@ -853,6 +879,12 @@ class ROS2Interface:
                 return False
 
             try:
+                # 头部角度钳位保护
+                if control_pitch:
+                    pitch_angle = clamp_head_angle("pitch", pitch_angle)
+                if control_yaw:
+                    yaw_angle = clamp_head_angle("yaw", yaw_angle)
+
                 from std_msgs.msg import Float32MultiArray
                 logger.info("std_msgs.msg.Float32MultiArray 导入成功")
             except ImportError:
@@ -1094,6 +1126,12 @@ class ROS2Interface:
                     return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
 
             try:
+                # 头部角度钳位保护
+                if control_pitch:
+                    pitch_angle = clamp_head_angle("pitch", pitch_angle)
+                if control_yaw:
+                    yaw_angle = clamp_head_angle("yaw", yaw_angle)
+
                 from std_msgs.msg import Float32MultiArray
                 msg = Float32MultiArray()
                 msg.data = [float(screen_tilt), float(robot_tilt), float(robot_rise),
@@ -1140,6 +1178,12 @@ class ROS2Interface:
                     return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
 
             try:
+                # 头部角度钳位保护
+                if control_pitch:
+                    pitch_angle = clamp_head_angle("pitch", pitch_angle)
+                if control_yaw:
+                    yaw_angle = clamp_head_angle("yaw", yaw_angle)
+
                 from std_msgs.msg import Float32MultiArray
                 msg = Float32MultiArray()
                 msg.data = [
@@ -1199,6 +1243,12 @@ class ROS2Interface:
                     return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
 
             try:
+                # 头部角度钳位保护
+                if control_pitch:
+                    pitch_angle = clamp_head_angle("pitch", pitch_angle)
+                if control_yaw:
+                    yaw_angle = clamp_head_angle("yaw", yaw_angle)
+
                 from std_msgs.msg import Float32MultiArray
                 msg = Float32MultiArray()
                 msg.data = [
@@ -1258,6 +1308,18 @@ class ROS2Interface:
                                    control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
                                    speed_level: int = 0, max_retries: int = 3) -> Dict[str, Any]:
         """执行单步电机控制并等待反馈，支持重试"""
+        # 头部角度钳位保护，防止超出物理限位
+        if control_pitch:
+            clamped = clamp_head_angle("pitch", pitch_angle)
+            if clamped != pitch_angle:
+                logger.warning(f"头部俯仰角度钳位: {math.degrees(pitch_angle):.1f}° → {math.degrees(clamped):.1f}° (限位: -20°~25°)")
+                pitch_angle = clamped
+        if control_yaw:
+            clamped = clamp_head_angle("yaw", yaw_angle)
+            if clamped != yaw_angle:
+                logger.warning(f"头部偏航角度钳位: {math.degrees(yaw_angle):.1f}° → {math.degrees(clamped):.1f}° (限位: -35°~35°)")
+                yaw_angle = clamped
+
         for retry in range(max_retries):
             # 清除旧的结果缓存，防止残留数据干扰
             self.combine_motor_result.pop(int(task_id), None)
@@ -1292,8 +1354,8 @@ class ROS2Interface:
         """
         import math
         
-        # 默认角度（弧度）
-        DEFAULT_PITCH = math.radians(30)
+        # 默认角度（弧度）- pitch上限25°, yaw上限35°
+        DEFAULT_PITCH = math.radians(25)
         DEFAULT_YAW = math.radians(30)
         
         # 解析参数，255表示使用默认值
@@ -1384,9 +1446,9 @@ class ROS2Interface:
         return await self._execute_motor_step(
             task_id=task_id,
             control_pitch=True,
-            pitch_angle=0.0,
+            pitch_angle=-20.0,
             control_yaw=True,
-            yaw_angle=0.0,
+            yaw_angle=-35.0,
             speed_level=1  # 中速档位，适中回正速度
         )
 
@@ -1401,8 +1463,8 @@ class ROS2Interface:
         """
         import math
         
-        # 默认角度（弧度）
-        DEFAULT_PITCH = math.radians(30)
+        # 默认角度（弧度）- pitch上限25°, yaw上限35°
+        DEFAULT_PITCH = math.radians(25)
         DEFAULT_YAW = math.radians(30)
         
         # 解析参数，255表示使用默认值
@@ -1445,10 +1507,10 @@ class ROS2Interface:
         """
         import math
 
-        # 默认角度（弧度）
-        DEFAULT_PITCH = math.radians(30)
+        # 默认角度（弧度）- pitch上限25°, yaw上限35°
+        DEFAULT_PITCH = math.radians(25)
         DEFAULT_YAW = math.radians(30)  # 默认声源方向
-        HEAD_YAW_LIMIT = math.radians(30)  # 头部偏航极限
+        HEAD_YAW_LIMIT = math.radians(35)  # 头部偏航极限
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1482,8 +1544,8 @@ class ROS2Interface:
         # 步骤2: 头部回正（正视用户）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=0.0,
-            control_yaw=True, yaw_angle=0.0, speed_level=2
+            task_id=task_id, control_pitch=True, pitch_angle=-20.0,
+            control_yaw=True, yaw_angle=-35.0, speed_level=2
         )
 
     async def wake_side_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1533,7 +1595,7 @@ class ROS2Interface:
         # 步骤2: 头部回正
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
+            task_id=task_id, control_yaw=True, yaw_angle=-35.0, speed_level=2
         )
 
     async def wake_back_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1556,9 +1618,9 @@ class ROS2Interface:
         """
         import math
 
-        # 默认角度（弧度）
+        # 默认角度（弧度）- yaw上限35°
         DEFAULT_YAW = math.radians(30)  # 默认声源方向
-        HEAD_YAW_LIMIT = math.radians(30)  # 头部偏航极限
+        HEAD_YAW_LIMIT = math.radians(35)  # 头部偏航极限
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1585,7 +1647,7 @@ class ROS2Interface:
         # 步骤2: 头部回正（正视用户）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
+            task_id=task_id, control_yaw=True, yaw_angle=-35.0, speed_level=2
         )
 
     async def obstacle_avoidance_turn(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1630,7 +1692,7 @@ class ROS2Interface:
         return await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=0.0,
+            yaw_angle=-35.0,
             control_chassis_move=True,
             chassis_offset=move_distance,
             control_chassis_rotate=True,
@@ -1647,9 +1709,9 @@ class ROS2Interface:
         return await self._execute_motor_step(
             task_id=task_id,
             control_pitch=True,
-            pitch_angle=0.0,
+            pitch_angle=-20.0,
             control_yaw=True,
-            yaw_angle=0.0,
+            yaw_angle=-35.0,
             speed_level=1
         )
 
