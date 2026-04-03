@@ -1581,22 +1581,24 @@ class ROS2Interface:
             chassis_rotation = math.radians(yaw_angle)
             yaw_angle = math.radians(yaw_angle)
 
-        # 步骤1: 头部转向 + 底盘同步旋转（并发执行）
+        # 步骤2: 头部回正
         task_id = self._next_motor_task_id()
-        result = await self._execute_motor_step(
-            task_id=task_id,
-            control_yaw=True, yaw_angle=yaw_angle,
-            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
-            speed_level=1
+        result =  await self._execute_motor_step(
+            task_id=task_id, control_yaw=True, yaw_angle=35.0, speed_level=2
         )
         if not result["success"]:
             return result
-
-        # 步骤2: 头部回正
+    
+        # 步骤1: 头部转向 + 底盘同步旋转（并发执行）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=-35.0, speed_level=2
+            task_id=task_id,
+            control_yaw=True, yaw_angle=-35,
+            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
+            speed_level=1
         )
+
+
 
     async def wake_back_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """行走中后方被唤醒并停止
