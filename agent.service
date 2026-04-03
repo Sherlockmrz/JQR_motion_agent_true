@@ -1,0 +1,13 @@
+[Unit]
+Description=JQR Jrobot_agent
+After=network.target
+
+[Service]
+Type=forking
+User=sunrise
+ExecStart=/bin/bash /home/sunrise/Jrobot_agent/start_agent.sh
+WorkingDirectory=/home/sunrise/Jrobot_agent
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1293,8 +1293,8 @@ class ROS2Interface:
         import math
         
         # 默认角度（弧度）
-        DEFAULT_PITCH = math.radians(45)
-        DEFAULT_YAW = math.radians(45)
+        DEFAULT_PITCH = math.radians(30)
+        DEFAULT_YAW = math.radians(30)
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1323,7 +1323,7 @@ class ROS2Interface:
         动作流程：
         1. 底盘平稳驶向桌子，在合适位置精准减速停止
         2. 停稳后头部俯视桌面（头部俯仰0°→-15°）
-        3. 头部左右扫描（头部水平0→-45°→45°→0°）
+        3. 头部左右扫描（头部水平0→-30°→30°→0°）
         4. 识别完成后头部抬头回正
 
         速度特点：
@@ -1362,7 +1362,7 @@ class ROS2Interface:
         result = await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=math.radians(-45),
+            yaw_angle=math.radians(-30),
             speed_level=0  # 低速档位，对应30°/s
         )
         if not result["success"]:
@@ -1373,7 +1373,7 @@ class ROS2Interface:
         result = await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=math.radians(45),
+            yaw_angle=math.radians(30),
             speed_level=0  # 低速档位，对应30°/s
         )
         if not result["success"]:
@@ -1402,8 +1402,8 @@ class ROS2Interface:
         import math
         
         # 默认角度（弧度）
-        DEFAULT_PITCH = math.radians(45)
-        DEFAULT_YAW = math.radians(45)
+        DEFAULT_PITCH = math.radians(30)
+        DEFAULT_YAW = math.radians(30)
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1427,20 +1427,28 @@ class ROS2Interface:
     async def wake_beyond_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """声源超出头部转角极限
         
+        场景描述：机器人静止背对用户，用户站立在后方呼唤唤醒词。
+        
+        动作流程：
+        1. 头部俯仰0°→45°、头部水平0°→90° 同时运动，底盘同步原地旋转（头部优先锁定声源，底盘辅助转向）
+        2. 底盘转向完成后，头部回正（正视用户）
+        
+        转动速度：头部俯仰45°/s，头部水平90°/s，底盘45°/s，回正45°/s
+        
         Args:
             params: {
                 "yaw_angle": float,  # 声源方向角度（弧度），255表示使用默认值
                 "pitch_angle": float  # 俯仰角度（弧度），255表示使用默认值
             }
             
-        根据声源方向计算底盘旋转角度：底盘旋转角度 = 声源yaw角度 - 头部偏航极限(60°)
+        根据声源方向计算底盘旋转角度：底盘旋转角度 = 声源yaw角度 - 头部偏航极限(30°)
         """
         import math
 
         # 默认角度（弧度）
-        DEFAULT_PITCH = math.radians(45)
-        DEFAULT_YAW = math.radians(60)  # 头部偏航极限
-        HEAD_YAW_LIMIT = math.radians(60)  # 头部偏航极限
+        DEFAULT_PITCH = math.radians(30)
+        DEFAULT_YAW = math.radians(30)  # 默认声源方向
+        HEAD_YAW_LIMIT = math.radians(30)  # 头部偏航极限
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1459,31 +1467,35 @@ class ROS2Interface:
         else:
             pitch_angle = math.radians(pitch_angle)
 
-        # 步骤1: 头部转至极限
+        # 步骤1: 头部俯仰+水平同时转至极限，底盘同步原地旋转（并发执行）
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
-            control_yaw=True, yaw_angle=HEAD_YAW_LIMIT, speed_level=2
+            task_id=task_id,
+            control_pitch=True, pitch_angle=pitch_angle,
+            control_yaw=True, yaw_angle=HEAD_YAW_LIMIT,
+            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
+            speed_level=2
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 底盘原地旋转
-        task_id = self._next_motor_task_id()
-        result = await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=chassis_rotation, speed_level=1
-        )
-        if not result["success"]:
-            return result
-
-        # 步骤3: 头部回正
+        # 步骤2: 头部回正（正视用户）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
+            task_id=task_id, control_pitch=True, pitch_angle=0.0,
+            control_yaw=True, yaw_angle=0.0, speed_level=2
         )
 
     async def wake_side_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """行走中侧方被唤醒
+        
+        场景描述：机器人正在向前行走，用户坐着在左侧呼唤唤醒词。
+        
+        动作流程：
+        1. 头部水平转向声源 + 底盘同步旋转（头部优先锁定声源，底盘平滑调整方向）
+        2. 头部回正（正视用户）
+        
+        转动速度：头部水平45°/s，底盘旋转45°/s，运动流畅不卡顿
         
         Args:
             params: {
@@ -1495,35 +1507,30 @@ class ROS2Interface:
         import math
 
         # 默认角度（弧度）
-        DEFAULT_YAW = math.radians(45)
+        DEFAULT_YAW = math.radians(30)
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
         
         if yaw_angle == 255:
             yaw_angle = DEFAULT_YAW
-            chassis_rotation = math.radians(45)  # 默认底盘旋转45°
+            chassis_rotation = math.radians(30)  # 默认底盘旋转30°
         else:
             chassis_rotation = math.radians(yaw_angle)
             yaw_angle = math.radians(yaw_angle)
 
-        # 步骤1: 头部转向
+        # 步骤1: 头部转向 + 底盘同步旋转（并发执行）
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=yaw_angle, speed_level=2
+            task_id=task_id,
+            control_yaw=True, yaw_angle=yaw_angle,
+            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
+            speed_level=1
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 底盘旋转
-        task_id = self._next_motor_task_id()
-        result = await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=chassis_rotation, speed_level=1
-        )
-        if not result["success"]:
-            return result
-
-        # 步骤3: 头部回正
+        # 步骤2: 头部回正
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
@@ -1531,6 +1538,14 @@ class ROS2Interface:
 
     async def wake_back_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """行走中后方被唤醒并停止
+        
+        场景描述：机器人巡逻中，用户坐着在后方喊停并唤醒。
+        
+        动作流程：
+        1. 头部水平转至极限(90°) + 底盘同步原地旋转（头部优先锁定声源，底盘减速转向）
+        2. 底盘转向完成后，头部回正（正视用户）
+        
+        转动速度：头部水平90°/s，底盘先快后慢（减速转向），回正45°/s
         
         Args:
             params: {
@@ -1542,8 +1557,8 @@ class ROS2Interface:
         import math
 
         # 默认角度（弧度）
-        DEFAULT_YAW = math.radians(60)  # 头部偏航极限
-        HEAD_YAW_LIMIT = math.radians(60)  # 头部偏航极限
+        DEFAULT_YAW = math.radians(30)  # 默认声源方向
+        HEAD_YAW_LIMIT = math.radians(30)  # 头部偏航极限
         
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
@@ -1556,23 +1571,18 @@ class ROS2Interface:
             chassis_rotation = math.radians(yaw_angle)
             yaw_angle = math.radians(yaw_angle)
 
-        # 步骤1: 头部转至极限
+        # 步骤1: 头部转至极限 + 底盘同步原地旋转（并发执行）
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=HEAD_YAW_LIMIT, speed_level=2
+            task_id=task_id,
+            control_yaw=True, yaw_angle=HEAD_YAW_LIMIT,
+            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
+            speed_level=2
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 底盘原地旋转
-        task_id = self._next_motor_task_id()
-        result = await self._execute_motor_step(
-            task_id=task_id, control_chassis_rotate=True, chassis_rotation=chassis_rotation, speed_level=1
-        )
-        if not result["success"]:
-            return result
-
-        # 步骤3: 头部回正
+        # 步骤2: 头部回正（正视用户）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_yaw=True, yaw_angle=0.0, speed_level=2
@@ -1590,7 +1600,7 @@ class ROS2Interface:
         """
         import math
 
-        turn_angle = params.get("turn_angle", math.radians(45))
+        turn_angle = params.get("turn_angle", math.radians(30))
         move_distance = params.get("move_distance", 0.5)
 
         # 步骤1: 底盘前进

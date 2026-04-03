@@ -45,15 +45,15 @@ SCENARIOS = [
         "name": "用户移动位置时的视线跟踪（user_position_tracking）",
         "description": (
             "用户从机器人正前方起身，走到侧面继续提问。\n"
-            "  头部: 俯仰0°→45°, 水平0°→45°, 同时运动, 速度适中\n"
+            "  头部: 俯仰0°→30°, 水平0°→30°, 同时运动, 速度适中\n"
             "  底盘: 保持静止\n"
             "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
         ),
         "command": {
             "type": "user_position_tracking",
             "params": {
-                "yaw_angle": -30,  # 255表示使用默认值
-                "pitch_angle": -30
+                "yaw_angle": 30,  # 255表示使用默认值
+                "pitch_angle": 30
             }
         }
     },
@@ -66,7 +66,7 @@ SCENARIOS = [
             "机器人巡逻中检测到桌子，靠近停稳后扫描桌面物品。\n"
             "  头部: 俯视→左扫→右扫→回正\n"
             "  底盘: 识别期间保持静止\n"
-            "  多步骤: 步骤1-俯视-15° → 步骤2-左扫-45° → 步骤3-右扫45° → 步骤4-回正"
+            "  多步骤: 步骤1-俯视-15° → 步骤2-左扫-30° → 步骤3-右扫30° → 步骤4-回正"
         ),
         "command": {
             "type": "patrol_table_inspection",
@@ -79,16 +79,16 @@ SCENARIOS = [
         "category": "唤醒 / 静止状态",
         "name": "声源在头部转角范围内（wake_head_range）",
         "description": (
-            "机器人静止充电，用户在正前方45°范围内唤醒。\n"
-            "  头部: 快速转向声源, 俯仰0°→45°, 水平0°→45°, 同时运动\n"
+            "机器人静止充电，用户在正前方30°范围内唤醒。\n"
+            "  头部: 快速转向声源, 俯仰0°→30°, 水平0°→30°, 同时运动\n"
             "  底盘: 保持静止\n"
             "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
         ),
         "command": {
             "type": "wake_head_range",
             "params": {
-                "yaw_angle": -30,
-                "pitch_angle": -30
+                "yaw_angle": 30,
+                "pitch_angle": 30
             }
         }
     },
@@ -98,7 +98,7 @@ SCENARIOS = [
         "name": "声源超出头部转角极限（wake_beyond_head_range）",
         "description": (
             "机器人静止背对用户，用户在后方唤醒。\n"
-            "  头部: 先转至极限(俯仰45°+水平90°), 底盘转向后头部回正\n"
+            "  头部: 先转至极限(俯仰30°+水平90°), 底盘转向后头部回正\n"
             "  底盘: 辅助原地旋转正对用户\n"
             "  多步骤: 步骤1-头部极限 → 步骤2-底盘旋转90° → 步骤3-头部回正\n"
             "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
@@ -118,9 +118,9 @@ SCENARIOS = [
         "name": "行走中侧方被唤醒（wake_side_moving）",
         "description": (
             "机器人行走中，用户坐在左侧唤醒。\n"
-            "  头部: 先转向声源(水平45°), 底盘转向后头部回正\n"
-            "  底盘: 行走中平滑左转45°\n"
-            "  多步骤: 步骤1-头部偏航45° → 步骤2-底盘旋转45° → 步骤3-头部回正\n"
+            "  头部: 先转向声源(水平30°), 底盘转向后头部回正\n"
+            "  底盘: 行走中平滑左转30°\n"
+            "  多步骤: 步骤1-头部偏航30° → 步骤2-底盘旋转30° → 步骤3-头部回正\n"
             "  参数: yaw_angle(弧度), 255表示使用默认值"
         ),
         "command": {
@@ -155,16 +155,16 @@ SCENARIOS = [
         "name": "绕行障碍物时的协同转向（obstacle_avoidance_turn）",
         "description": (
             "机器人遇到障碍物需要绕行，路径需要向右转弯。\n"
-            "  头部: 提前向绕行方向（右侧）缓慢预转，引导视线 → 水平0°→45°\n"
+            "  头部: 提前向绕行方向（右侧）缓慢预转，引导视线 → 水平0°→30°\n"
             "  底盘: 执行转向动作，头部同步回正\n"
-            "  多步骤: 步骤1-头部缓慢右转45°(低速) → 步骤2-底盘右转+头部回正(快速)\n"
+            "  多步骤: 步骤1-头部缓慢右转30°(低速) → 步骤2-底盘右转+头部回正(快速)\n"
             "  速度: 底盘快速避障(speed=2), 头部慢速引导(speed=0, 30°/s)\n"
-            "  参数: turn_angle(弧度), head_speed(°/s), 均可省略(默认45°, 30°/s)"
+            "  参数: turn_angle(弧度), head_speed(°/s), 均可省略(默认30°, 30°/s)"
         ),
         "command": {
             "type": "obstacle_avoidance_turn",
             "params": {
-                "turn_angle": 0.785,  # 45°右转
+                "turn_angle": 0.524,  # 30°右转
                 "head_speed": 30
             }
         }
@@ -295,12 +295,14 @@ def build_chassis_command():
     rotate_deg = input_float("    旋转角度(度, 正=逆时针, 负=顺时针, 0=不旋转): ", 0.0)
     speed = input_int("    速度档位(0=低速, 1=中速, 2=快速) [默认1]: ", 1)
 
-    control_move = move_dist != 0.0
-    control_rotate = rotate_deg != 0.0
+    control_move = True
+    control_rotate = True
+    # control_move = move_dist != 0.0
+    # control_rotate = rotate_deg != 0.0
 
-    if not control_move and not control_rotate:
-        print("  ⚠ 移动和旋转都为0，无操作")
-        return None
+    # if not control_move and not control_rotate:
+    #     print("  ⚠ 移动和旋转都为0，无操作")
+    #     return None
 
     rotate_rad = math.radians(rotate_deg)
 
