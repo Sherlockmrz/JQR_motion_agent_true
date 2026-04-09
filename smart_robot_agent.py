@@ -63,12 +63,19 @@ class CallbackGroupType(IntEnum):
 import math
 
 # ======================
-# 头部电机预设角度（弧度）
+# 头部电机物理限位（弧度）
 # ======================
-HEAD_PITCH_DOWN = math.radians(-20)   # 俯仰下限 -20°
-HEAD_PITCH_UP = math.radians(25)      # 俯仰上限 25°
-HEAD_YAW_LEFT = math.radians(-35)     # 偏航左极限 -35°
-HEAD_YAW_RIGHT = math.radians(35)     # 偏航右极限 35°
+HEAD_PITCH_MIN = math.radians(-30)    # 俯仰下限（负值=抬头）
+HEAD_PITCH_MAX = math.radians(30)     # 俯仰上限（正值=低头）
+HEAD_YAW_MIN = math.radians(-110)     # 偏航下限
+HEAD_YAW_MAX = math.radians(110)      # 偏航上限
+BASE_YAW_MAX = math.radians(118)      # 底盘偏航最大角度
+
+# 兼容旧常量名
+HEAD_PITCH_DOWN = HEAD_PITCH_MIN
+HEAD_PITCH_UP = HEAD_PITCH_MAX
+HEAD_YAW_LEFT = HEAD_YAW_MIN
+HEAD_YAW_RIGHT = HEAD_YAW_MAX
 
 # ======================
 # 版本控制
@@ -604,6 +611,7 @@ class ROS2Interface:
         self.motor_control_publisher = None  # 电机控制发布对象
         self.head_motor_control_publisher = None  # 头部电机控制发布对象
         self.combine_motor_control_publisher = None  # 组合电机控制发布对象
+        self.chassis_rotate_params_publisher = None  # 底盘旋转参数设置发布对象
         self.combine_motor_result_subscription = None  # 组合电机控制结果订阅对象
         self.rgb_control_publisher = None  # RGB灯控制发布对象
         self.rgb_state_subscription = None  # RGB灯状态订阅对象
@@ -1234,6 +1242,63 @@ class ROS2Interface:
             logger.error(f"发布组合电机控制失败: {e}")
             return {"success": False, "error_msg": f"未知错误: {str(e)}"}
 
+    def publish_set_chassis_rotate_params(self, max_speed: float, min_speed: float, max_acceleration: float) -> Dict[str, Any]:
+        """发布底盘旋转参数设置到 set_chassis_rotate_params 话题
+
+        Args:
+            max_speed (float): 底盘旋转最大速度，单位：弧度/秒
+            min_speed (float): 底盘旋转最小速度，单位：弧度/秒
+            max_acceleration (float): 底盘旋转最大加速度，单位：弧度/秒²
+
+        Returns:
+            Dict[str, Any]: 发布结果
+        """
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                logger.warning("ROS2不可用或未初始化，无法发布底盘旋转参数设置")
+                return {"success": False, "error_msg": "ROS2不可用或未初始化"}
+
+            if self.chassis_rotate_params_publisher is None:
+                try:
+                    from std_msgs.msg import Float64MultiArray
+                    self.chassis_rotate_params_publisher = self.node.create_publisher(
+                        Float64MultiArray,
+                        '/set_chassis_rotate_params',
+                        10
+                    )
+                except Exception as e:
+                    logger.error(f"创建底盘旋转参数设置发布者失败: {e}")
+                    return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
+
+            try:
+                # 参数合法性校验
+                if max_speed <= 0:
+                    return {"success": False, "error_msg": f"最大速度必须为正数，当前值: {max_speed}"}
+                if min_speed < 0:
+                    return {"success": False, "error_msg": f"最小速度不能为负数，当前值: {min_speed}"}
+                if max_acceleration <= 0:
+                    return {"success": False, "error_msg": f"最大加速度必须为正数，当前值: {max_acceleration}"}
+                if max_speed < min_speed:
+                    return {"success": False, "error_msg": f"最大速度({max_speed})不能小于最小速度({min_speed})"}
+
+                from std_msgs.msg import Float64MultiArray
+                msg = Float64MultiArray()
+                msg.data = [
+                    float(max_speed),
+                    float(min_speed),
+                    float(max_acceleration)
+                ]
+                self.chassis_rotate_params_publisher.publish(msg)
+                logger.info(f"底盘旋转参数已发布: max_speed={max_speed:.4f}, min_speed={min_speed:.4f}, max_acceleration={max_acceleration:.4f}")
+                return {"success": True}
+            except Exception as e:
+                logger.error(f"发布底盘旋转参数失败: {e}")
+                return {"success": False, "error_msg": f"发布失败: {str(e)}"}
+
+        except Exception as e:
+            logger.error(f"发布底盘旋转参数设置失败: {e}")
+            return {"success": False, "error_msg": f"未知错误: {str(e)}"}
+
     async def _wait_for_motor_result(self, task_id: int, timeout: float = 20.0) -> Dict[str, Any]:
         """等待组合电机执行结果
 
@@ -1261,6 +1326,33 @@ class ROS2Interface:
             await asyncio.sleep(0.1)
 
         return {"success": False, "error_msg": "等待电机反馈超时"}
+
+    async def _pitch_activate(self, activate_angle: float = 0.3273) -> None:
+        """pitch电机激活：先小幅上仰再回位，唤醒电机
+
+        Args:
+            activate_angle (float): 激活抖动角度（弧度），默认约5°
+        """
+        try:
+            # 小幅向上（负值=抬头），等待执行完成
+            up_id = self._next_motor_task_id()
+            self.combine_motor_result.pop(int(up_id), None)
+            self.publish_combine_motor_control(
+                task_id=up_id, control_pitch=True, pitch_angle=-activate_angle, speed_level=2
+            )
+            await self._wait_for_motor_result(int(up_id), timeout=5.0)
+
+            # 回位，等待执行完成
+            down_id = self._next_motor_task_id()
+            self.combine_motor_result.pop(int(down_id), None)
+            self.publish_combine_motor_control(
+                task_id=down_id, control_pitch=True, pitch_angle=activate_angle, speed_level=2
+            )
+            await self._wait_for_motor_result(int(down_id), timeout=5.0)
+
+            logger.info("pitch电机激活完成（小幅抖动）")
+        except Exception as e:
+            logger.warning(f"pitch电机激活失败（不影响后续控制）: {e}")
 
     async def _execute_motor_step(self, task_id: float, control_pitch: bool = False, pitch_angle: float = 0.0,
                                    control_yaw: bool = False, yaw_angle: float = 0.0,
@@ -1301,28 +1393,35 @@ class ROS2Interface:
             }
         """
         import math
-        
-        # 默认角度（弧度）- pitch上限25°, yaw上限35°
-        DEFAULT_PITCH = math.radians(25)
-        DEFAULT_YAW = math.radians(30)
-        
-        # 解析参数，255表示使用默认值
+        await self._pitch_activate()
+
+        # 头部电机极限（弧度）: pitch -30°~30°, yaw -110°~110°
+        PITCH_MIN = math.radians(-30)
+        PITCH_MAX = math.radians(30)
+        YAW_MIN = math.radians(-110)
+        YAW_MAX = math.radians(110)
+
+        # 默认角度（弧度）
+        DEFAULT_PITCH = math.radians(-25)
+        DEFAULT_YAW = math.radians(-90)
+
+        # 解析参数，255表示使用默认值，其他值为弧度
         yaw_angle = params.get("yaw_angle", 255)
         pitch_angle = params.get("pitch_angle", 255)
-        
+
         if yaw_angle == 255:
             yaw_angle = DEFAULT_YAW
-        else:
-            yaw_angle = math.radians(yaw_angle)
         if pitch_angle == 255:
             pitch_angle = DEFAULT_PITCH
-        else:
-            pitch_angle = math.radians(pitch_angle)
-            
+
+        # clamp到电机极限范围（弧度）
+        yaw_angle = max(YAW_MIN, min(YAW_MAX, yaw_angle))
+        pitch_angle = max(PITCH_MIN, min(PITCH_MAX, pitch_angle))
+
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
-            control_yaw=True, yaw_angle=yaw_angle, speed_level=1
+            control_yaw=True, yaw_angle=yaw_angle, speed_level=2
         )
 
     async def patrol_table_inspection(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1331,73 +1430,68 @@ class ROS2Interface:
         场景描述：机器人巡逻途中检测到桌子，自主靠近并停稳，识别记忆桌面物品后恢复巡逻。
 
         动作流程：
-        1. 底盘平稳驶向桌子，在合适位置精准减速停止
-        2. 停稳后头部俯视桌面（头部俯仰0°→-15°）
-        3. 头部左右扫描（头部水平0→-30°→30°→0°）
-        4. 识别完成后头部抬头回正
+        1. 头部俯仰低头看桌面（0°→30°低头）
+        2. 头部左扫（0°→-90°偏航）
+        3. 头部右扫（-90°→90°偏航）
+        4. 头部回中（90°→0°偏航）
+        5. 头部抬头回正（30°→0°俯仰）
 
-        速度特点：
-        - 底盘接近时逐渐减速，识别期间保持车身绝对静止稳定
-        - 头部俯仰15°/s，头部水平30°/s，缓慢均匀扫描，体现观察节奏感
+        头部电机极限: pitch -30°~30°, yaw -110°~110°
         """
         import math
-        import asyncio
+        await self._pitch_activate()
 
-        # 步骤1: 底盘驶向桌子并停稳（假设桌子在前方0.5米处）
-        # 使用低速档位平稳接近，精准停止
-        approach_distance = params.get("approach_distance", 0.5)  # 默认前进0.5米
-        task_id = self._next_motor_task_id()
-        result = await self._execute_motor_step(
-            task_id=task_id,
-            control_chassis_move=True,
-            chassis_offset=approach_distance,
-            speed_level=0  # 低速档位，平稳接近
-        )
-        if not result["success"]:
-            return result
-
-        # 步骤2: 头部俯视桌面（俯仰15°/s速度）
+        # 步骤1: 头部俯视桌面
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id,
             control_pitch=True,
-            pitch_angle=math.radians(-15),
-            speed_level=0  # 低速档位，对应15°/s
+            pitch_angle=math.radians(30),
+            speed_level=2
         )
         if not result["success"]:
             return result
 
-        # 步骤3: 头部左扫（水平30°/s速度）
+        # 步骤2: 头部左扫
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=math.radians(-30),
-            speed_level=0  # 低速档位，对应30°/s
+            yaw_angle=math.radians(-90),
+            speed_level=1
         )
         if not result["success"]:
             return result
 
-        # 步骤4: 头部右扫（水平30°/s速度）
+        # 步骤3: 头部右扫
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=math.radians(30),
-            speed_level=0  # 低速档位，对应30°/s
+            yaw_angle=math.radians(90),
+            speed_level=1
         )
         if not result["success"]:
             return result
 
-        # 步骤5: 头部回正（适中速度）
+        # 步骤4: 头部回中
+        task_id = self._next_motor_task_id()
+        result = await self._execute_motor_step(
+            task_id=task_id,
+            control_yaw=True,
+            yaw_angle=math.radians(0),
+            speed_level=1
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤5: 头部抬头回正
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id,
             control_pitch=True,
-            pitch_angle=HEAD_PITCH_DOWN,
-            control_yaw=True,
-            yaw_angle=HEAD_YAW_LEFT,
-            speed_level=1  # 中速档位，适中回正速度
+            pitch_angle=math.radians(0),
+            speed_level=1
         )
 
     async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1410,15 +1504,16 @@ class ROS2Interface:
             }
         """
         import math
-        
-        # 默认角度（弧度）- pitch上限25°, yaw上限35°
+        await self._pitch_activate()
+
+        # 默认角度（弧度）
         DEFAULT_PITCH = math.radians(25)
-        DEFAULT_YAW = math.radians(30)
-        
+        DEFAULT_YAW = math.radians(50)
+
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
         pitch_angle = params.get("pitch_angle", 255)
-        
+
         if yaw_angle == 255:
             yaw_angle = DEFAULT_YAW
         else:
@@ -1430,7 +1525,7 @@ class ROS2Interface:
 
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=pitch_angle,
+            task_id=task_id, control_pitch=True, pitch_angle=-pitch_angle,
             control_yaw=True, yaw_angle=yaw_angle, speed_level=2
         )
 
@@ -1440,35 +1535,31 @@ class ROS2Interface:
         场景描述：机器人静止背对用户，用户站立在后方呼唤唤醒词。
         
         动作流程：
-        1. 头部俯仰0°→45°、头部水平0°→90° 同时运动，底盘同步原地旋转（头部优先锁定声源，底盘辅助转向）
+        1. 头部俯仰+水平同时转至极限，底盘同步原地旋转（并发执行）
         2. 底盘转向完成后，头部回正（正视用户）
-        
-        转动速度：头部俯仰45°/s，头部水平90°/s，底盘45°/s，回正45°/s
         
         Args:
             params: {
                 "yaw_angle": float,  # 声源方向角度（弧度），255表示使用默认值
                 "pitch_angle": float  # 俯仰角度（弧度），255表示使用默认值
             }
-            
-        根据声源方向计算底盘旋转角度：底盘旋转角度 = 声源yaw角度 - 头部偏航极限(30°)
         """
         import math
+        await self._pitch_activate()
 
-        # 默认角度（弧度）- pitch上限25°, yaw上限35°
+        # 默认角度（弧度）
         DEFAULT_PITCH = math.radians(25)
-        DEFAULT_YAW = math.radians(30)  # 默认声源方向
-        HEAD_YAW_LIMIT = math.radians(35)  # 头部偏航极限
-        
+        DEFAULT_YAW = math.radians(90)  # 默认声源方向
+        HEAD_YAW_LIMIT = math.radians(110)  # 头部偏航极限
+
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
         pitch_angle = params.get("pitch_angle", 255)
-        
+
         if yaw_angle == 255:
             yaw_angle = DEFAULT_YAW
             chassis_rotation = math.radians(90)  # 默认底盘旋转90°
         else:
-            # 先转弧度，再计算底盘旋转角度：声源方向 - 头部极限
             yaw_angle = math.radians(yaw_angle)
             chassis_rotation = yaw_angle - HEAD_YAW_LIMIT
 
@@ -1492,58 +1583,53 @@ class ROS2Interface:
         # 步骤2: 头部回正（正视用户）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_pitch=True, pitch_angle=HEAD_PITCH_DOWN,
-            control_yaw=True, yaw_angle=HEAD_YAW_LEFT, speed_level=2
+            task_id=task_id, control_pitch=True, pitch_angle=math.radians(-20),
+            control_yaw=True, yaw_angle=math.radians(35), speed_level=2
         )
 
     async def wake_side_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """行走中侧方被唤醒
         
-        场景描述：机器人正在向前行走，用户坐着在左侧呼唤唤醒词。
+        场景描述：目标人在侧方(默认90°)呼唤唤醒词。
         
         动作流程：
-        1. 头部水平转向声源 + 底盘同步旋转（头部优先锁定声源，底盘平滑调整方向）
-        2. 头部回正（正视用户）
-        
-        转动速度：头部水平45°/s，底盘旋转45°/s，运动流畅不卡顿
+        1. 头部快速转到目标角度（优先锁定声源方向）
+        2. 底盘旋转 + 头部反转到0°（抵消底盘旋转，始终正对目标人）
         
         Args:
             params: {
                 "yaw_angle": float  # 声源方向角度（弧度），255表示使用默认值
             }
-            
-        底盘旋转角度 = 声源yaw角度
         """
         import math
+        await self._pitch_activate()
 
-        # 默认角度（弧度）
-        DEFAULT_YAW = math.radians(30)
-        
+        HEAD_TARGET = math.radians(90)  # 目标人在侧方90°
+
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
-        
         if yaw_angle == 255:
-            yaw_angle = DEFAULT_YAW
-            chassis_rotation = math.radians(30)  # 默认底盘旋转30°
+            total_rotation = HEAD_TARGET  # 默认90°
         else:
-            chassis_rotation = math.radians(yaw_angle)
-            yaw_angle = math.radians(yaw_angle)
+            total_rotation = math.radians(yaw_angle)
 
-        # 步骤2: 头部回正
+        # 步骤1: 头部快速转到目标角度正对目标人
         task_id = self._next_motor_task_id()
-        result =  await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=HEAD_YAW_RIGHT, speed_level=2
+        result = await self._execute_motor_step(
+            task_id=task_id,
+            control_yaw=True, yaw_angle=total_rotation,
+            speed_level=2
         )
         if not result["success"]:
             return result
 
-        # 步骤1: 头部转向 + 底盘同步旋转（并发执行）
+        # 步骤2: 底盘旋转 + 头部从目标角度反转到0°（抵消底盘旋转，始终正对目标人）
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id,
-            control_yaw=True, yaw_angle=HEAD_YAW_LEFT,
-            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
-            speed_level=1
+            control_yaw=True, yaw_angle=math.radians(0),
+            control_chassis_rotate=True, chassis_rotation=total_rotation,
+            speed_level=2
         )
 
 
@@ -1551,53 +1637,61 @@ class ROS2Interface:
     async def wake_back_moving(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """行走中后方被唤醒并停止
         
-        场景描述：机器人巡逻中，用户坐着在后方喊停并唤醒。
+        场景描述：机器人巡逻中，用户在后方喊停并唤醒。
         
         动作流程：
-        1. 头部水平转至极限(90°) + 底盘同步原地旋转（头部优先锁定声源，底盘减速转向）
-        2. 底盘转向完成后，头部回正（正视用户）
-        
-        转动速度：头部水平90°/s，底盘先快后慢（减速转向），回正45°/s
+        1. 头部快速转到限位110°（优先锁定声源方向）
+        2. 头部保持限位 + 底盘旋转剩余角度
+        3. 底盘继续旋转 + 头部从限位反转到0°
         
         Args:
             params: {
                 "yaw_angle": float  # 声源方向角度（弧度），255表示使用默认值
             }
-            
-        底盘旋转角度 = 声源yaw角度（后方约为180°）
         """
         import math
+        await self._pitch_activate()
+        # 设置底盘旋转参数：max_speed=0.7, min_speed=0.45, max_acceleration=0.7
+        # self.set_chassis_rotate_params(max_speed=0.7, min_speed=0.35, max_acceleration=0.7)
 
-        # 默认角度（弧度）- yaw上限35°
-        DEFAULT_YAW = math.radians(30)  # 默认声源方向
-        HEAD_YAW_LIMIT = math.radians(35)  # 头部偏航极限
-        
+        HEAD_YAW_LIMIT = math.radians(110)  # 头部偏航极限
+
         # 解析参数，255表示使用默认值
         yaw_angle = params.get("yaw_angle", 255)
-        
         if yaw_angle == 255:
-            yaw_angle = DEFAULT_YAW
-            chassis_rotation = math.radians(180)  # 默认底盘旋转180°
+            total_rotation = math.radians(180)
         else:
-            # 声源在后方，底盘旋转角度 = 声源方向（转弧度）
-            chassis_rotation = math.radians(yaw_angle)
-            yaw_angle = math.radians(yaw_angle)
+            total_rotation = math.radians(yaw_angle)
 
-        # 步骤1: 头部转至极限 + 底盘同步原地旋转（并发执行）
+        remaining_rotation = total_rotation - HEAD_YAW_LIMIT
+
+        # 步骤1: 头部快速转到限位（优先锁定声源方向）
         task_id = self._next_motor_task_id()
         result = await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True, yaw_angle=HEAD_YAW_LIMIT,
-            control_chassis_rotate=True, chassis_rotation=chassis_rotation,
             speed_level=2
         )
         if not result["success"]:
             return result
 
-        # 步骤2: 头部回正（正视用户）
+        # 步骤2: 头部保持限位 + 底盘旋转剩余角度
+        task_id = self._next_motor_task_id()
+        result = await self._execute_motor_step(
+            task_id=task_id,
+            control_chassis_rotate=True, chassis_rotation=remaining_rotation,
+            speed_level=2
+        )
+        if not result["success"]:
+            return result
+
+        # 步骤3: 底盘继续旋转 + 头部从限位反转到0°
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
-            task_id=task_id, control_yaw=True, yaw_angle=HEAD_YAW_LEFT, speed_level=2
+            task_id=task_id,
+            control_yaw=True, yaw_angle=math.radians(0),
+            control_chassis_rotate=True, chassis_rotation=BASE_YAW_MAX,
+            speed_level=2
         )
 
     async def obstacle_avoidance_turn(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -1611,6 +1705,7 @@ class ROS2Interface:
         3. 底盘一边前进一边右转绕行，头部回正
         """
         import math
+        await self._pitch_activate()
 
         turn_angle = params.get("turn_angle", math.radians(30))
         move_distance = params.get("move_distance", 0.5)
@@ -1642,7 +1737,7 @@ class ROS2Interface:
         return await self._execute_motor_step(
             task_id=task_id,
             control_yaw=True,
-            yaw_angle=HEAD_YAW_LEFT,
+            yaw_angle=math.radians(-35),
             control_chassis_move=True,
             chassis_offset=move_distance,
             control_chassis_rotate=True,
@@ -1655,13 +1750,15 @@ class ROS2Interface:
 
         将头部的yaw和pitch都回归到0度位置
         """
+        import math
+        await self._pitch_activate()
         task_id = self._next_motor_task_id()
         return await self._execute_motor_step(
             task_id=task_id,
             control_pitch=True,
-            pitch_angle=HEAD_PITCH_DOWN,
+            pitch_angle=math.radians(-20),
             control_yaw=True,
-            yaw_angle=HEAD_YAW_LEFT,
+            yaw_angle=math.radians(-35),
             speed_level=1
         )
 
@@ -3540,6 +3637,38 @@ class ROS2Interface:
                 "error_msg": f"组合电机控制异常: {str(e)}"
             }
 
+    def set_chassis_rotate_params(self, max_speed: float, min_speed: float, max_acceleration: float) -> Dict[str, Any]:
+        """设置底盘旋转参数（头部电机规控模块）
+
+        Args:
+            max_speed (float): 底盘旋转最大速度，单位：弧度/秒
+            min_speed (float): 底盘旋转最小速度，单位：弧度/秒
+            max_acceleration (float): 底盘旋转最大加速度，单位：弧度/秒²
+
+        Returns:
+            Dict[str, Any]: 设置结果
+        """
+        try:
+            result = self.publish_set_chassis_rotate_params(
+                max_speed=max_speed,
+                min_speed=min_speed,
+                max_acceleration=max_acceleration
+            )
+
+            if result.get("success"):
+                logger.info(f"底盘旋转参数设置成功: max_speed={max_speed}, min_speed={min_speed}, max_acceleration={max_acceleration}")
+            else:
+                logger.error(f"底盘旋转参数设置失败: {result.get('error_msg', '未知错误')}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"底盘旋转参数设置失败: {e}")
+            return {
+                "success": False,
+                "description": f"底盘旋转参数设置失败: {str(e)}"
+            }
+
 def battery_callback(msg):
     """电池电量回调函数 - 收到信息后立马通过USB串口发送
 
@@ -3879,7 +4008,8 @@ class SmartRobotAgent:
             "get_screen_tilt_state", "set_screen_tilt_jqr",
             "set_laser_pointer", "get_laser_pointer_state",
             "set_rgb", "get_rgb_light_strip_state", "delete_person",
-            "set_head_motor_control", "set_combine_motor_control", "head_reset_to_zero"
+            "set_head_motor_control", "set_combine_motor_control", "head_reset_to_zero",
+            "set_chassis_rotate_params"
         }
     
     async def initialize(self):
@@ -4645,6 +4775,11 @@ Agent已知的能力（可用工具）:
             result = await self.ros2_interface.head_reset_to_zero(params)
             result["type"] = task_type
             result.pop("result", None)
+            return result
+        # 底盘旋转参数设置（set_chassis_rotate_params）
+        elif task_type == "set_chassis_rotate_params" and hasattr(self, 'ros2_interface'):
+            result = self.ros2_interface.set_chassis_rotate_params(**params)
+            result["type"] = task_type
             return result
         else:
             return {
