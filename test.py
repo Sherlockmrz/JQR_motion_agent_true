@@ -1,0 +1,628 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""WebSocket控制接口测试脚本
+
+按需求场景逐个测试组合电机控制接口，每个场景对应agent中的一个任务方法。
+支持选择单个场景或全部运行。
+"""
+import asyncio
+import json
+import math
+import os
+import select
+import sys
+import termios
+import threading
+import time
+import tty
+from datetime import datetime
+import websockets
+
+
+def log(msg):
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] {msg}")
+
+
+async def send_and_recv(websocket, command, timeout=60):
+    """发送命令并等待响应"""
+    msg = json.dumps(command, ensure_ascii=False)
+    log(f"  发送: {msg}")
+    start = time.time()
+    await websocket.send(msg)
+    try:
+        response = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+        elapsed = time.time() - start
+        resp_data = json.loads(response)
+        log(f"  响应 (耗时{elapsed:.2f}s): {json.dumps(resp_data, ensure_ascii=False, indent=2)}")
+        return resp_data
+    except asyncio.TimeoutError:
+        log("  ✗ 等待响应超时")
+        return None
+
+
+# ========================
+# 场景定义
+# ========================
+SCENARIOS = [
+    # ---------- 交互中 / 用户对话 ----------
+    {
+        "id": 1,
+        "category": "交互中 / 用户对话",
+        "name": "用户移动位置时的视线跟踪（user_position_tracking）",
+        "description": (
+            "用户从机器人正前方起身，走到侧面继续提问。\n"
+            "  头部: 俯仰0°→30°, 水平0°→30°, 同时运动, 速度适中\n"
+            "  底盘: 保持静止\n"
+            "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "user_position_tracking",
+            "params": {
+                "yaw_angle": 30,  # 255表示使用默认值
+                "pitch_angle": 30
+            }
+        }
+    },
+    # ---------- 行走/巡逻 ----------
+    {
+        "id": 2,
+        "category": "行走/巡逻",
+        "name": "巡逻中停至桌子识别记忆物品（patrol_table_inspection）",
+        "description": (
+            "机器人巡逻中检测到桌子，靠近停稳后扫描桌面物品。\n"
+            "  头部: 俯视→左扫→右扫→回正\n"
+            "  底盘: 识别期间保持静止\n"
+            "  多步骤: 步骤1-俯视-15° → 步骤2-左扫-30° → 步骤3-右扫30° → 步骤4-回正"
+        ),
+        "command": {
+            "type": "patrol_table_inspection",
+            "params": {}
+        }
+    },
+    {
+        "id": 3,
+        "category": "行走/巡逻",
+        "name": "边前进边左右摆头（move_forward_with_head_sweep）",
+        "description": (
+            "机器人边前进边左右张望，适用于巡逻观察等场景。\n"
+            "  头部: 左转-80° → 右转80° → 回中0°\n"
+            "  底盘: 通过cmd_vel持续前进，头部转到位后停止\n"
+            "  多步骤: 步骤1-前进+左转 → 步骤2-前进+右转 → 步骤3-前进+回中\n"
+            "  参数: forward_speed(m/s), yaw_angle(度), speed_level(0/1/2)"
+        ),
+        "command": {
+            "type": "move_forward_with_head_sweep",
+            "params": {
+                "forward_speed": 0.15,
+                "yaw_angle": 80,
+                "speed_level": 1
+            }
+        }
+    },
+    # ---------- 唤醒 / 静止状态 ----------
+    {
+        "id": 4,
+        "category": "唤醒 / 静止状态",
+        "name": "声源在头部转角范围内（wake_head_range）",
+        "description": (
+            "机器人静止充电，用户在正前方30°范围内唤醒。\n"
+            "  头部: 快速转向声源, 俯仰0°→30°, 水平0°→30°, 同时运动\n"
+            "  底盘: 保持静止\n"
+            "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_head_range",
+            "params": {
+                "yaw_angle": 30,
+                "pitch_angle": 30
+            }
+        }
+    },
+    {
+        "id": 5,
+        "category": "唤醒 / 静止状态",
+        "name": "声源超出头部转角极限（wake_beyond_head_range）",
+        "description": (
+            "机器人静止背对用户，用户在后方唤醒。\n"
+            "  头部: 先转至极限(俯仰30°+水平90°), 底盘转向后头部回正\n"
+            "  底盘: 辅助原地旋转正对用户\n"
+            "  多步骤: 步骤1-头部极限 → 步骤2-底盘旋转90° → 步骤3-头部回正\n"
+            "  参数: yaw_angle(弧度), pitch_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_beyond_head_range",
+            "params": {
+                "yaw_angle": 255,
+                "pitch_angle": 255
+            }
+        }
+    },
+    # ---------- 唤醒 / 运动状态 ----------
+    {
+        "id": 6,
+        "category": "唤醒 / 运动状态",
+        "name": "行走中侧方被唤醒（wake_side_moving）",
+        "description": (
+            "机器人行走中，用户坐在左侧唤醒。\n"
+            "  头部: 先转向声源(水平30°), 底盘转向后头部回正\n"
+            "  底盘: 行走中平滑左转30°\n"
+            "  多步骤: 步骤1-头部偏航30° → 步骤2-底盘旋转30° → 步骤3-头部回正\n"
+            "  参数: yaw_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_side_moving",
+            "params": {
+                "yaw_angle": 255
+            }
+        }
+    },
+    {
+        "id": 7,
+        "category": "唤醒 / 运动状态",
+        "name": "行走中后方被唤醒并停止（wake_back_moving）",
+        "description": (
+            "机器人巡逻中，用户在后方喊停并唤醒。\n"
+            "  头部: 先转至极限(水平90°), 底盘转向后头部回正\n"
+            "  底盘: 减速并原地旋转180°正对用户\n"
+            "  多步骤: 步骤1-头部偏航90° → 步骤2-底盘旋转180° → 步骤3-头部回正\n"
+            "  参数: yaw_angle(弧度), 255表示使用默认值"
+        ),
+        "command": {
+            "type": "wake_back_moving",
+            "params": {
+                "yaw_angle": 255
+            }
+        }
+    },
+    # ---------- 导航 / 避障 ----------
+    {
+        "id": 8,
+        "category": "导航 / 避障",
+        "name": "绕行障碍物时的协同转向（obstacle_avoidance_turn）",
+        "description": (
+            "机器人遇到障碍物需要绕行，路径需要向右转弯。\n"
+            "  头部: 提前向绕行方向（右侧）缓慢预转，引导视线 → 水平0°→30°\n"
+            "  底盘: 执行转向动作，头部同步回正\n"
+            "  多步骤: 步骤1-头部缓慢右转30°(低速) → 步骤2-底盘右转+头部回正(快速)\n"
+            "  速度: 底盘快速避障(speed=2), 头部慢速引导(speed=0, 30°/s)\n"
+            "  参数: turn_angle(弧度), head_speed(°/s), 均可省略(默认30°, 30°/s)"
+        ),
+        "command": {
+            "type": "obstacle_avoidance_turn",
+            "params": {
+                "turn_angle": 0.524,  # 30°右转
+                "head_speed": 30
+            }
+        }
+    },
+    # ---------- 头部控制 ----------
+    {
+        "id": 9,
+        "category": "头部电机归零位",
+        "name": "头部电机回归0位（head_reset_to_zero）",
+        "description": (
+            "将头部的yaw和pitch都回归到0度位置。\n"
+            "  头部: yaw 0°, pitch 0°\n"
+            "  底盘: 保持静止"
+        ),
+        "command": {
+            "type": "head_reset_to_zero",
+            "params": {}
+        }
+    },
+    # ---------- 手动输入控制 ----------
+    {
+        "id": 10,
+        "category": "手动输入控制",
+        "name": "头部电机手动控制（输入pitch/yaw角度）",
+        "description": (
+            "手动输入头部俯仰(pitch)和偏航(yaw)角度（单位：度），转换为弧度后下发控制。\n"
+            "  pitch: 正值=抬头, 负值=低头\n"
+            "  yaw: 正值=左转, 负值=右转\n"
+            "  输入0跳过该轴控制"
+        ),
+        "command": None,  # 交互式输入，不使用预设command
+        "interactive": "head_motor"
+    },
+    {
+        "id": 11,
+        "category": "手动输入控制",
+        "name": "底盘手动控制（输入前进距离/旋转角度）",
+        "description": (
+            "手动输入底盘前进距离(米)和旋转角度(度)，转换后下发控制。\n"
+            "  前进: 正值=前进, 负值=后退, 单位：米\n"
+            "  旋转: 正值=逆时针, 负值=顺时针, 单位：度→弧度\n"
+            "  输入0跳过该项控制\n"
+            "  速度档位: 0=低速, 1=中速, 2=快速"
+        ),
+        "command": None,  # 交互式输入，不使用预设command
+        "interactive": "chassis"
+    },
+]
+
+
+# ======================
+# 键盘遥控模式
+# ======================
+
+CHASSIS_MOVE_STEP = 0.2       # 底盘每次前进/后退距离（米）
+CHASSIS_ROTATE_STEP = 0.2618  # 底盘每次旋转角度（15°, rad）
+HEAD_PITCH_STEP = 0.0873      # 头部每次俯仰角度（5°, rad）
+HEAD_YAW_STEP = 0.1745        # 头部每次偏航角度（10°, rad）
+SPEED_NAMES = ["低速", "中速", "快速"]
+
+
+async def run_keyboard_control(ws_uri: str):
+    """键盘遥控模式：进入后所有按键实时控制机器人，ESC 退出回菜单"""
+    loop = asyncio.get_running_loop()
+    speed_level = 1
+    exited = asyncio.Event()
+
+    print(f"\n{'━' * 80}")
+    print("  键盘遥控模式")
+    print(f"{'─' * 80}")
+    print("  W/S = 底盘前进/后退    A/D = 底盘左转/右转")
+    print("  ↑/↓ = 头部抬头/低头    ←/→ = 头部左转/右转")
+    print("  Q/- = 降速  E/+ = 加速  R = 头部归零  空格 = 急停")
+    print("  ESC = 退出遥控模式")
+    print(f"{'━' * 80}")
+    log(f"[键盘遥控] 当前速度档位: {speed_level} ({SPEED_NAMES[speed_level]})")
+
+    # 单条长连接，整个遥控期间复用
+    ws = await websockets.connect(ws_uri)
+    log("[键盘遥控] WebSocket 已连接")
+
+    async def drain_responses():
+        """持续读取服务端响应，防止TCP缓冲区满导致服务端send阻塞"""
+        try:
+            async for msg in ws:
+                try:
+                    resp = json.loads(msg)
+                    success = resp.get("success", None)
+                    rtype = resp.get("type", "?")
+                    if success is False:
+                        log(f"[键盘遥控] 响应({rtype}): 失败 - {resp.get('error_msg', '')}")
+                except Exception:
+                    pass
+        except websockets.exceptions.ConnectionClosed:
+            pass
+
+    reader_task = asyncio.create_task(drain_responses())
+
+    async def send_cmd(command: dict, label: str):
+        try:
+            await ws.send(json.dumps(command, ensure_ascii=False))
+            log(f"[键盘遥控] {label} → 已发送")
+        except Exception as e:
+            log(f"[键盘遥控] {label} → 发送失败: {e}")
+
+    def send(command: dict, label: str):
+        asyncio.run_coroutine_threadsafe(send_cmd(command, label), loop)
+
+    def send_head(pitch: float, yaw: float, label: str):
+        send({
+            "type": "keyboard_motor_control",
+            "params": {
+                "control_pitch": pitch != 0, "pitch_angle": pitch,
+                "control_yaw": yaw != 0, "yaw_angle": yaw,
+                "speed_level": speed_level,
+            }
+        }, f"头部 {label} (speed={speed_level})")
+
+    def send_chassis(move: float, rotate: float, label: str):
+        send({
+            "type": "keyboard_motor_control",
+            "params": {
+                "control_chassis_move": move != 0, "chassis_offset": move,
+                "control_chassis_rotate": rotate != 0, "chassis_rotation": rotate,
+                "speed_level": speed_level,
+            }
+        }, f"底盘 {label} (speed={speed_level})")
+
+    def listen():
+        nonlocal speed_level
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        THROTTLE_SEC = 0.35
+        last_send_time = 0.0
+        try:
+            tty.setcbreak(fd)
+            while not exited.is_set():
+                if not select.select([fd], [], [], 0.2)[0]:
+                    continue
+                ch = os.read(fd, 1)
+
+                # ESC 序列：\x1b 后跟 [ A/B/C/D 是方向键，单独 \x1b 是退出
+                if ch == b'\x1b':
+                    if select.select([fd], [], [], 0.05)[0]:
+                        ch2 = os.read(fd, 1)
+                        if ch2 == b'[' and select.select([fd], [], [], 0.05)[0]:
+                            ch3 = os.read(fd, 1)
+                            now = time.monotonic()
+                            if now - last_send_time < THROTTLE_SEC:
+                                continue
+                            last_send_time = now
+                            if ch3 == b'A':
+                                send_head(HEAD_PITCH_STEP, 0, "抬头")
+                            elif ch3 == b'B':
+                                send_head(-HEAD_PITCH_STEP, 0, "低头")
+                            elif ch3 == b'C':
+                                send_head(0, -HEAD_YAW_STEP, "头右转")
+                            elif ch3 == b'D':
+                                send_head(0, HEAD_YAW_STEP, "头左转")
+                    else:
+                        loop.call_soon_threadsafe(exited.set)
+                    continue
+
+                # 运动类命令节流（急停和调速不限）
+                lower = ch.lower()
+                is_motion = lower in (b'w', b's', b'a', b'd', b'r')
+                if is_motion:
+                    now = time.monotonic()
+                    if now - last_send_time < THROTTLE_SEC:
+                        continue
+                    last_send_time = now
+
+                if lower == b'w':
+                    send_chassis(CHASSIS_MOVE_STEP, 0, "前进")
+                elif lower == b's':
+                    send_chassis(-CHASSIS_MOVE_STEP, 0, "后退")
+                elif lower == b'a':
+                    send_chassis(0, CHASSIS_ROTATE_STEP, "左转")
+                elif lower == b'd':
+                    send_chassis(0, -CHASSIS_ROTATE_STEP, "右转")
+                elif lower == b'q' or ch == b'-':
+                    new = max(0, speed_level - 1)
+                    if new != speed_level:
+                        speed_level = new
+                        log(f"[键盘遥控] 速度档位 → {speed_level} ({SPEED_NAMES[speed_level]})")
+                elif lower == b'e' or ch in (b'+', b'='):
+                    new = min(2, speed_level + 1)
+                    if new != speed_level:
+                        speed_level = new
+                        log(f"[键盘遥控] 速度档位 → {speed_level} ({SPEED_NAMES[speed_level]})")
+                elif lower == b'r':
+                    send({"type": "head_reset_to_zero", "params": {}}, "头部归零")
+                elif ch == b' ':
+                    log("[键盘遥控] ====== 急停 ======")
+                    send({"type": "emergency_stop", "params": {}}, "急停")
+        except Exception as e:
+            log(f"[键盘遥控] 监听异常: {e}")
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    thread = threading.Thread(target=listen, daemon=True, name="keyboard-ctrl")
+    thread.start()
+    await exited.wait()
+    thread.join(timeout=1)
+    reader_task.cancel()
+    await ws.close()
+    log("[键盘遥控] 已退出遥控模式")
+
+
+def print_scenario_menu():
+    """打印场景选择菜单"""
+    print("\n" + "=" * 80)
+    print("  组合电机控制 · 场景测试")
+    print("=" * 80)
+
+    current_category = None
+    for s in SCENARIOS:
+        if s["category"] != current_category:
+            current_category = s["category"]
+            print(f"\n  【{current_category}】")
+        print(f"    {s['id']}. {s['name']}")
+
+    print(f"\n    0. 全部运行（按顺序逐个测试）")
+    print(f"   12. 键盘遥控模式（WASD底盘/方向键头部/空格急停/ESC退出）")
+    print("    q. 退出")
+    print("=" * 80)
+
+
+def input_float(prompt, default=0.0):
+    """安全读取浮点数输入"""
+    try:
+        val = input(prompt).strip()
+        if val == '':
+            return default
+        return float(val)
+    except ValueError:
+        print("  输入无效，使用默认值:", default)
+        return default
+
+
+def input_int(prompt, default=0):
+    """安全读取整数输入"""
+    try:
+        val = input(prompt).strip()
+        if val == '':
+            return default
+        return int(val)
+    except ValueError:
+        print("  输入无效，使用默认值:", default)
+        return default
+
+
+def build_head_motor_command():
+    """交互式构建头部电机控制命令"""
+    print("  ── 头部电机参数输入 ──")
+    pitch_deg = input_float("    pitch角度(度, 正=抬头, 负=低头, 0=不控制): ", 0.0)
+    yaw_deg = input_float("    yaw角度(度, 正=左转, 负=右转, 0=不控制): ", 0.0)
+    speed = input_int("    速度档位(0=低速, 1=中速, 2=快速) [默认1]: ", 1)
+
+    control_pitch = True
+    control_yaw = True
+
+    # if not control_pitch and not control_yaw:
+    #     print("  ⚠ pitch和yaw都为0，无操作")
+    #     return None
+
+    pitch_rad = math.radians(pitch_deg)
+    yaw_rad = math.radians(yaw_deg)
+
+    print(f"  → pitch={pitch_deg}°({pitch_rad:.4f}rad), yaw={yaw_deg}°({yaw_rad:.4f}rad), speed={speed}")
+
+    return {
+        "type": "set_combine_motor_control",
+        "params": {
+            "control_pitch": control_pitch,
+            "pitch_angle": pitch_rad,
+            "control_yaw": control_yaw,
+            "yaw_angle": yaw_rad,
+            "speed_level": speed
+        }
+    }
+
+
+def build_chassis_command():
+    """交互式构建底盘控制命令"""
+    print("  ── 底盘控制参数输入 ──")
+    move_dist = input_float("    前进距离(米, 正=前进, 负=后退, 0=不移动): ", 0.0)
+    rotate_deg = input_float("    旋转角度(度, 正=逆时针, 负=顺时针, 0=不旋转): ", 0.0)
+    speed = input_int("    速度档位(0=低速, 1=中速, 2=快速) [默认1]: ", 1)
+
+    control_move = True
+    control_rotate = True
+    # control_move = move_dist != 0.0
+    # control_rotate = rotate_deg != 0.0
+
+    # if not control_move and not control_rotate:
+    #     print("  ⚠ 移动和旋转都为0，无操作")
+    #     return None
+
+    rotate_rad = math.radians(rotate_deg)
+
+    print(f"  → 移动={move_dist}m, 旋转={rotate_deg}°({rotate_rad:.4f}rad), speed={speed}")
+
+    return {
+        "type": "set_combine_motor_control",
+        "params": {
+            "control_chassis_move": control_move,
+            "chassis_offset": move_dist,
+            "control_chassis_rotate": control_rotate,
+            "chassis_rotation": rotate_rad,
+            "speed_level": speed
+        }
+    }
+
+
+async def run_scenario(websocket, scenario):
+    """运行单个场景测试"""
+    print(f"\n{'━' * 80}")
+    print(f"  场景{scenario['id']}: {scenario['name']}")
+    print(f"  分类: {scenario['category']}")
+    print(f"{'─' * 80}")
+    print(f"  {scenario['description']}")
+    print(f"{'─' * 80}")
+
+    # 交互式场景：需要用户输入参数
+    interactive = scenario.get("interactive")
+    if interactive:
+        if interactive == "head_motor":
+            command = build_head_motor_command()
+        elif interactive == "chassis":
+            command = build_chassis_command()
+        else:
+            log(f"  ✗ 未知交互类型: {interactive}")
+            return False
+
+        if command is None:
+            log("  跳过（无操作参数）")
+            return True
+
+        resp = await send_and_recv(websocket, command)
+    else:
+        resp = await send_and_recv(websocket, scenario["command"])
+
+    if resp is not None:
+        success = resp.get("success", False)
+        if success:
+            log(f"  ✓ 场景{scenario['id']}测试通过")
+        else:
+            log(f"  ✗ 场景{scenario['id']}测试失败: {resp.get('error_msg', '未知错误')}")
+        return success
+    else:
+        log(f"  ✗ 场景{scenario['id']}测试失败: 无响应")
+        return False
+
+
+async def main():
+    ws_uri = "ws://localhost:8766"
+
+    while True:
+        print_scenario_menu()
+        choice = input("\n请选择场景编号: ").strip()
+
+        if choice.lower() == 'q':
+            log("退出测试")
+            break
+
+        # 键盘遥控模式
+        if choice == '12':
+            try:
+                await run_keyboard_control(ws_uri)
+            except ConnectionRefusedError:
+                log("✗ 无法连接到WebSocket服务器，请确保Agent已启动")
+            except Exception as e:
+                log(f"✗ 键盘遥控失败: {e}")
+            continue
+
+        # 解析选择
+        if choice == '0':
+            selected = SCENARIOS
+        else:
+            try:
+                idx = int(choice)
+                selected = [s for s in SCENARIOS if s["id"] == idx]
+                if not selected:
+                    print(f"  ✗ 无效编号: {idx}")
+                    continue
+            except ValueError:
+                print(f"  ✗ 请输入数字或 'q'")
+                continue
+
+        # 连接并执行
+        log(f"连接到 {ws_uri} ...")
+        try:
+            async with websockets.connect(ws_uri) as websocket:
+                log("✓ 已连接到WebSocket服务器")
+
+                passed = 0
+                failed = 0
+
+                for scenario in selected:
+                    success = await run_scenario(websocket, scenario)
+                    if success:
+                        passed += 1
+                    else:
+                        failed += 1
+
+                    # 场景间间隔
+                    if len(selected) > 1:
+                        await asyncio.sleep(1.5)
+
+                # 汇总（多场景时显示）
+                if len(selected) > 1:
+                    print(f"\n{'━' * 80}")
+                    log(f"测试汇总: 共 {len(selected)} 个场景, 通过 {passed}, 失败 {failed}")
+                    print("━" * 80)
+
+        except ConnectionRefusedError:
+            log("✗ 无法连接到WebSocket服务器，请确保Agent和mock_motor_node已启动")
+        except Exception as e:
+            log(f"✗ 连接失败: {e}")
+
+        # 单场景测试完后回到菜单继续选择
+        if choice != '0':
+            continue
+        else:
+            break
+
+
+if __name__ == "__main__":
+    print("组合电机控制 · 场景测试工具")
+    print("请确保以下服务已启动:")
+    print("  1. SmartRobotAgent (WebSocket端口 8766)")
+    # print("  2. mock_motor_node.py --mode progress")
+    print()
+    asyncio.run(main())
