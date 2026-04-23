@@ -611,6 +611,7 @@ class ROS2Interface:
         self.motor_control_publisher = None  # 电机控制发布对象
         self.head_motor_control_publisher = None  # 头部电机控制发布对象
         self.combine_motor_control_publisher = None  # 组合电机控制发布对象
+        self.cmd_vel_publisher = None  # 底盘速度控制发布对象
         self.chassis_rotate_params_publisher = None  # 底盘旋转参数设置发布对象
         self.combine_motor_result_subscription = None  # 组合电机控制结果订阅对象
         self.rgb_control_publisher = None  # RGB灯控制发布对象
@@ -1494,9 +1495,110 @@ class ROS2Interface:
             speed_level=1
         )
 
+    async def move_forward_with_head_sweep(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """一边向前移动一边先向左摆头后向右摆头
+
+        场景描述：机器人边前进边左右张望，适用于巡逻观察等场景。
+        底盘通过 /cmd_vel 持续前进，头部通过 combine_motor_control 控制 yaw 转动，
+        每一步前进持续到头部电机转到位后停止。
+
+        动作流程：
+        1. 持续前进 + 头部左转（yaw → -80°），头部到位后停止前进
+        2. 持续前进 + 头部右转（yaw → 80°），头部到位后停止前进
+        3. 持续前进 + 头部回中（yaw → 0°），头部到位后停止前进
+
+        Args:
+            params: {
+                "forward_speed": float,     # 前进速度（m/s），默认0.15
+                "yaw_angle": float,         # 左右摆头角度（度），默认80
+                "speed_level": int          # 头部电机速度档位 0=低速 1=中速 2=快速，默认1
+            }
+
+        头部电机极限: yaw -110°~110°
+        """
+        import math
+        import asyncio
+        await self._pitch_activate()
+
+        forward_speed = params.get("forward_speed", 0.15)
+        yaw_deg = params.get("yaw_angle", 80)
+        speed_level = params.get("speed_level", 1)
+
+        # clamp偏航角到电机极限
+        yaw_deg = max(0, min(110, abs(yaw_deg)))
+        yaw_rad = math.radians(yaw_deg)
+
+        # 初始化 cmd_vel 发布者
+        if self.cmd_vel_publisher is None:
+            try:
+                from geometry_msgs.msg import Twist
+                self.cmd_vel_publisher = self.node.create_publisher(Twist, '/cmd_vel', 10)
+            except Exception as e:
+                logger.error(f"创建cmd_vel发布者失败: {e}")
+                return {"success": False, "error_msg": f"创建cmd_vel发布者失败: {str(e)}"}
+
+        from geometry_msgs.msg import Twist
+
+        async def _forward_until_head_done(yaw_target: float) -> Dict[str, Any]:
+            """持续前进直到头部电机转到目标角度"""
+            task_id = self._next_motor_task_id()
+            self.combine_motor_result.pop(int(task_id), None)
+
+            # 发送头部 yaw 转动指令（仅头部，不控制底盘）
+            pub_result = self.publish_combine_motor_control(
+                task_id=task_id,
+                control_yaw=True,
+                yaw_angle=yaw_target,
+                speed_level=speed_level
+            )
+            if not pub_result["success"]:
+                return pub_result
+
+            # 持续发布前进速度，同时等待头部电机完成
+            start_time = time.time()
+            timeout = 20.0
+            try:
+                while time.time() - start_time < timeout:
+                    # 发布前进速度
+                    twist = Twist()
+                    twist.linear.x = float(forward_speed)
+                    self.cmd_vel_publisher.publish(twist)
+
+                    # 检查头部电机是否完成
+                    if int(task_id) in self.combine_motor_result:
+                        result_value = self.combine_motor_result[int(task_id)]["result"]
+                        if result_value == MotorResultCode.SUCCESS:
+                            return {"success": True, "result": result_value}
+                        elif result_value == MotorResultCode.FAILED:
+                            return {"success": False, "result": result_value, "error_msg": "头部电机执行失败"}
+                        elif result_value == MotorResultCode.ABORTED:
+                            return {"success": False, "result": result_value, "error_msg": "头部电机执行中止"}
+                        elif result_value == MotorResultCode.REJECTED:
+                            return {"success": False, "result": result_value, "error_msg": "头部电机拒绝执行"}
+
+                    await asyncio.sleep(0.1)
+
+                return {"success": False, "error_msg": "等待头部电机反馈超时"}
+            finally:
+                # 无论成功失败，停止底盘前进
+                stop_twist = Twist()
+                self.cmd_vel_publisher.publish(stop_twist)
+
+        # 步骤1: 持续前进 + 头部左转
+        result = await _forward_until_head_done(-yaw_rad)
+        if not result["success"]:
+            return result
+
+        # 步骤2: 持续前进 + 头部右转
+        result = await _forward_until_head_done(yaw_rad)
+        if not result["success"]:
+            return result
+
+        # 步骤3: 持续前进 + 头部回中
+        return await _forward_until_head_done(0.0)
     async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """声源在头部转角范围内
-        
+
         Args:
             params: {
                 "yaw_angle": float,  # 声源方向角度（弧度），255表示使用默认值
@@ -4009,7 +4111,13 @@ class SmartRobotAgent:
             "set_laser_pointer", "get_laser_pointer_state",
             "set_rgb", "get_rgb_light_strip_state", "delete_person",
             "set_head_motor_control", "set_combine_motor_control", "head_reset_to_zero",
-            "set_chassis_rotate_params"
+            "set_chassis_rotate_params",
+            # 场景任务类型
+            "user_position_tracking", "patrol_table_inspection",
+            "wake_head_range", "wake_beyond_head_range",
+            "wake_side_moving", "wake_back_moving",
+            "obstacle_avoidance_turn", "move_forward_with_head_sweep",
+            "emergency_stop", "keyboard_motor_control"
         }
     
     async def initialize(self):
@@ -4667,6 +4775,10 @@ Agent已知的能力（可用工具）:
             result = await self.stop_move()
             result["type"] = task_type
             return result
+        elif task_type == "emergency_stop":
+            result = self.emergency_stop()
+            result["type"] = task_type
+            return result
         # ROS2接口任务类型 - 确保返回结果包含type字段
         elif task_type == "get_move_mode" and hasattr(self, 'ros2_interface'):
             result = self.ros2_interface.get_move_mode()
@@ -4735,6 +4847,13 @@ Agent已知的能力（可用工具）:
             result["type"] = task_type
             result.pop("result", None)
             return result
+        # 键盘遥控：直接 publish，不等反馈
+        elif task_type == "keyboard_motor_control" and hasattr(self, 'ros2_interface'):
+            self.ros2_interface.start_combine_motor_monitoring()
+            task_id = self.ros2_interface._next_motor_task_id()
+            result = self.ros2_interface.publish_combine_motor_control(task_id=task_id, **params)
+            result["type"] = task_type
+            return result
         # 交互场景
         elif task_type == "user_position_tracking":
             result = await self.ros2_interface.user_position_tracking(params)
@@ -4768,6 +4887,11 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "obstacle_avoidance_turn":
             result = await self.ros2_interface.obstacle_avoidance_turn(params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
+        elif task_type == "move_forward_with_head_sweep":
+            result = await self.ros2_interface.move_forward_with_head_sweep(params)
             result["type"] = task_type
             result.pop("result", None)
             return result
@@ -5483,10 +5607,76 @@ Agent已知的能力（可用工具）:
             thread_local.websocket = None
             return {"success": False, "error_msg": f"本地模型通信失败: {str(e)}"}
     
+    def emergency_stop(self) -> Dict[str, Any]:
+        """全局急停：空格键触发，立即停止头部电机和底盘所有运动
+
+        线程安全，可从任意线程调用（例如键盘监听线程）。
+        - 底盘：向 /cmd_vel 发布零速 Twist
+        - 头部：向 /combine_motor_control 和 /head_motor_control 发布"不控制"指令（控制位全 False）
+        - 中断：置 _task_interrupted 并清空活跃导航任务集合
+        """
+        logger.warning("[EMERGENCY_STOP] 空格键急停触发")
+        self._task_interrupted = True
+
+        result = {"chassis": False, "combine_motor": False, "head_motor": False}
+
+        ros2_interface = getattr(self, 'ros2_interface', None)
+        if not ros2_interface or not getattr(ros2_interface, 'initialized', False):
+            logger.error("[EMERGENCY_STOP] ROS2未初始化，无法执行急停")
+            return {"success": False, "error_msg": "ROS2未初始化", **result}
+
+        # 1. 底盘急停 —— 发布零速 Twist（直接用 publisher，避免 subprocess 阻塞）
+        try:
+            if geometry_msgs is not None:
+                from geometry_msgs.msg import Twist
+                if ros2_interface.cmd_vel_publisher is None:
+                    ros2_interface.cmd_vel_publisher = ros2_interface.node.create_publisher(
+                        Twist, '/cmd_vel', 10
+                    )
+                stop_twist = Twist()
+                ros2_interface.cmd_vel_publisher.publish(stop_twist)
+                result["chassis"] = True
+                logger.warning("[EMERGENCY_STOP] 已发布零速 Twist 到 /cmd_vel")
+        except Exception as e:
+            logger.error(f"[EMERGENCY_STOP] 底盘急停失败: {e}")
+
+        # 2. 组合电机急停 —— 所有控制位置 False，firmware 将覆盖前一任务
+        try:
+            stop_task_id = ros2_interface._next_motor_task_id()
+            pub_result = ros2_interface.publish_combine_motor_control(
+                task_id=stop_task_id,
+                control_pitch=False, control_yaw=False,
+                control_chassis_move=False, control_chassis_rotate=False,
+                speed_level=0
+            )
+            result["combine_motor"] = bool(pub_result.get("success"))
+        except Exception as e:
+            logger.error(f"[EMERGENCY_STOP] 组合电机急停失败: {e}")
+
+        # 3. 头部电机急停（新头部样机话题）
+        try:
+            pub_result = ros2_interface.publish_head_motor_control(
+                control_pitch=False, control_yaw=False
+            )
+            result["head_motor"] = bool(pub_result.get("success"))
+        except Exception as e:
+            logger.error(f"[EMERGENCY_STOP] 头部电机急停失败: {e}")
+
+        # 4. 清空活跃导航任务集合，阻止后续本地模型步骤继续下发
+        try:
+            if hasattr(self, 'active_navigation_tasks'):
+                self.active_navigation_tasks.clear()
+        except Exception as e:
+            logger.error(f"[EMERGENCY_STOP] 清空活跃导航任务失败: {e}")
+
+        success = any(result.values())
+        logger.warning(f"[EMERGENCY_STOP] 执行完成: {result}")
+        return {"success": success, **result}
+
     # ======================
     # ReAct框架核心方法
     # ======================
-    
+
     def interrupt(self) -> None:
         """中断当前任务执行"""
         self._task_interrupted = True
