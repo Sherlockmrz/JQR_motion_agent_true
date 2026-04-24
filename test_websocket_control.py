@@ -73,9 +73,29 @@ SCENARIOS = [
             "params": {}
         }
     },
-    # ---------- 唤醒 / 静止状态 ----------
     {
         "id": 3,
+        "category": "行走/巡逻",
+        "name": "边前进边左右摆头（move_forward_with_head_sweep）",
+        "description": (
+            "机器人边前进边左右张望，适用于巡逻观察等场景。\n"
+            "  头部: 左转-80° → 右转80° → 回中0°\n"
+            "  底盘: 通过cmd_vel持续前进，头部转到位后停止\n"
+            "  多步骤: 步骤1-前进+左转 → 步骤2-前进+右转 → 步骤3-前进+回中\n"
+            "  参数: forward_speed(m/s), yaw_angle(度), speed_level(0/1/2)"
+        ),
+        "command": {
+            "type": "move_forward_with_head_sweep",
+            "params": {
+                "forward_speed": 0.15,
+                "yaw_angle": 80,
+                "speed_level": 1
+            }
+        }
+    },
+    # ---------- 唤醒 / 静止状态 ----------
+    {
+        "id": 4,
         "category": "唤醒 / 静止状态",
         "name": "声源在头部转角范围内（wake_head_range）",
         "description": (
@@ -93,7 +113,7 @@ SCENARIOS = [
         }
     },
     {
-        "id": 4,
+        "id": 5,
         "category": "唤醒 / 静止状态",
         "name": "声源超出头部转角极限（wake_beyond_head_range）",
         "description": (
@@ -113,7 +133,7 @@ SCENARIOS = [
     },
     # ---------- 唤醒 / 运动状态 ----------
     {
-        "id": 5,
+        "id": 6,
         "category": "唤醒 / 运动状态",
         "name": "行走中侧方被唤醒（wake_side_moving）",
         "description": (
@@ -131,7 +151,7 @@ SCENARIOS = [
         }
     },
     {
-        "id": 6,
+        "id": 7,
         "category": "唤醒 / 运动状态",
         "name": "行走中后方被唤醒并停止（wake_back_moving）",
         "description": (
@@ -150,7 +170,7 @@ SCENARIOS = [
     },
     # ---------- 导航 / 避障 ----------
     {
-        "id": 7,
+        "id": 8,
         "category": "导航 / 避障",
         "name": "绕行障碍物时的协同转向（obstacle_avoidance_turn）",
         "description": (
@@ -171,7 +191,7 @@ SCENARIOS = [
     },
     # ---------- 头部控制 ----------
     {
-        "id": 8,
+        "id": 9,
         "category": "头部电机归零位",
         "name": "头部电机回归0位（head_reset_to_zero）",
         "description": (
@@ -186,7 +206,7 @@ SCENARIOS = [
     },
     # ---------- 手动输入控制 ----------
     {
-        "id": 9,
+        "id": 10,
         "category": "手动输入控制",
         "name": "头部电机手动控制（输入pitch/yaw角度）",
         "description": (
@@ -199,7 +219,7 @@ SCENARIOS = [
         "interactive": "head_motor"
     },
     {
-        "id": 10,
+        "id": 11,
         "category": "手动输入控制",
         "name": "底盘手动控制（输入前进距离/旋转角度）",
         "description": (
