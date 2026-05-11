@@ -1,0 +1,85 @@
+// 四联组合电机控制协议说明
+// 话题名: /four_combine_motor_control
+// 话题数据类型: std_msgs/msg/Float32MultiArray
+//
+// 数据字段(14字段):
+//   data[0]  task_id                          # 任务ID，确保一个工作周期内唯一
+//   data[1]  control_head_pitch (0.0/1.0)     # 是否控制头部俯仰
+//   data[2]  head_pitch_angle (rad)           # 头部俯仰pitch角
+//   data[3]  control_neck_yaw (0.0/1.0)       # 是否控制脖子偏航
+//   data[4]  neck_yaw_angle (rad)             # 脖子偏航yaw角
+//   data[5]  control_neck_pitch (0.0/1.0)     # 是否控制脖子俯仰
+//   data[6]  neck_pitch_angle (rad)           # 脖子俯仰pitch角
+//   data[7]  control_neck_roll (0.0/1.0)      # 是否控制脖子翻滚
+//   data[8]  neck_roll_angle (rad)            # 脖子翻滚roll角
+//   data[9]  control_chassis_move (0.0/1.0)   # 是否控制底盘位移
+//   data[10] chassis_offset (m)               # 底盘位置偏移 +前进 -后退
+//   data[11] control_chassis_rotate (0.0/1.0) # 是否控制底盘旋转
+//   data[12] chassis_rotation (rad)           # 底盘旋转 +逆时针 -顺时针
+//   data[13] speed_level                      # 档位 0=低速 1=中速 2=快速，其它按0处理
+//
+// 反馈话题: /four_combine_motor_control_result
+// 反馈数据类型: std_msgs/msg/Float32MultiArray
+//   data[0] = task_id
+//   data[1] = result_code  (101=成功 102=中止 103=失败 104=拒绝, 0~100=进度百分比)
+//
+// WebSocket/USB task_type: "set_four_combine_motor_control"
+
+// 1. 组合指令：同时控制所有自由度
+{
+  "type": "set_four_combine_motor_control",
+  "params": {
+    "control_head_pitch": true,
+    "head_pitch_angle": -0.2618,
+    "control_neck_yaw": true,
+    "neck_yaw_angle": 0.7854,
+    "control_neck_pitch": true,
+    "neck_pitch_angle": 0.0,
+    "control_neck_roll": true,
+    "neck_roll_angle": 0.0,
+    "control_chassis_move": true,
+    "chassis_offset": 0.5,
+    "control_chassis_rotate": true,
+    "chassis_rotation": 1.5708,
+    "speed_level": 1,
+    "timeout": 30.0
+  }
+}
+// 返回
+{
+  "type": "set_four_combine_motor_control",
+  "success": true,
+  "task_id": 123456,
+  "error_msg": ""
+}
+
+// 2. 仅控制头部俯仰
+{
+  "type": "set_four_combine_motor_control",
+  "params": {
+    "control_head_pitch": true,
+    "head_pitch_angle": -0.2618,
+    "speed_level": 2
+  }
+}
+
+// 3. 仅控制脖子三轴（yaw/pitch/roll）
+{
+  "type": "set_four_combine_motor_control",
+  "params": {
+    "control_neck_yaw": true, "neck_yaw_angle": 0.5236,
+    "control_neck_pitch": true, "neck_pitch_angle": -0.1745,
+    "control_neck_roll": true, "neck_roll_angle": 0.0873,
+    "speed_level": 0
+  }
+}
+
+// 4. 底盘前进+逆时针转
+{
+  "type": "set_four_combine_motor_control",
+  "params": {
+    "control_chassis_move": true, "chassis_offset": 0.3,
+    "control_chassis_rotate": true, "chassis_rotation": 0.7854,
+    "speed_level": 1
+  }
+}

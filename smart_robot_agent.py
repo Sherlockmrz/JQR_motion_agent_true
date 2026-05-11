@@ -611,14 +611,18 @@ class ROS2Interface:
         self.motor_control_publisher = None  # 电机控制发布对象
         self.head_motor_control_publisher = None  # 头部电机控制发布对象
         self.combine_motor_control_publisher = None  # 组合电机控制发布对象
+        self.four_combine_motor_control_publisher = None  # 四联组合电机控制发布对象
         self.cmd_vel_publisher = None  # 底盘速度控制发布对象
         self.chassis_rotate_params_publisher = None  # 底盘旋转参数设置发布对象
         self.combine_motor_result_subscription = None  # 组合电机控制结果订阅对象
+        self.four_combine_motor_result_subscription = None  # 四联组合电机控制结果订阅对象
         self.rgb_control_publisher = None  # RGB灯控制发布对象
         self.rgb_state_subscription = None  # RGB灯状态订阅对象
         self.rgb_monitoring_active = False  # RGB监控是否激活标志
         self.combine_motor_monitoring_active = False  # 组合电机监控是否激活标志
         self.combine_motor_result = {}  # 组合电机执行结果 {task_id: {"progress": 0-100, "status": 101/102/103}}
+        self.four_combine_motor_monitoring_active = False  # 四联组合电机监控是否激活标志
+        self.four_combine_motor_result = {}  # 四联组合电机执行结果 {task_id: {"result": 101/102/103/104}}
         self._motor_task_id_counter = 0  # 组合电机任务ID计数器（float32精度安全范围：1~16777215）
         self._last_motor_task_id = 0  # 上一次生成的task_id，用于去重
         self.robot_state = {
@@ -1072,6 +1076,53 @@ class ROS2Interface:
             logger.error(f"停止组合电机监控失败: {e}")
             return False
 
+    def _four_combine_motor_result_callback(self, msg):
+        """四联组合电机控制结果回调函数"""
+        if not self.four_combine_motor_monitoring_active:
+            return
+        try:
+            data = msg.data
+            if len(data) >= 2:
+                task_id = int(data[0])
+                result = data[1]
+                self.four_combine_motor_result[task_id] = {"result": result}
+                logger.info(f"四联组合电机任务 {task_id} 结果: {result}")
+        except Exception as e:
+            logger.error(f"四联组合电机结果回调失败: {e}")
+
+    def start_four_combine_motor_monitoring(self):
+        """启动四联组合电机控制结果监控"""
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                return False
+            if self.four_combine_motor_result_subscription is None:
+                from std_msgs.msg import Float32MultiArray
+                self.four_combine_motor_result_subscription = self.node.create_subscription(
+                    Float32MultiArray,
+                    '/four_combine_motor_control_result',
+                    self._four_combine_motor_result_callback,
+                    10
+                )
+                self.four_combine_motor_monitoring_active = True
+                logger.info("四联组合电机控制结果监控已启动")
+            return True
+        except Exception as e:
+            logger.error(f"启动四联组合电机监控失败: {e}")
+            return False
+
+    def stop_four_combine_motor_monitoring(self):
+        """停止四联组合电机控制结果监控"""
+        try:
+            self.four_combine_motor_monitoring_active = False
+            if self.four_combine_motor_result_subscription:
+                self.four_combine_motor_result_subscription.destroy()
+                self.four_combine_motor_result_subscription = None
+            logger.info("四联组合电机控制结果监控已停止")
+            return True
+        except Exception as e:
+            logger.error(f"停止四联组合电机监控失败: {e}")
+            return False
+
     def get_robot_state(self) -> Dict[str, Any]:
         """获取机器人状态"""
         return self.robot_state.copy()
@@ -1243,6 +1294,89 @@ class ROS2Interface:
             logger.error(f"发布组合电机控制失败: {e}")
             return {"success": False, "error_msg": f"未知错误: {str(e)}"}
 
+    def publish_four_combine_motor_control(self, task_id: float,
+                                            control_head_pitch: bool = False, head_pitch_angle: float = 0.0,
+                                            control_neck_yaw: bool = False, neck_yaw_angle: float = 0.0,
+                                            control_neck_pitch: bool = False, neck_pitch_angle: float = 0.0,
+                                            control_neck_roll: bool = False, neck_roll_angle: float = 0.0,
+                                            control_chassis_move: bool = False, chassis_offset: float = 0.0,
+                                            control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
+                                            speed_level: int = 0) -> Dict[str, Any]:
+        """发布四联组合电机控制指令到 four_combine_motor_control 话题
+
+        用于头部电机 + 脖子（yaw/pitch/roll）+ 底盘（位移/旋转）的组合运控。
+        数据格式: Float32MultiArray(14字段)
+            data[0]  task_id
+            data[1]  control_head_pitch (0.0/1.0)
+            data[2]  head_pitch_angle (rad)
+            data[3]  control_neck_yaw (0.0/1.0)
+            data[4]  neck_yaw_angle (rad)
+            data[5]  control_neck_pitch (0.0/1.0)
+            data[6]  neck_pitch_angle (rad)
+            data[7]  control_neck_roll (0.0/1.0)
+            data[8]  neck_roll_angle (rad)
+            data[9]  control_chassis_move (0.0/1.0)
+            data[10] chassis_offset (m, +前进/-后退)
+            data[11] control_chassis_rotate (0.0/1.0)
+            data[12] chassis_rotation (rad, +逆时针/-顺时针)
+            data[13] speed_level (0=低速 1=中速 2=快速)
+        """
+        try:
+            if not ROS2_AVAILABLE or not self.initialized or not self.node:
+                logger.warning("ROS2不可用或未初始化，无法发布四联组合电机控制")
+                return {"success": False, "error_msg": "ROS2不可用或未初始化"}
+
+            if self.four_combine_motor_control_publisher is None:
+                try:
+                    from std_msgs.msg import Float32MultiArray
+                    self.four_combine_motor_control_publisher = self.node.create_publisher(
+                        Float32MultiArray,
+                        '/four_combine_motor_control',
+                        10
+                    )
+                except Exception as e:
+                    logger.error(f"创建四联组合电机控制发布者失败: {e}")
+                    return {"success": False, "error_msg": f"创建发布者失败: {str(e)}"}
+
+            try:
+                from std_msgs.msg import Float32MultiArray
+                msg = Float32MultiArray()
+                msg.data = [
+                    float(task_id),
+                    1.0 if control_head_pitch else 0.0,
+                    float(head_pitch_angle),
+                    1.0 if control_neck_yaw else 0.0,
+                    float(neck_yaw_angle),
+                    1.0 if control_neck_pitch else 0.0,
+                    float(neck_pitch_angle),
+                    1.0 if control_neck_roll else 0.0,
+                    float(neck_roll_angle),
+                    1.0 if control_chassis_move else 0.0,
+                    float(chassis_offset),
+                    1.0 if control_chassis_rotate else 0.0,
+                    float(chassis_rotation),
+                    float(speed_level)
+                ]
+                self.four_combine_motor_control_publisher.publish(msg)
+                logger.info(
+                    f"四联组合电机控制指令已发布: task_id={task_id}, "
+                    f"head_pitch={control_head_pitch}/{head_pitch_angle:.2f}, "
+                    f"neck_yaw={control_neck_yaw}/{neck_yaw_angle:.2f}, "
+                    f"neck_pitch={control_neck_pitch}/{neck_pitch_angle:.2f}, "
+                    f"neck_roll={control_neck_roll}/{neck_roll_angle:.2f}, "
+                    f"move={control_chassis_move}/{chassis_offset:.2f}, "
+                    f"rotate={control_chassis_rotate}/{chassis_rotation:.2f}, "
+                    f"speed={speed_level}"
+                )
+                return {"success": True}
+            except Exception as e:
+                logger.error(f"发布四联组合电机控制指令失败: {e}")
+                return {"success": False, "error_msg": f"发布失败: {str(e)}"}
+
+        except Exception as e:
+            logger.error(f"发布四联组合电机控制失败: {e}")
+            return {"success": False, "error_msg": f"未知错误: {str(e)}"}
+
     def publish_set_chassis_rotate_params(self, max_speed: float, min_speed: float, max_acceleration: float) -> Dict[str, Any]:
         """发布底盘旋转参数设置到 set_chassis_rotate_params 话题
 
@@ -1327,6 +1461,69 @@ class ROS2Interface:
             await asyncio.sleep(0.1)
 
         return {"success": False, "error_msg": "等待电机反馈超时"}
+
+    async def _wait_for_four_motor_result(self, task_id: int, timeout: float = 30.0) -> Dict[str, Any]:
+        """等待四联组合电机执行结果
+
+        Args:
+            task_id: 任务ID
+            timeout: 超时时间（秒）
+
+        Returns:
+            Dict[str, Any]: {"success": True/False, "result": 101/102/103/104, "error_msg": "..."}
+        """
+        import asyncio
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            if task_id in self.four_combine_motor_result:
+                result_value = self.four_combine_motor_result[task_id]["result"]
+                if result_value == MotorResultCode.SUCCESS:
+                    return {"success": True, "result": result_value}
+                elif result_value == MotorResultCode.FAILED:
+                    return {"success": False, "result": result_value, "error_msg": "四联电机执行失败"}
+                elif result_value == MotorResultCode.ABORTED:
+                    return {"success": False, "result": result_value, "error_msg": "四联电机执行中止"}
+                elif result_value == MotorResultCode.REJECTED:
+                    return {"success": False, "result": result_value, "error_msg": "四联电机拒绝执行"}
+            await asyncio.sleep(0.1)
+
+        return {"success": False, "error_msg": "等待四联电机反馈超时"}
+
+    async def _execute_four_motor_step(self, task_id: float,
+                                        control_head_pitch: bool = False, head_pitch_angle: float = 0.0,
+                                        control_neck_yaw: bool = False, neck_yaw_angle: float = 0.0,
+                                        control_neck_pitch: bool = False, neck_pitch_angle: float = 0.0,
+                                        control_neck_roll: bool = False, neck_roll_angle: float = 0.0,
+                                        control_chassis_move: bool = False, chassis_offset: float = 0.0,
+                                        control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
+                                        speed_level: int = 0, timeout: float = 30.0,
+                                        max_retries: int = 1) -> Dict[str, Any]:
+        """执行单步四联组合电机控制并等待反馈"""
+        for retry in range(max_retries):
+            self.four_combine_motor_result.pop(int(task_id), None)
+
+            result = self.publish_four_combine_motor_control(
+                task_id=task_id,
+                control_head_pitch=control_head_pitch, head_pitch_angle=head_pitch_angle,
+                control_neck_yaw=control_neck_yaw, neck_yaw_angle=neck_yaw_angle,
+                control_neck_pitch=control_neck_pitch, neck_pitch_angle=neck_pitch_angle,
+                control_neck_roll=control_neck_roll, neck_roll_angle=neck_roll_angle,
+                control_chassis_move=control_chassis_move, chassis_offset=chassis_offset,
+                control_chassis_rotate=control_chassis_rotate, chassis_rotation=chassis_rotation,
+                speed_level=speed_level
+            )
+            if not result["success"]:
+                return result
+
+            wait_result = await self._wait_for_four_motor_result(int(task_id), timeout=timeout)
+            if wait_result["success"]:
+                return wait_result
+
+            if retry < max_retries - 1:
+                logger.warning(f"四联电机步骤执行失败，重试 {retry + 1}/{max_retries}")
+
+        return wait_result
 
     async def _pitch_activate(self, activate_angle: float = 0.3273) -> None:
         """pitch电机激活：先小幅上仰再回位，唤醒电机
@@ -3739,6 +3936,78 @@ class ROS2Interface:
                 "error_msg": f"组合电机控制异常: {str(e)}"
             }
 
+    # ======================
+    # 四联组合电机控制接口（four_combine_motor_control）
+    # ======================
+
+    async def set_four_combine_motor_control(self,
+                                              control_head_pitch: bool = False, head_pitch_angle: float = 0.0,
+                                              control_neck_yaw: bool = False, neck_yaw_angle: float = 0.0,
+                                              control_neck_pitch: bool = False, neck_pitch_angle: float = 0.0,
+                                              control_neck_roll: bool = False, neck_roll_angle: float = 0.0,
+                                              control_chassis_move: bool = False, chassis_offset: float = 0.0,
+                                              control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
+                                              speed_level: int = 0, timeout: float = 30.0) -> Dict[str, Any]:
+        """四联组合电机控制（头部俯仰 + 脖子yaw/pitch/roll + 底盘位移/旋转）
+
+        Args:
+            control_head_pitch (bool): 是否控制头部俯仰
+            head_pitch_angle (float): 头部俯仰角度，单位：弧度
+            control_neck_yaw (bool): 是否控制脖子偏航
+            neck_yaw_angle (float): 脖子偏航角度，单位：弧度
+            control_neck_pitch (bool): 是否控制脖子俯仰
+            neck_pitch_angle (float): 脖子俯仰角度，单位：弧度
+            control_neck_roll (bool): 是否控制脖子翻滚
+            neck_roll_angle (float): 脖子翻滚角度，单位：弧度
+            control_chassis_move (bool): 是否控制底盘位移
+            chassis_offset (float): 底盘位置偏移，+前进 -后退，单位：米
+            control_chassis_rotate (bool): 是否控制底盘旋转
+            chassis_rotation (float): 底盘旋转，+逆时针 -顺时针，单位：弧度
+            speed_level (int): 档位 0=低速 1=中速 2=快速
+            timeout (float): 等待反馈超时（秒）
+
+        Returns:
+            Dict[str, Any]: 控制结果 {"success": bool, "result": int, "error_msg"?: str}
+        """
+        try:
+            self.start_four_combine_motor_monitoring()
+
+            task_id = self._next_motor_task_id()
+            result = await self._execute_four_motor_step(
+                task_id=task_id,
+                control_head_pitch=control_head_pitch, head_pitch_angle=float(head_pitch_angle),
+                control_neck_yaw=control_neck_yaw, neck_yaw_angle=float(neck_yaw_angle),
+                control_neck_pitch=control_neck_pitch, neck_pitch_angle=float(neck_pitch_angle),
+                control_neck_roll=control_neck_roll, neck_roll_angle=float(neck_roll_angle),
+                control_chassis_move=control_chassis_move, chassis_offset=float(chassis_offset),
+                control_chassis_rotate=control_chassis_rotate, chassis_rotation=float(chassis_rotation),
+                speed_level=int(speed_level), timeout=float(timeout)
+            )
+
+            if result.get("success"):
+                logger.info(
+                    f"四联组合电机控制成功 | task_id={task_id} | "
+                    f"head_pitch={control_head_pitch}/{head_pitch_angle:.2f} "
+                    f"neck_yaw={control_neck_yaw}/{neck_yaw_angle:.2f} "
+                    f"neck_pitch={control_neck_pitch}/{neck_pitch_angle:.2f} "
+                    f"neck_roll={control_neck_roll}/{neck_roll_angle:.2f} "
+                    f"move={control_chassis_move}/{chassis_offset:.2f} "
+                    f"rotate={control_chassis_rotate}/{chassis_rotation:.2f} "
+                    f"speed={speed_level}"
+                )
+            else:
+                logger.error(f"四联组合电机控制失败: {result.get('error_msg', '未知错误')}")
+
+            result["task_id"] = int(task_id)
+            return result
+
+        except Exception as e:
+            logger.error(f"四联组合电机控制异常: {e}")
+            return {
+                "success": False,
+                "error_msg": f"四联组合电机控制异常: {str(e)}"
+            }
+
     def set_chassis_rotate_params(self, max_speed: float, min_speed: float, max_acceleration: float) -> Dict[str, Any]:
         """设置底盘旋转参数（头部电机规控模块）
 
@@ -4110,7 +4379,7 @@ class SmartRobotAgent:
             "get_screen_tilt_state", "set_screen_tilt_jqr",
             "set_laser_pointer", "get_laser_pointer_state",
             "set_rgb", "get_rgb_light_strip_state", "delete_person",
-            "set_head_motor_control", "set_combine_motor_control", "head_reset_to_zero",
+            "set_head_motor_control", "set_combine_motor_control", "set_four_combine_motor_control", "head_reset_to_zero",
             "set_chassis_rotate_params",
             # 场景任务类型
             "user_position_tracking", "patrol_table_inspection",
@@ -4149,6 +4418,13 @@ class SmartRobotAgent:
                     logger.info("组合电机控制结果监控已启动")
                 else:
                     logger.warning("组合电机控制结果监控启动失败")
+
+                # 启动四联组合电机控制结果监控
+                four_combine_success = self.ros2_interface.start_four_combine_motor_monitoring()
+                if four_combine_success:
+                    logger.info("四联组合电机控制结果监控已启动")
+                else:
+                    logger.warning("四联组合电机控制结果监控启动失败")
             
             # 初始化USB串口通信
             usb_connected = await self.usb_manager.initialize()
@@ -4844,6 +5120,12 @@ Agent已知的能力（可用工具）:
         # 组合电机控制（combine_motor_control）
         elif task_type == "set_combine_motor_control" and hasattr(self, 'ros2_interface'):
             result = await self.ros2_interface.set_combine_motor_control(**params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
+        # 四联组合电机控制（four_combine_motor_control：头部俯仰+脖子yaw/pitch/roll+底盘移动/旋转）
+        elif task_type == "set_four_combine_motor_control" and hasattr(self, 'ros2_interface'):
+            result = await self.ros2_interface.set_four_combine_motor_control(**params)
             result["type"] = task_type
             result.pop("result", None)
             return result
