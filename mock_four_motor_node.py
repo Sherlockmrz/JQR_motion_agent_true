@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""四联组合电机控制模拟节点
+"""四自由度头颈运控组合电机控制模拟节点
 
 模拟下游电机控制器，订阅 /four_combine_motor_control 话题，
 根据指令模拟执行并在 /four_combine_motor_control_result 话题发布反馈。
 
-话题数据类型：std_msgs/msg/Float32MultiArray（14字段）
+话题数据类型：std_msgs/msg/Float32MultiArray（12字段）
     data[0]  task_id
-    data[1]  control_head_pitch (0.0/1.0)
-    data[2]  head_pitch_angle (rad)
-    data[3]  control_neck_yaw
-    data[4]  neck_yaw_angle (rad)
-    data[5]  control_neck_pitch
-    data[6]  neck_pitch_angle (rad)
-    data[7]  control_neck_roll
-    data[8]  neck_roll_angle (rad)
-    data[9]  control_chassis_move
-    data[10] chassis_offset (m)
-    data[11] control_chassis_rotate
-    data[12] chassis_rotation (rad)
-    data[13] speed_level
+    data[1]  control_yaw (0.0/1.0)            # 是否控制偏航
+    data[2]  yaw_angle (rad)                  # 偏航目标角度
+    data[3]  control_roll (0.0/1.0)           # 是否控制翻滚
+    data[4]  roll_angle (rad)                 # 翻滚目标角度
+    data[5]  control_pitch (0.0/1.0)          # 是否控制俯仰
+    data[6]  pitch_angle (rad)                # 俯仰目标角度
+    data[7]  control_chassis_move (0.0/1.0)   # 是否控制底盘位移
+    data[8]  chassis_offset (m)               # +前进 -后退
+    data[9]  control_chassis_rotate (0.0/1.0) # 是否控制底盘旋转
+    data[10] chassis_rotation (rad)           # +逆时针 -顺时针
+    data[11] speed_level                      # 0=低速 1=中速 2=快速, 其它按0处理
 
 用法:
     python3 mock_four_motor_node.py                      # 默认成功
@@ -53,7 +51,7 @@ RESULT_FAIL = 103.0
 RESULT_REJECT = 104.0
 
 SPEED_NAMES = {0: "低速", 1: "中速", 2: "快速"}
-FIELD_COUNT = 14
+FIELD_COUNT = 12
 
 
 def rad2deg(rad: float) -> float:
@@ -61,7 +59,7 @@ def rad2deg(rad: float) -> float:
 
 
 class MockFourMotorNode(Node):
-    """四联组合电机控制模拟节点"""
+    """四自由度头颈运控组合电机控制模拟节点"""
 
     def __init__(self, mode: str = "success", delay=None):
         super().__init__('mock_four_motor_controller')
@@ -94,30 +92,27 @@ class MockFourMotorNode(Node):
             return
 
         task_id = data[0]
-        control_head_pitch = data[1] == 1.0
-        head_pitch = data[2]
-        control_neck_yaw = data[3] == 1.0
-        neck_yaw = data[4]
-        control_neck_pitch = data[5] == 1.0
-        neck_pitch = data[6]
-        control_neck_roll = data[7] == 1.0
-        neck_roll = data[8]
-        control_chassis_move = data[9] == 1.0
-        chassis_offset = data[10]
-        control_chassis_rotate = data[11] == 1.0
-        chassis_rotation = data[12]
-        speed_level = int(data[13])
+        control_yaw = data[1] == 1.0
+        yaw_angle = data[2]
+        control_roll = data[3] == 1.0
+        roll_angle = data[4]
+        control_pitch = data[5] == 1.0
+        pitch_angle = data[6]
+        control_chassis_move = data[7] == 1.0
+        chassis_offset = data[8]
+        control_chassis_rotate = data[9] == 1.0
+        chassis_rotation = data[10]
+        raw_speed = int(data[11])
+        speed_level = raw_speed if raw_speed in (0, 1, 2) else 0
 
         self.get_logger().info("=" * 64)
-        self.get_logger().info(f"收到四联组合电机控制指令 | task_id={task_id:.0f}")
-        if control_head_pitch:
-            self.get_logger().info(f"  头部俯仰: {head_pitch:.4f} rad ({rad2deg(head_pitch):.1f}°)")
-        if control_neck_yaw:
-            self.get_logger().info(f"  脖子偏航: {neck_yaw:.4f} rad ({rad2deg(neck_yaw):.1f}°)")
-        if control_neck_pitch:
-            self.get_logger().info(f"  脖子俯仰: {neck_pitch:.4f} rad ({rad2deg(neck_pitch):.1f}°)")
-        if control_neck_roll:
-            self.get_logger().info(f"  脖子翻滚: {neck_roll:.4f} rad ({rad2deg(neck_roll):.1f}°)")
+        self.get_logger().info(f"收到四自由度头颈运控指令 | task_id={task_id:.0f}")
+        if control_yaw:
+            self.get_logger().info(f"  偏航 (yaw):   {yaw_angle:.4f} rad ({rad2deg(yaw_angle):.1f}°)")
+        if control_roll:
+            self.get_logger().info(f"  翻滚 (roll):  {roll_angle:.4f} rad ({rad2deg(roll_angle):.1f}°)")
+        if control_pitch:
+            self.get_logger().info(f"  俯仰 (pitch): {pitch_angle:.4f} rad ({rad2deg(pitch_angle):.1f}°)")
         if control_chassis_move:
             direction = "前进" if chassis_offset > 0 else "后退"
             self.get_logger().info(f"  底盘位移: {direction} {abs(chassis_offset):.3f} 米")
@@ -127,7 +122,7 @@ class MockFourMotorNode(Node):
                 f"  底盘旋转: {direction} {abs(chassis_rotation):.4f} rad ({abs(rad2deg(chassis_rotation)):.1f}°)"
             )
         self.get_logger().info(
-            f"  速度档位: {SPEED_NAMES.get(speed_level, '未知')} ({speed_level})"
+            f"  速度档位: {SPEED_NAMES.get(speed_level, '未知')} ({raw_speed}→{speed_level})"
         )
 
         thread = threading.Thread(
@@ -205,7 +200,7 @@ class MockFourMotorNode(Node):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="四联组合电机控制模拟节点")
+    parser = argparse.ArgumentParser(description="四自由度头颈运控组合电机控制模拟节点")
     parser.add_argument(
         "--mode", type=str, default="success",
         choices=["success", "fail", "abort", "reject", "random", "progress"],

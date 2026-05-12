@@ -1295,31 +1295,28 @@ class ROS2Interface:
             return {"success": False, "error_msg": f"未知错误: {str(e)}"}
 
     def publish_four_combine_motor_control(self, task_id: float,
-                                            control_head_pitch: bool = False, head_pitch_angle: float = 0.0,
-                                            control_neck_yaw: bool = False, neck_yaw_angle: float = 0.0,
-                                            control_neck_pitch: bool = False, neck_pitch_angle: float = 0.0,
-                                            control_neck_roll: bool = False, neck_roll_angle: float = 0.0,
+                                            control_yaw: bool = False, yaw_angle: float = 0.0,
+                                            control_roll: bool = False, roll_angle: float = 0.0,
+                                            control_pitch: bool = False, pitch_angle: float = 0.0,
                                             control_chassis_move: bool = False, chassis_offset: float = 0.0,
                                             control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
                                             speed_level: int = 0) -> Dict[str, Any]:
-        """发布四联组合电机控制指令到 four_combine_motor_control 话题
+        """发布四自由度头颈运控组合电机控制指令到 four_combine_motor_control 话题
 
-        用于头部电机 + 脖子（yaw/pitch/roll）+ 底盘（位移/旋转）的组合运控。
-        数据格式: Float32MultiArray(14字段)
+        用于头颈三轴（yaw/roll/pitch）+ 底盘（位移/旋转）的组合运控。
+        数据格式: Float32MultiArray(12字段)
             data[0]  task_id
-            data[1]  control_head_pitch (0.0/1.0)
-            data[2]  head_pitch_angle (rad)
-            data[3]  control_neck_yaw (0.0/1.0)
-            data[4]  neck_yaw_angle (rad)
-            data[5]  control_neck_pitch (0.0/1.0)
-            data[6]  neck_pitch_angle (rad)
-            data[7]  control_neck_roll (0.0/1.0)
-            data[8]  neck_roll_angle (rad)
-            data[9]  control_chassis_move (0.0/1.0)
-            data[10] chassis_offset (m, +前进/-后退)
-            data[11] control_chassis_rotate (0.0/1.0)
-            data[12] chassis_rotation (rad, +逆时针/-顺时针)
-            data[13] speed_level (0=低速 1=中速 2=快速)
+            data[1]  control_yaw (0.0/1.0)            # 是否控制偏航
+            data[2]  yaw_angle (rad)                  # 偏航目标角度
+            data[3]  control_roll (0.0/1.0)           # 是否控制翻滚
+            data[4]  roll_angle (rad)                 # 翻滚目标角度
+            data[5]  control_pitch (0.0/1.0)          # 是否控制俯仰
+            data[6]  pitch_angle (rad)                # 俯仰目标角度
+            data[7]  control_chassis_move (0.0/1.0)   # 是否控制底盘位移
+            data[8]  chassis_offset (m, +前进/-后退)  # 底盘位置偏移
+            data[9]  control_chassis_rotate (0.0/1.0) # 是否控制底盘旋转
+            data[10] chassis_rotation (rad, +逆时针/-顺时针)
+            data[11] speed_level (0=低速 1=中速 2=快速, 其它按0处理)
         """
         try:
             if not ROS2_AVAILABLE or not self.initialized or not self.node:
@@ -1343,14 +1340,12 @@ class ROS2Interface:
                 msg = Float32MultiArray()
                 msg.data = [
                     float(task_id),
-                    1.0 if control_head_pitch else 0.0,
-                    float(head_pitch_angle),
-                    1.0 if control_neck_yaw else 0.0,
-                    float(neck_yaw_angle),
-                    1.0 if control_neck_pitch else 0.0,
-                    float(neck_pitch_angle),
-                    1.0 if control_neck_roll else 0.0,
-                    float(neck_roll_angle),
+                    1.0 if control_yaw else 0.0,
+                    float(yaw_angle),
+                    1.0 if control_roll else 0.0,
+                    float(roll_angle),
+                    1.0 if control_pitch else 0.0,
+                    float(pitch_angle),
                     1.0 if control_chassis_move else 0.0,
                     float(chassis_offset),
                     1.0 if control_chassis_rotate else 0.0,
@@ -1360,10 +1355,9 @@ class ROS2Interface:
                 self.four_combine_motor_control_publisher.publish(msg)
                 logger.info(
                     f"四联组合电机控制指令已发布: task_id={task_id}, "
-                    f"head_pitch={control_head_pitch}/{head_pitch_angle:.2f}, "
-                    f"neck_yaw={control_neck_yaw}/{neck_yaw_angle:.2f}, "
-                    f"neck_pitch={control_neck_pitch}/{neck_pitch_angle:.2f}, "
-                    f"neck_roll={control_neck_roll}/{neck_roll_angle:.2f}, "
+                    f"yaw={control_yaw}/{yaw_angle:.2f}, "
+                    f"roll={control_roll}/{roll_angle:.2f}, "
+                    f"pitch={control_pitch}/{pitch_angle:.2f}, "
                     f"move={control_chassis_move}/{chassis_offset:.2f}, "
                     f"rotate={control_chassis_rotate}/{chassis_rotation:.2f}, "
                     f"speed={speed_level}"
@@ -1491,10 +1485,9 @@ class ROS2Interface:
         return {"success": False, "error_msg": "等待四联电机反馈超时"}
 
     async def _execute_four_motor_step(self, task_id: float,
-                                        control_head_pitch: bool = False, head_pitch_angle: float = 0.0,
-                                        control_neck_yaw: bool = False, neck_yaw_angle: float = 0.0,
-                                        control_neck_pitch: bool = False, neck_pitch_angle: float = 0.0,
-                                        control_neck_roll: bool = False, neck_roll_angle: float = 0.0,
+                                        control_yaw: bool = False, yaw_angle: float = 0.0,
+                                        control_roll: bool = False, roll_angle: float = 0.0,
+                                        control_pitch: bool = False, pitch_angle: float = 0.0,
                                         control_chassis_move: bool = False, chassis_offset: float = 0.0,
                                         control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
                                         speed_level: int = 0, timeout: float = 30.0,
@@ -1505,10 +1498,9 @@ class ROS2Interface:
 
             result = self.publish_four_combine_motor_control(
                 task_id=task_id,
-                control_head_pitch=control_head_pitch, head_pitch_angle=head_pitch_angle,
-                control_neck_yaw=control_neck_yaw, neck_yaw_angle=neck_yaw_angle,
-                control_neck_pitch=control_neck_pitch, neck_pitch_angle=neck_pitch_angle,
-                control_neck_roll=control_neck_roll, neck_roll_angle=neck_roll_angle,
+                control_yaw=control_yaw, yaw_angle=yaw_angle,
+                control_roll=control_roll, roll_angle=roll_angle,
+                control_pitch=control_pitch, pitch_angle=pitch_angle,
                 control_chassis_move=control_chassis_move, chassis_offset=chassis_offset,
                 control_chassis_rotate=control_chassis_rotate, chassis_rotation=chassis_rotation,
                 speed_level=speed_level
@@ -3941,29 +3933,26 @@ class ROS2Interface:
     # ======================
 
     async def set_four_combine_motor_control(self,
-                                              control_head_pitch: bool = False, head_pitch_angle: float = 0.0,
-                                              control_neck_yaw: bool = False, neck_yaw_angle: float = 0.0,
-                                              control_neck_pitch: bool = False, neck_pitch_angle: float = 0.0,
-                                              control_neck_roll: bool = False, neck_roll_angle: float = 0.0,
+                                              control_yaw: bool = False, yaw_angle: float = 0.0,
+                                              control_roll: bool = False, roll_angle: float = 0.0,
+                                              control_pitch: bool = False, pitch_angle: float = 0.0,
                                               control_chassis_move: bool = False, chassis_offset: float = 0.0,
                                               control_chassis_rotate: bool = False, chassis_rotation: float = 0.0,
                                               speed_level: int = 0, timeout: float = 30.0) -> Dict[str, Any]:
-        """四联组合电机控制（头部俯仰 + 脖子yaw/pitch/roll + 底盘位移/旋转）
+        """四自由度头颈运控组合电机控制（yaw/roll/pitch + 底盘位移/旋转）
 
         Args:
-            control_head_pitch (bool): 是否控制头部俯仰
-            head_pitch_angle (float): 头部俯仰角度，单位：弧度
-            control_neck_yaw (bool): 是否控制脖子偏航
-            neck_yaw_angle (float): 脖子偏航角度，单位：弧度
-            control_neck_pitch (bool): 是否控制脖子俯仰
-            neck_pitch_angle (float): 脖子俯仰角度，单位：弧度
-            control_neck_roll (bool): 是否控制脖子翻滚
-            neck_roll_angle (float): 脖子翻滚角度，单位：弧度
+            control_yaw (bool): 是否控制偏航
+            yaw_angle (float): 偏航目标角度，单位：弧度
+            control_roll (bool): 是否控制翻滚
+            roll_angle (float): 翻滚目标角度，单位：弧度
+            control_pitch (bool): 是否控制俯仰
+            pitch_angle (float): 俯仰目标角度，单位：弧度
             control_chassis_move (bool): 是否控制底盘位移
             chassis_offset (float): 底盘位置偏移，+前进 -后退，单位：米
             control_chassis_rotate (bool): 是否控制底盘旋转
             chassis_rotation (float): 底盘旋转，+逆时针 -顺时针，单位：弧度
-            speed_level (int): 档位 0=低速 1=中速 2=快速
+            speed_level (int): 档位 0=低速 1=中速 2=快速，其它按0处理
             timeout (float): 等待反馈超时（秒）
 
         Returns:
@@ -3975,10 +3964,9 @@ class ROS2Interface:
             task_id = self._next_motor_task_id()
             result = await self._execute_four_motor_step(
                 task_id=task_id,
-                control_head_pitch=control_head_pitch, head_pitch_angle=float(head_pitch_angle),
-                control_neck_yaw=control_neck_yaw, neck_yaw_angle=float(neck_yaw_angle),
-                control_neck_pitch=control_neck_pitch, neck_pitch_angle=float(neck_pitch_angle),
-                control_neck_roll=control_neck_roll, neck_roll_angle=float(neck_roll_angle),
+                control_yaw=control_yaw, yaw_angle=float(yaw_angle),
+                control_roll=control_roll, roll_angle=float(roll_angle),
+                control_pitch=control_pitch, pitch_angle=float(pitch_angle),
                 control_chassis_move=control_chassis_move, chassis_offset=float(chassis_offset),
                 control_chassis_rotate=control_chassis_rotate, chassis_rotation=float(chassis_rotation),
                 speed_level=int(speed_level), timeout=float(timeout)
@@ -3987,10 +3975,9 @@ class ROS2Interface:
             if result.get("success"):
                 logger.info(
                     f"四联组合电机控制成功 | task_id={task_id} | "
-                    f"head_pitch={control_head_pitch}/{head_pitch_angle:.2f} "
-                    f"neck_yaw={control_neck_yaw}/{neck_yaw_angle:.2f} "
-                    f"neck_pitch={control_neck_pitch}/{neck_pitch_angle:.2f} "
-                    f"neck_roll={control_neck_roll}/{neck_roll_angle:.2f} "
+                    f"yaw={control_yaw}/{yaw_angle:.2f} "
+                    f"roll={control_roll}/{roll_angle:.2f} "
+                    f"pitch={control_pitch}/{pitch_angle:.2f} "
                     f"move={control_chassis_move}/{chassis_offset:.2f} "
                     f"rotate={control_chassis_rotate}/{chassis_rotation:.2f} "
                     f"speed={speed_level}"

@@ -1,22 +1,20 @@
-// 四联组合电机控制协议说明
+// 四自由度头颈运控组合电机控制协议说明
 // 话题名: /four_combine_motor_control
 // 话题数据类型: std_msgs/msg/Float32MultiArray
 //
-// 数据字段(14字段):
+// 数据字段(12字段):
 //   data[0]  task_id                          # 任务ID，确保一个工作周期内唯一
-//   data[1]  control_head_pitch (0.0/1.0)     # 是否控制头部俯仰
-//   data[2]  head_pitch_angle (rad)           # 头部俯仰pitch角
-//   data[3]  control_neck_yaw (0.0/1.0)       # 是否控制脖子偏航
-//   data[4]  neck_yaw_angle (rad)             # 脖子偏航yaw角
-//   data[5]  control_neck_pitch (0.0/1.0)     # 是否控制脖子俯仰
-//   data[6]  neck_pitch_angle (rad)           # 脖子俯仰pitch角
-//   data[7]  control_neck_roll (0.0/1.0)      # 是否控制脖子翻滚
-//   data[8]  neck_roll_angle (rad)            # 脖子翻滚roll角
-//   data[9]  control_chassis_move (0.0/1.0)   # 是否控制底盘位移
-//   data[10] chassis_offset (m)               # 底盘位置偏移 +前进 -后退
-//   data[11] control_chassis_rotate (0.0/1.0) # 是否控制底盘旋转
-//   data[12] chassis_rotation (rad)           # 底盘旋转 +逆时针 -顺时针
-//   data[13] speed_level                      # 档位 0=低速 1=中速 2=快速，其它按0处理
+//   data[1]  control_yaw (0.0/1.0)            # 是否控制偏航
+//   data[2]  yaw_angle (rad)                  # 偏航目标角度
+//   data[3]  control_roll (0.0/1.0)           # 是否控制翻滚
+//   data[4]  roll_angle (rad)                 # 翻滚目标角度
+//   data[5]  control_pitch (0.0/1.0)          # 是否控制俯仰
+//   data[6]  pitch_angle (rad)                # 俯仰目标角度
+//   data[7]  control_chassis_move (0.0/1.0)   # 是否控制底盘位移
+//   data[8]  chassis_offset (m)               # 底盘位置偏移 +前进 -后退
+//   data[9]  control_chassis_rotate (0.0/1.0) # 是否控制底盘旋转
+//   data[10] chassis_rotation (rad)           # 底盘旋转 +逆时针 -顺时针
+//   data[11] speed_level                      # 0=低速 1=中速 2=快速，其它按0处理
 //
 // 反馈话题: /four_combine_motor_control_result
 // 反馈数据类型: std_msgs/msg/Float32MultiArray
@@ -25,22 +23,15 @@
 //
 // WebSocket/USB task_type: "set_four_combine_motor_control"
 
-// 1. 组合指令：同时控制所有自由度
+// 1. 组合指令：同时控制 yaw + roll + pitch + 底盘位移 + 底盘旋转
 {
   "type": "set_four_combine_motor_control",
   "params": {
-    "control_head_pitch": true,
-    "head_pitch_angle": -0.2618,
-    "control_neck_yaw": true,
-    "neck_yaw_angle": 0.7854,
-    "control_neck_pitch": true,
-    "neck_pitch_angle": 0.0,
-    "control_neck_roll": true,
-    "neck_roll_angle": 0.0,
-    "control_chassis_move": true,
-    "chassis_offset": 0.5,
-    "control_chassis_rotate": true,
-    "chassis_rotation": 1.5708,
+    "control_yaw": true,            "yaw_angle": 0.5236,
+    "control_roll": true,           "roll_angle": 0.0524,
+    "control_pitch": true,          "pitch_angle": -0.1745,
+    "control_chassis_move": true,   "chassis_offset": 0.5,
+    "control_chassis_rotate": true, "chassis_rotation": 1.5708,
     "speed_level": 1,
     "timeout": 30.0
   }
@@ -53,33 +44,58 @@
   "error_msg": ""
 }
 
-// 2. 仅控制头部俯仰
+// 2. 仅控制偏航 yaw
 {
   "type": "set_four_combine_motor_control",
   "params": {
-    "control_head_pitch": true,
-    "head_pitch_angle": -0.2618,
+    "control_yaw": true, "yaw_angle": 0.7854,
     "speed_level": 2
   }
 }
 
-// 3. 仅控制脖子三轴（yaw/pitch/roll）
+// 3. 仅控制俯仰 pitch
 {
   "type": "set_four_combine_motor_control",
   "params": {
-    "control_neck_yaw": true, "neck_yaw_angle": 0.5236,
-    "control_neck_pitch": true, "neck_pitch_angle": -0.1745,
-    "control_neck_roll": true, "neck_roll_angle": 0.0873,
+    "control_pitch": true, "pitch_angle": -0.2618,
+    "speed_level": 2
+  }
+}
+
+// 4. 头颈三轴：yaw + roll + pitch
+{
+  "type": "set_four_combine_motor_control",
+  "params": {
+    "control_yaw": true,   "yaw_angle": 0.5236,
+    "control_roll": true,  "roll_angle": 0.0873,
+    "control_pitch": true, "pitch_angle": -0.1745,
     "speed_level": 0
   }
 }
 
-// 4. 底盘前进+逆时针转
+// 5. 底盘前进+逆时针转
 {
   "type": "set_four_combine_motor_control",
   "params": {
-    "control_chassis_move": true, "chassis_offset": 0.3,
+    "control_chassis_move": true,   "chassis_offset": 0.3,
     "control_chassis_rotate": true, "chassis_rotation": 0.7854,
     "speed_level": 1
   }
 }
+
+// 6. 非法档位测试（speed_level=7 → 按 0 处理）
+{
+  "type": "set_four_combine_motor_control",
+  "params": {
+    "control_yaw": true, "yaw_angle": 0.1745,
+    "speed_level": 7
+  }
+}
+
+// ==================== 单位换算 ====================
+//   15°  = 0.2618 rad
+//   30°  = 0.5236 rad
+//   45°  = 0.7854 rad
+//   60°  = 1.0472 rad
+//   90°  = 1.5708 rad
+//   180° = 3.1416 rad
