@@ -4998,7 +4998,14 @@ Agent已知的能力（可用工具）:
             "get_laser_pointer_state": "获取激光笔状态",
             "set_rgb": "设置RGB灯",
             "get_rgb_light_strip_state": "获取RGB灯光状态",
-            "delete_person": "删除指定人脸人员"
+            "delete_person": "删除指定人脸人员",
+            "set_four_combine_waypoint_control": (
+                "头颈三轴(yaw/roll/pitch)+底盘(位移/旋转)多路点组合运控(仅位置模式)。"
+                "params 需含 waypoints(路点列表，每个路点支持 control_yaw/yaw_angle/"
+                "control_roll/roll_angle/control_pitch/pitch_angle/control_chassis_move/"
+                "chassis_offset/control_chassis_rotate/chassis_rotation/speed_level/timeout)；"
+                "可选 pose_mode(0=相对位姿 1=绝对位姿，缺省传0)"
+            )
         }
 
         for tool in available_tools:
