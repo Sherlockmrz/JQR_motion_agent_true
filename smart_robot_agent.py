@@ -1106,7 +1106,7 @@ class ROS2Interface:
                 from std_msgs.msg import Float32MultiArray
                 self.four_combine_motor_result_subscription = self.node.create_subscription(
                     Float32MultiArray,
-                    '/combine_motor_control_result',
+                    '/four_combine_motor_control_result',
                     self._four_combine_motor_result_callback,
                     10
                 )
@@ -1987,6 +1987,71 @@ class ROS2Interface:
 
         # 步骤3: 持续前进 + 头部回中
         return await _forward_until_head_done(0.0)
+
+    async def head_sweep_sequence(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """按序执行头颈 yaw/pitch/roll 摆动序列。
+
+        test_4dof_head_control.py 的场景3下发角度单位为度；内部统一转换为弧度后
+        调用 four_combine_motor_control，逐步等待每个路点完成。
+        """
+        import math
+
+        sequence = params.get("sequence")
+        if not isinstance(sequence, list) or not sequence:
+            return {"success": False, "error_msg": "sequence必须是非空列表"}
+
+        angle_unit = str(params.get("angle_unit", "deg")).lower()
+        default_speed = int(params.get("speed_level", params.get("speed", 1)))
+        default_timeout = float(params.get("timeout", 30.0))
+        step_results = []
+
+        def _to_rad(value: Any) -> float:
+            angle = float(value)
+            if angle_unit in ("rad", "radian", "radians"):
+                return angle
+            return math.radians(angle)
+
+        for index, step in enumerate(sequence, start=1):
+            if not isinstance(step, dict):
+                return {"success": False, "error_msg": f"sequence[{index}]必须是对象"}
+
+            yaw_key = "yaw" if "yaw" in step else "yaw_angle"
+            pitch_key = "pitch" if "pitch" in step else "pitch_angle"
+            roll_key = "roll" if "roll" in step else "roll_angle"
+
+            control_yaw = yaw_key in step
+            control_pitch = pitch_key in step
+            control_roll = roll_key in step
+            speed_level = int(step.get("speed_level", step.get("speed", default_speed)))
+            timeout = float(step.get("timeout", default_timeout))
+
+            result = await self.set_four_combine_motor_control(
+                control_yaw=control_yaw,
+                yaw_angle=_to_rad(step.get(yaw_key, 0.0)),
+                control_pitch=control_pitch,
+                pitch_angle=_to_rad(step.get(pitch_key, 0.0)),
+                control_roll=control_roll,
+                roll_angle=_to_rad(step.get(roll_key, 0.0)),
+                speed_level=speed_level,
+                timeout=timeout,
+            )
+            step_results.append({
+                "step": index,
+                "success": bool(result.get("success")),
+                "task_id": result.get("task_id"),
+                "error_msg": result.get("error_msg", ""),
+            })
+
+            if not result.get("success"):
+                return {
+                    "success": False,
+                    "error_msg": result.get("error_msg", f"第{index}步执行失败"),
+                    "failed_step": index,
+                    "steps": step_results,
+                }
+
+        return {"success": True, "steps": step_results}
+
     async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """声源在头部转角范围内
 
@@ -5437,6 +5502,11 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "move_forward_with_head_sweep":
             result = await self.ros2_interface.move_forward_with_head_sweep(params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
+        elif task_type == "head_sweep_sequence":
+            result = await self.ros2_interface.head_sweep_sequence(params)
             result["type"] = task_type
             result.pop("result", None)
             return result
