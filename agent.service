@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=forking
 User=sunrise
-ExecStart=/bin/bash /home/sunrise/Jrobot_agent/start_agent.sh
-WorkingDirectory=/home/sunrise/Jrobot_agent
+ExecStart=/bin/bash /home/sunrise/agent_head/Jrobot_agent/start_agent.sh
+WorkingDirectory=/home/sunrise/agent_head/Jrobot_agent
 RemainAfterExit=yes
 
 [Install]
