@@ -47,6 +47,7 @@ class MotorResultCode(IntEnum):
     ABORTED = 102
     FAILED = 103
     REJECTED = 104
+    MOTOR_ERROR_ABORTED = 105
 
 class MedicineBoxStatus(IntEnum):
     """药箱状态值 (实际协议中为 float，但值为整数)"""
@@ -1043,6 +1044,8 @@ class ROS2Interface:
                 task_id = int(data[0])
                 result = data[1]
                 self.combine_motor_result[task_id] = {"result": result}
+                if self.four_combine_motor_monitoring_active:
+                    self.four_combine_motor_result[task_id] = {"result": result}
                 logger.info(f"组合电机任务 {task_id} 结果: {result}")
         except Exception as e:
             logger.error(f"组合电机结果回调失败: {e}")
@@ -1103,7 +1106,7 @@ class ROS2Interface:
                 from std_msgs.msg import Float32MultiArray
                 self.four_combine_motor_result_subscription = self.node.create_subscription(
                     Float32MultiArray,
-                    '/four_combine_motor_control_result',
+                    '/combine_motor_control_result',
                     self._four_combine_motor_result_callback,
                     10
                 )
@@ -1607,7 +1610,7 @@ class ROS2Interface:
 
         while time.time() - start_time < timeout:
             if task_id in self.combine_motor_result:
-                result_value = self.combine_motor_result[task_id]["result"]
+                result_value = int(self.combine_motor_result[task_id]["result"])
                 if result_value == MotorResultCode.SUCCESS:
                     return {"success": True, "result": result_value}
                 elif result_value == MotorResultCode.FAILED:
@@ -1616,6 +1619,8 @@ class ROS2Interface:
                     return {"success": False, "result": result_value, "error_msg": "电机执行中止"}
                 elif result_value == MotorResultCode.REJECTED:
                     return {"success": False, "result": result_value, "error_msg": "电机拒绝执行"}
+                elif result_value == MotorResultCode.MOTOR_ERROR_ABORTED:
+                    return {"success": False, "result": result_value, "error_msg": "电机异常任务中止"}
             await asyncio.sleep(0.1)
 
         return {"success": False, "error_msg": "等待电机反馈超时"}
@@ -1635,7 +1640,7 @@ class ROS2Interface:
 
         while time.time() - start_time < timeout:
             if task_id in self.four_combine_motor_result:
-                result_value = self.four_combine_motor_result[task_id]["result"]
+                result_value = int(self.four_combine_motor_result[task_id]["result"])
                 if result_value == MotorResultCode.SUCCESS:
                     return {"success": True, "result": result_value}
                 elif result_value == MotorResultCode.FAILED:
@@ -1644,6 +1649,8 @@ class ROS2Interface:
                     return {"success": False, "result": result_value, "error_msg": "四联电机执行中止"}
                 elif result_value == MotorResultCode.REJECTED:
                     return {"success": False, "result": result_value, "error_msg": "四联电机拒绝执行"}
+                elif result_value == MotorResultCode.MOTOR_ERROR_ABORTED:
+                    return {"success": False, "result": result_value, "error_msg": "四联电机异常任务中止"}
             await asyncio.sleep(0.1)
 
         return {"success": False, "error_msg": "等待四联电机反馈超时"}
@@ -6304,5 +6311,3 @@ if __name__ == "__main__":
         print("程序被用户中断")
     except Exception as e:
         print(f"程序运行出错: {e}")
-
-
