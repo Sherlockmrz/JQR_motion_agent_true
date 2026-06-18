@@ -1988,11 +1988,13 @@ class ROS2Interface:
         # 步骤3: 持续前进 + 头部回中
         return await _forward_until_head_done(0.0)
 
-    async def head_sweep_sequence(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """按序执行头颈 yaw/pitch/roll 摆动序列。
+    async def four_dof_head_sequence(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """按序执行头颈 yaw/pitch/roll 序列，强制不控制底盘。
 
-        test_4dof_head_control.py 的场景3下发角度单位为度；内部统一转换为弧度后
-        调用 four_combine_motor_control，逐步等待每个路点完成。
+        用于 test_4dof_head_control.py 覆盖 1.png/2.png/3.png 中的头颈动作。
+        sequence 中角度默认单位为度，可通过 angle_unit=rad 改为弧度；每步可传
+        yaw/pitch/roll 或 yaw_angle/pitch_angle/roll_angle。speed_deg_s 会按
+        30/45/90°/s 映射到现有 speed_level 0/1/2。
         """
         import math
 
@@ -2011,9 +2013,22 @@ class ROS2Interface:
                 return angle
             return math.radians(angle)
 
+        def _speed_level_from_deg(deg_per_sec: float) -> int:
+            if deg_per_sec <= 30:
+                return 0
+            if deg_per_sec <= 45:
+                return 1
+            return 2
+
         for index, step in enumerate(sequence, start=1):
             if not isinstance(step, dict):
                 return {"success": False, "error_msg": f"sequence[{index}]必须是对象"}
+
+            if any(key in step for key in (
+                "control_chassis_move", "chassis_offset",
+                "control_chassis_rotate", "chassis_rotation",
+            )):
+                return {"success": False, "error_msg": f"sequence[{index}]包含底盘控制字段，本接口只允许头颈控制"}
 
             yaw_key = "yaw" if "yaw" in step else "yaw_angle"
             pitch_key = "pitch" if "pitch" in step else "pitch_angle"
@@ -2022,7 +2037,10 @@ class ROS2Interface:
             control_yaw = yaw_key in step
             control_pitch = pitch_key in step
             control_roll = roll_key in step
-            speed_level = int(step.get("speed_level", step.get("speed", default_speed)))
+            if "speed_deg_s" in step:
+                speed_level = _speed_level_from_deg(float(step.get("speed_deg_s", 45)))
+            else:
+                speed_level = int(step.get("speed_level", step.get("speed", default_speed)))
             timeout = float(step.get("timeout", default_timeout))
 
             result = await self.set_four_combine_motor_control(
@@ -2032,6 +2050,10 @@ class ROS2Interface:
                 pitch_angle=_to_rad(step.get(pitch_key, 0.0)),
                 control_roll=control_roll,
                 roll_angle=_to_rad(step.get(roll_key, 0.0)),
+                control_chassis_move=False,
+                chassis_offset=0.0,
+                control_chassis_rotate=False,
+                chassis_rotation=0.0,
                 speed_level=speed_level,
                 timeout=timeout,
             )
@@ -2039,6 +2061,7 @@ class ROS2Interface:
                 "step": index,
                 "success": bool(result.get("success")),
                 "task_id": result.get("task_id"),
+                "speed_level": speed_level,
                 "error_msg": result.get("error_msg", ""),
             })
 
@@ -2051,6 +2074,10 @@ class ROS2Interface:
                 }
 
         return {"success": True, "steps": step_results}
+
+    async def head_sweep_sequence(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """兼容旧测试脚本的头颈序列接口。"""
+        return await self.four_dof_head_sequence(params)
 
     async def wake_head_range(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """声源在头部转角范围内
@@ -4694,7 +4721,7 @@ class SmartRobotAgent:
             "set_laser_pointer", "get_laser_pointer_state",
             "set_rgb", "get_rgb_light_strip_state", "delete_person",
             "set_head_motor_control", "set_combine_motor_control", "set_four_combine_motor_control",
-            "set_four_combine_waypoint_control", "head_reset_to_zero",
+            "set_four_combine_waypoint_control", "four_dof_head_sequence", "head_sweep_sequence", "head_reset_to_zero",
             "set_chassis_rotate_params",
             # 场景任务类型
             "user_position_tracking", "patrol_table_inspection",
@@ -5071,6 +5098,12 @@ Agent已知的能力（可用工具）:
             "set_rgb": "设置RGB灯",
             "get_rgb_light_strip_state": "获取RGB灯光状态",
             "delete_person": "删除指定人脸人员",
+            "four_dof_head_sequence": (
+                "仅头颈三轴(yaw/roll/pitch)多步序列控制，不下发底盘。"
+                "params 需含 sequence；每步支持 yaw/pitch/roll 或 yaw_angle/pitch_angle/roll_angle，"
+                "可选 speed_deg_s/speed_level/timeout；angle_unit 默认 deg，可传 rad"
+            ),
+            "head_sweep_sequence": "兼容旧版头颈三轴序列控制，等价于 four_dof_head_sequence",
             "set_four_combine_waypoint_control": (
                 "头颈三轴(yaw/roll/pitch)+底盘(位移/旋转)多路点组合运控(仅位置模式)。"
                 "params 需含 waypoints(路点列表，每个路点支持 control_yaw/yaw_angle/"
@@ -5502,6 +5535,11 @@ Agent已知的能力（可用工具）:
             return result
         elif task_type == "move_forward_with_head_sweep":
             result = await self.ros2_interface.move_forward_with_head_sweep(params)
+            result["type"] = task_type
+            result.pop("result", None)
+            return result
+        elif task_type == "four_dof_head_sequence":
+            result = await self.ros2_interface.four_dof_head_sequence(params)
             result["type"] = task_type
             result.pop("result", None)
             return result

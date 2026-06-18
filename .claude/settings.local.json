@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l *.py)",
+      "Bash(find . -name \"*.py\" -exec wc -l {} +)",
+      "Bash(python3:*)"
+    ]
+  }
+}
