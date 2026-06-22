@@ -1,4 +1,19 @@
-# Environment files (may contain secrets)
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 .env
-.env.*
-!.env.example
+*.env
+.claude/
+.vscode/
+
+*.log
+history.db
+asm_data.json
+openapi_43.json
+
+*.zip
+*.mp4
+*.avi
+*.mov
