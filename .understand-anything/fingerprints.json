@@ -1,0 +1,3103 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "bcdd71df2cb4c5137c3e58d8f2b93528072279b1",
+  "generatedAt": "2026-06-22T05:54:25.618Z",
+  "files": {
+    ".claude/settings.local.json": {
+      "filePath": ".claude/settings.local.json",
+      "contentHash": "b9e6d8c1f691d03634f23d25c390fe7e9031877d084ee17b4102113e3808ef58",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": true
+    },
+    ".env.example": {
+      "filePath": ".env.example",
+      "contentHash": "0763033d55d0750f60312cbd131544802c29c6da307c81e78cb3d6e976cccdb3",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 24,
+      "hasStructuralAnalysis": true
+    },
+    "agent.service": {
+      "filePath": "agent.service",
+      "contentHash": "8cc47553fd6f6eb2cb55d23f449761573b24883d31f23cd069ed1f4c6973605e",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 14,
+      "hasStructuralAnalysis": false
+    },
+    "camera_rgb_service.py": {
+      "filePath": "camera_rgb_service.py",
+      "contentHash": "9111ee44e610503e1e0596539b6b724f66815afabe356839bd74dfe3bc81d778",
+      "functions": [
+        {
+          "name": "main",
+          "params": [
+            "args"
+          ],
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [
+        {
+          "name": "CameraRGBService",
+          "methods": [
+            "__init__",
+            "_check_image_files",
+            "_load_image",
+            "_create_compressed_image",
+            "get_rgb_images_callback"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 144
+        }
+      ],
+      "imports": [
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "rclpy",
+          "specifiers": [
+            "rclpy"
+          ]
+        },
+        {
+          "source": "rclpy.node",
+          "specifiers": [
+            "Node"
+          ]
+        },
+        {
+          "source": "sensor_msgs.msg",
+          "specifiers": [
+            "CompressedImage"
+          ]
+        },
+        {
+          "source": "jqr_ros_msgs.srv",
+          "specifiers": [
+            "RealSenseRGBImage"
+          ]
+        }
+      ],
+      "exports": [
+        "CameraRGBService",
+        "main"
+      ],
+      "totalLines": 178,
+      "hasStructuralAnalysis": true
+    },
+    "combine_motor_protocol.json": {
+      "filePath": "combine_motor_protocol.json",
+      "contentHash": "cb2f0ec001d60129455b435c8c88eb5850e646cbb6a388f31b479a83dfb09576",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 113,
+      "hasStructuralAnalysis": true
+    },
+    "config.py": {
+      "filePath": "config.py",
+      "contentHash": "ee6892b5ea9aa2956c673642f244f4f2ac263712db9a44886793a2a99f6ad6dc",
+      "functions": [],
+      "classes": [
+        {
+          "name": "AgentConfig",
+          "methods": [],
+          "properties": [
+            "AGENT_VERSION",
+            "LOCAL_MODEL_URI",
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL",
+            "OPENAI_MODEL",
+            "USB_SERIAL_PORT",
+            "USB_SERIAL_BAUDRATE",
+            "DB_PATH",
+            "ASM_JSON_PATH",
+            "VIDEO_BASE_DIR",
+            "WEBSOCKET_HOST",
+            "WEBSOCKET_PORT",
+            "WELCOME_POSITION_FILE",
+            "USB_SERIAL_ENABLED",
+            "MAX_REACT_ITERATIONS",
+            "AGENT_MEMORY_SIZE"
+          ],
+          "exported": true,
+          "lineCount": 68
+        }
+      ],
+      "imports": [
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "dataclasses",
+          "specifiers": [
+            "dataclass",
+            "field"
+          ]
+        }
+      ],
+      "exports": [
+        "AgentConfig"
+      ],
+      "totalLines": 77,
+      "hasStructuralAnalysis": true
+    },
+    "four_combine_motor_protocol.json": {
+      "filePath": "four_combine_motor_protocol.json",
+      "contentHash": "c946ccb64dac8cc7051e183a9ae521c350c21bc66a595bc27848e6b3d99b0aca",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 102,
+      "hasStructuralAnalysis": true
+    },
+    "FOUR_WAYPOINT_CONTROL_README.md": {
+      "filePath": "FOUR_WAYPOINT_CONTROL_README.md",
+      "contentHash": "b2bdb0aa12fe389afd31e0aff06b9b05c73a0092edd54e50c4ad5fbc6315a972",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 288,
+      "hasStructuralAnalysis": true
+    },
+    "jqr_ros_msgs/CMakeLists.txt": {
+      "filePath": "jqr_ros_msgs/CMakeLists.txt",
+      "contentHash": "fd9696db5594062fe537c3a45116d6993d515b6238a520b7ae34696c53da754c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 67,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/msg/BatteryLevel.msg": {
+      "filePath": "jqr_ros_msgs/msg/BatteryLevel.msg",
+      "contentHash": "4e3a3073e3181451cc3d8e7a92098ebd1f8fc23e68f91705a3aa360e60e7abf5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 1,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/msg/BoundingBox2D.msg": {
+      "filePath": "jqr_ros_msgs/msg/BoundingBox2D.msg",
+      "contentHash": "89e8313c62c7c182b9267e3421ccfcc5e9b385d4c7d66e83de3e89462d6abe38",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 4,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/package.xml": {
+      "filePath": "jqr_ros_msgs/package.xml",
+      "contentHash": "ca2388384f92ba0731598b615df09a1c680d5f2795921d71eb12f8394bca4462",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 29,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/FaceDelete.srv": {
+      "filePath": "jqr_ros_msgs/srv/FaceDelete.srv",
+      "contentHash": "630e7a0642a7d89a64e6eebaef5042a5bbe0205a6c11c3c3197259f9f781d841",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/FaceRecognition.srv": {
+      "filePath": "jqr_ros_msgs/srv/FaceRecognition.srv",
+      "contentHash": "1f4847071c11f830eb5df6ac76f8996f83cdd0b69604fd0e2bc89edb16e5871b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/FaceRegistration.srv": {
+      "filePath": "jqr_ros_msgs/srv/FaceRegistration.srv",
+      "contentHash": "cc948fc97d3b36ea6c24162ac381efdab2a588d50654c35590dfe559a8b2cd75",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 7,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/LaserPointer.srv": {
+      "filePath": "jqr_ros_msgs/srv/LaserPointer.srv",
+      "contentHash": "3dee2d241f45cd031228ddb146d7810a3a28ec509b4ef9fe01798def36357453",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/LaserPointerState.srv": {
+      "filePath": "jqr_ros_msgs/srv/LaserPointerState.srv",
+      "contentHash": "6597e14c95a7ed49fb5465b68277ab6115a51ebcc8881cd8e8635d90e1cd7bbc",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/MedicineBoxState.srv": {
+      "filePath": "jqr_ros_msgs/srv/MedicineBoxState.srv",
+      "contentHash": "3b4bc4b45741798dc78e649ce4e3f3ef358ff4a51560ec3f898a455a27962e88",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/MedicineBoxSwitch.srv": {
+      "filePath": "jqr_ros_msgs/srv/MedicineBoxSwitch.srv",
+      "contentHash": "8048835c9851ed8eebb23190ee40ebf9abdf5eec5f8cf03b5229262eddd30dca",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/MoveMode.srv": {
+      "filePath": "jqr_ros_msgs/srv/MoveMode.srv",
+      "contentHash": "63a21e9371f8393f4245f8e8fb11afbab2babbfbca7742b94b329f759c49ff61",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RealSenseDepthImage.srv": {
+      "filePath": "jqr_ros_msgs/srv/RealSenseDepthImage.srv",
+      "contentHash": "84bb2f72bd99c81513f7918caf5df1022db57f8c7d562266a0fb03eb5576a74d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RealSenseRGBImage.srv": {
+      "filePath": "jqr_ros_msgs/srv/RealSenseRGBImage.srv",
+      "contentHash": "df89b4e536d9dfa76c0ed207dbd0ed954b36ab6f73630b1be7436ac1219af0aa",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RgbLightStrip.srv": {
+      "filePath": "jqr_ros_msgs/srv/RgbLightStrip.srv",
+      "contentHash": "0e5d6e274d91d2327af02a30b4e3ba7d2d368b3b5d928204008e0be801b31d9a",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 10,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RgbLightStripState.srv": {
+      "filePath": "jqr_ros_msgs/srv/RgbLightStripState.srv",
+      "contentHash": "fad7c94f5918873a3737903610cb287aa23932b3cfb483b52255cb90eb10fce5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 9,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RobotRise.srv": {
+      "filePath": "jqr_ros_msgs/srv/RobotRise.srv",
+      "contentHash": "b0abcfc75e90479a0cab21ef4b07e47c424056fe08240c93e5b8c63e7e1ba807",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RobotRiseState.srv": {
+      "filePath": "jqr_ros_msgs/srv/RobotRiseState.srv",
+      "contentHash": "fb4cee2ea7833ed1bae7894468e8a07e72887d639925d48ab69f0d7dfe2019e6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RobotTilt.srv": {
+      "filePath": "jqr_ros_msgs/srv/RobotTilt.srv",
+      "contentHash": "18015470d2aca738248204d279c40aec7ca5e1a3a915e06162f05c69efe57d89",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/RobotTiltState.srv": {
+      "filePath": "jqr_ros_msgs/srv/RobotTiltState.srv",
+      "contentHash": "2e942df6517d0fd56ed9cdb13750faeeb95036a458135b62dc0597514f739f20",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/ScreenTilt.srv": {
+      "filePath": "jqr_ros_msgs/srv/ScreenTilt.srv",
+      "contentHash": "47fecf1b0a28ddce4d5ed88f8111f996d5d39574801a85b717bb6036406b14de",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": false
+    },
+    "jqr_ros_msgs/srv/ScreenTiltState.srv": {
+      "filePath": "jqr_ros_msgs/srv/ScreenTiltState.srv",
+      "contentHash": "ace35ff9bccdac85506286dfcff119440131dc39c149e78c02d6ec093871c0da",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 5,
+      "hasStructuralAnalysis": false
+    },
+    "local_model_bridge.py": {
+      "filePath": "local_model_bridge.py",
+      "contentHash": "54431eb65b9a711855c4e375560445c4adf54f0b6fd15808b7dd7944fc74c915",
+      "functions": [
+        {
+          "name": "call_http_llm",
+          "params": [
+            "prompt"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 21
+        },
+        {
+          "name": "handle_client",
+          "params": [
+            "websocket"
+          ],
+          "exported": true,
+          "lineCount": 113
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        },
+        {
+          "source": "openai",
+          "specifiers": [
+            "OpenAI"
+          ]
+        }
+      ],
+      "exports": [
+        "call_http_llm",
+        "handle_client",
+        "main"
+      ],
+      "totalLines": 174,
+      "hasStructuralAnalysis": true
+    },
+    "mock_four_motor_node.py": {
+      "filePath": "mock_four_motor_node.py",
+      "contentHash": "fe8d9300ccc78ac95200b466109c79ad86b7090b7a181d610ce789ebee073a6d",
+      "functions": [
+        {
+          "name": "rad2deg",
+          "params": [
+            "rad"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 24
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockFourMotorNode",
+          "methods": [
+            "__init__",
+            "_on_motor_command",
+            "_simulate_execution",
+            "_simulate_with_progress",
+            "_publish_result"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 139
+        }
+      ],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "random",
+          "specifiers": [
+            "random"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        }
+      ],
+      "exports": [
+        "rad2deg",
+        "MockFourMotorNode",
+        "main"
+      ],
+      "totalLines": 230,
+      "hasStructuralAnalysis": true
+    },
+    "mock_four_waypoint_node.py": {
+      "filePath": "mock_four_waypoint_node.py",
+      "contentHash": "f8d2d8c2af4588cb519f9ea414ec65ef30beae77092f6bd77baec800ad7354bf",
+      "functions": [
+        {
+          "name": "rad2deg",
+          "params": [
+            "rad"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 24
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockFourWaypointNode",
+          "methods": [
+            "__init__",
+            "_on_waypoint_command",
+            "_log_waypoint",
+            "_simulate_waypoint_execution",
+            "_simulate_with_progress",
+            "_publish_result"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 200
+        }
+      ],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "random",
+          "specifiers": [
+            "random"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        }
+      ],
+      "exports": [
+        "rad2deg",
+        "MockFourWaypointNode",
+        "main"
+      ],
+      "totalLines": 301,
+      "hasStructuralAnalysis": true
+    },
+    "mock_motor_node.py": {
+      "filePath": "mock_motor_node.py",
+      "contentHash": "0b27f69f9105fa09abeccf14c4c5309c90c119fa3498015af93907364f02e4ae",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 20
+        }
+      ],
+      "classes": [
+        {
+          "name": "MockMotorNode",
+          "methods": [
+            "__init__",
+            "_on_motor_command",
+            "_simulate_execution",
+            "_simulate_with_progress",
+            "_publish_result"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 144
+        }
+      ],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "random",
+          "specifiers": [
+            "random"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        }
+      ],
+      "exports": [
+        "MockMotorNode",
+        "main"
+      ],
+      "totalLines": 218,
+      "hasStructuralAnalysis": true
+    },
+    "nav2_msgs/action/NavigateToPose.action": {
+      "filePath": "nav2_msgs/action/NavigateToPose.action",
+      "contentHash": "b8bf87ca746ca32163279a3c27181436c73801a23c204738826b612fc3045a23",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 13,
+      "hasStructuralAnalysis": false
+    },
+    "nav2_msgs/CMakeLists.txt": {
+      "filePath": "nav2_msgs/CMakeLists.txt",
+      "contentHash": "2f67bb0bc6683e78f7005b21c9c43b5b704079e7d93d52841d8878a9d5f633b0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 22,
+      "hasStructuralAnalysis": false
+    },
+    "nav2_msgs/package.xml": {
+      "filePath": "nav2_msgs/package.xml",
+      "contentHash": "991afc5f006481eb2b3ef7f4d3fef82728fbef448b55b5d3a043ad45343d74bb",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 29,
+      "hasStructuralAnalysis": false
+    },
+    "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md": {
+      "filePath": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+      "contentHash": "e49496cb33737bab36249ede4f947e46589cc0ffda3e620bdb0460a37beb9d84",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 301,
+      "hasStructuralAnalysis": true
+    },
+    "obstacle_avoidance_protocol.json": {
+      "filePath": "obstacle_avoidance_protocol.json",
+      "contentHash": "89067cfa917fe0af30dcee8f3bb74ba4f17e78a9fa830aa2f85d243f9a4f8346",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 106,
+      "hasStructuralAnalysis": true
+    },
+    "protocol_parser.py": {
+      "filePath": "protocol_parser.py",
+      "contentHash": "2315272ffd74c5d815aac57a2b5aac633d6207696861f44165ca51bc9e69d396",
+      "functions": [],
+      "classes": [
+        {
+          "name": "CommandType",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "ParserState",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "ParseResult",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "FrameData",
+          "methods": [
+            "__init__",
+            "reset"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "ProtocolParser",
+          "methods": [
+            "__init__",
+            "reset",
+            "parse_byte",
+            "parse_buffer",
+            "extract_json_from_frame",
+            "extract_json_data",
+            "create_response_frame",
+            "print_frame_info"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 213
+        }
+      ],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "enum",
+          "specifiers": [
+            "IntEnum"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Optional",
+            "Dict",
+            "Any",
+            "Tuple",
+            "List",
+            "Tuple"
+          ]
+        }
+      ],
+      "exports": [
+        "CommandType",
+        "ParserState",
+        "ParseResult",
+        "FrameData",
+        "ProtocolParser"
+      ],
+      "totalLines": 266,
+      "hasStructuralAnalysis": true
+    },
+    "quick_test_4dof.sh": {
+      "filePath": "quick_test_4dof.sh",
+      "contentHash": "3428a458fd6ee3ea825445bfaca849d8b60578d1a8e472864e518f8fb472fb5b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 62,
+      "hasStructuralAnalysis": true
+    },
+    "README_4DOF_TEST.md": {
+      "filePath": "README_4DOF_TEST.md",
+      "contentHash": "9848e3ac9d3a8a097d044967f5eda5a22157b76b1b2e5866bc5ce5d9c2deabe6",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 171,
+      "hasStructuralAnalysis": true
+    },
+    "README.en.md": {
+      "filePath": "README.en.md",
+      "contentHash": "a99cf16caf18955f1318078fe09c05f580a04c1408e8939ff0f2d23545370b9c",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "README.md": {
+      "filePath": "README.md",
+      "contentHash": "7f6e6548d9c03c900fe85ab1982b449ea0b6d59dba494df6a34880e131e12190",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 56,
+      "hasStructuralAnalysis": true
+    },
+    "requirements_websocket.txt": {
+      "filePath": "requirements_websocket.txt",
+      "contentHash": "6029ccfd9320e69e9dd7a45cf37e1f83e0c06bf5ec798e07cd42db3253432ca7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 8,
+      "hasStructuralAnalysis": false
+    },
+    "rk.rules": {
+      "filePath": "rk.rules",
+      "contentHash": "833b8378c271b79252edc0fff95b562e638102d20b31ac49b5ae06ec470390de",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2,
+      "hasStructuralAnalysis": false
+    },
+    "run_e2e_test.sh": {
+      "filePath": "run_e2e_test.sh",
+      "contentHash": "928cabeee8447e62128d61c0954bb3c12ae2e6f6a877fff45624f8e09d7e2867",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 34,
+      "hasStructuralAnalysis": true
+    },
+    "smart_robot_agent.py": {
+      "filePath": "smart_robot_agent.py",
+      "contentHash": "58b2ae8f069cc5555caf1f64624e9ce474fc8f91434564f51dc829ea42db6d38",
+      "functions": [
+        {
+          "name": "parse_ros2_response",
+          "params": [
+            "response"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 82
+        },
+        {
+          "name": "fix_asm_json_format",
+          "params": [],
+          "exported": true,
+          "lineCount": 65
+        },
+        {
+          "name": "get_db_connection",
+          "params": [
+            "db_path"
+          ],
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "init_database",
+          "params": [],
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "save_to_history",
+          "params": [
+            "command",
+            "response"
+          ],
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "battery_callback",
+          "params": [
+            "msg"
+          ],
+          "exported": true,
+          "lineCount": 37
+        },
+        {
+          "name": "stop_following",
+          "params": [],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "stop_navigation",
+          "params": [],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "notify_navigation_model_stop_following",
+          "params": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "stop_follow",
+          "params": [],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 40
+        },
+        {
+          "name": "stop_navigate",
+          "params": [],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 39
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 36
+        }
+      ],
+      "classes": [
+        {
+          "name": "ResultCode",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "MotorResultCode",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "MedicineBoxStatus",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "CallbackGroupType",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "RobotStateManager",
+          "methods": [
+            "__new__",
+            "__init__",
+            "battery_level",
+            "battery_level",
+            "agent_instance",
+            "agent_instance",
+            "battery_node",
+            "battery_node",
+            "battery_thread",
+            "battery_thread",
+            "battery_thread_running",
+            "battery_thread_running",
+            "robot_pose_node",
+            "robot_pose_node",
+            "robot_pose_thread",
+            "robot_pose_thread",
+            "robot_pose_thread_running",
+            "robot_pose_thread_running"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 92
+        },
+        {
+          "name": "Thought",
+          "methods": [
+            "__init__",
+            "__repr__"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "AgentThought",
+          "methods": [
+            "__init__",
+            "__repr__"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "Observation",
+          "methods": [
+            "__init__",
+            "__repr__"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "AgentMemory",
+          "methods": [
+            "__init__",
+            "add_thought",
+            "add_action",
+            "add_observation",
+            "add_task",
+            "get_recent_context",
+            "get_last_observation",
+            "clear_episode"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 66
+        },
+        {
+          "name": "ROS2Interface",
+          "methods": [
+            "__init__",
+            "set_laser_pointer",
+            "get_laser_pointer_state",
+            "delete_person",
+            "start_battery_monitoring",
+            "stop_battery_monitoring",
+            "start_robot_state_monitoring",
+            "stop_robot_state_monitoring",
+            "_robot_state_callback",
+            "_rgb_state_callback",
+            "start_rgb_state_monitoring",
+            "stop_rgb_state_monitoring",
+            "_next_motor_task_id",
+            "_combine_motor_result_callback",
+            "start_combine_motor_monitoring",
+            "stop_combine_motor_monitoring",
+            "_four_combine_motor_result_callback",
+            "start_four_combine_motor_monitoring",
+            "stop_four_combine_motor_monitoring",
+            "_four_combine_waypoint_result_callback",
+            "start_four_combine_waypoint_monitoring",
+            "stop_four_combine_waypoint_monitoring",
+            "get_robot_state",
+            "get_battery_level",
+            "publish_motor_control",
+            "publish_head_motor_control",
+            "publish_combine_motor_control",
+            "publish_four_combine_motor_control",
+            "publish_four_combine_waypoint_control",
+            "publish_set_chassis_rotate_params",
+            "_wait_for_motor_result",
+            "_wait_for_four_motor_result",
+            "_wait_for_waypoint_result",
+            "_execute_four_motor_step",
+            "_pitch_activate",
+            "_execute_motor_step",
+            "user_position_tracking",
+            "patrol_table_inspection",
+            "move_forward_with_head_sweep",
+            "four_dof_head_sequence",
+            "head_sweep_sequence",
+            "wake_head_range",
+            "wake_beyond_head_range",
+            "wake_side_moving",
+            "wake_back_moving",
+            "obstacle_avoidance_turn",
+            "head_reset_to_zero",
+            "_initialize_ros2",
+            "_start_ros2_spin_thread",
+            "_create_callback_groups",
+            "_ros2_spin_worker",
+            "stop_ros2_spin_thread",
+            "cleanup_ros2",
+            "_check_ros2_service_exists",
+            "_check_ros2_action_exists",
+            "_get_or_create_service_client",
+            "_create_sensor_msgs_image",
+            "_set_request_field_complex",
+            "_call_ros2_service_async",
+            "_call_ros2_service",
+            "subscribe_robot_position",
+            "_position_callback",
+            "record_current_position",
+            "get_last_position",
+            "get_initial_position",
+            "navigate_to_position",
+            "get_move_mode",
+            "set_robot_rise_jqr",
+            "get_robot_rise_state",
+            "set_robot_tilt_jqr",
+            "_call_ros2_action",
+            "set_medicine_box_switch",
+            "get_medicine_box_state",
+            "set_rgb_light_strip",
+            "set_rgb",
+            "get_rgb_light_strip_state",
+            "find_person",
+            "get_robot_tilt_state",
+            "get_robot_rise",
+            "set_screen_tilt_jqr",
+            "get_screen_tilt_state",
+            "set_head_motor_control",
+            "set_combine_motor_control",
+            "set_four_combine_motor_control",
+            "set_four_combine_waypoint_control",
+            "set_chassis_rotate_params"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 3786
+        },
+        {
+          "name": "USBCoordinateManager",
+          "methods": [
+            "__init__",
+            "initialize",
+            "_handle_received_message",
+            "_process_message_in_thread",
+            "send_message",
+            "cleanup"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 127
+        },
+        {
+          "name": "SmartRobotAgent",
+          "methods": [
+            "__init__",
+            "initialize",
+            "_message_processor",
+            "_cleanup_stale_tasks",
+            "handle_client_message",
+            "send_response_to_client",
+            "_execute_task_async",
+            "_execute_task_concurrent",
+            "analyze_with_llm",
+            "_build_system_prompt",
+            "_call_llm_for_analysis",
+            "_decompose_find_object_task",
+            "execute_task",
+            "_convert_agent_result_to_client_response",
+            "_execute_task_by_type",
+            "query_asm_object",
+            "query_history_db",
+            "find_object",
+            "go_to_object",
+            "follow_person",
+            "stop_follow",
+            "go_find_person",
+            "stop_move",
+            "has_active_navigation_tasks",
+            "record_position_before_navigation",
+            "back_to_last_position",
+            "go_to_door",
+            "connect_to_local_model",
+            "send_to_local_model",
+            "emergency_stop",
+            "interrupt",
+            "get_websocket_stats",
+            "cleanup"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 1710
+        }
+      ],
+      "imports": [
+        {
+          "source": "base64",
+          "specifiers": [
+            "base64"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "sqlite3",
+          "specifiers": [
+            "sqlite3"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "contextlib",
+          "specifiers": [
+            "contextmanager"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Optional",
+            "Dict",
+            "Any",
+            "List"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "queue",
+          "specifiers": [
+            "queue"
+          ]
+        },
+        {
+          "source": "enum",
+          "specifiers": [
+            "IntEnum"
+          ]
+        },
+        {
+          "source": "websocket_control_server",
+          "specifiers": [
+            "WebSocketControlServer"
+          ]
+        },
+        {
+          "source": "config",
+          "specifiers": [
+            "config"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "subprocess",
+          "specifiers": [
+            "subprocess"
+          ]
+        }
+      ],
+      "exports": [
+        "ResultCode",
+        "MotorResultCode",
+        "MedicineBoxStatus",
+        "CallbackGroupType",
+        "RobotStateManager",
+        "parse_ros2_response",
+        "fix_asm_json_format",
+        "get_db_connection",
+        "init_database",
+        "save_to_history",
+        "Thought",
+        "AgentThought",
+        "Observation",
+        "AgentMemory",
+        "ROS2Interface",
+        "battery_callback",
+        "USBCoordinateManager",
+        "stop_following",
+        "stop_navigation",
+        "notify_navigation_model_stop_following",
+        "stop_follow",
+        "stop_navigate",
+        "SmartRobotAgent",
+        "main"
+      ],
+      "totalLines": 6422,
+      "hasStructuralAnalysis": true
+    },
+    "start_agent.sh": {
+      "filePath": "start_agent.sh",
+      "contentHash": "503183529432980d12f740b877472d3eb39954ed93d949fee29344bac63779f0",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 28,
+      "hasStructuralAnalysis": true
+    },
+    "start_websocket_test.sh": {
+      "filePath": "start_websocket_test.sh",
+      "contentHash": "cb1038952a743de1772cd4b1208ba140a5ede00df13a4f315a8701080133cd07",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 78,
+      "hasStructuralAnalysis": true
+    },
+    "test_4dof_head_control.py": {
+      "filePath": "test_4dof_head_control.py",
+      "contentHash": "7c3d6db5b1d67e3bd4f1f378531e10a911a7dd851f292aad48228e37efd5ffbe",
+      "functions": [
+        {
+          "name": "log",
+          "params": [
+            "msg"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "deg",
+          "params": [
+            "value"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "speed_level_for",
+          "params": [
+            "deg_per_sec"
+          ],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "head_command",
+          "params": [
+            "yaw",
+            "pitch",
+            "roll",
+            "speed_deg_s",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 26
+        },
+        {
+          "name": "head_sequence",
+          "params": [
+            "steps",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "input_optional_float",
+          "params": [
+            "prompt"
+          ],
+          "returnType": "Optional[float]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "input_float",
+          "params": [
+            "prompt",
+            "default"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "build_head_4dof_command",
+          "params": [],
+          "returnType": "Optional[Dict[str, Any]]",
+          "exported": true,
+          "lineCount": 22
+        },
+        {
+          "name": "command_has_chassis_control",
+          "params": [
+            "command"
+          ],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "send_and_recv",
+          "params": [
+            "websocket",
+            "command",
+            "timeout"
+          ],
+          "returnType": "Optional[Dict[str, Any]]",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "response_success",
+          "params": [
+            "resp"
+          ],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "print_scenario_menu",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "run_scenario",
+          "params": [
+            "websocket",
+            "scenario"
+          ],
+          "returnType": "bool",
+          "exported": true,
+          "lineCount": 33
+        },
+        {
+          "name": "main",
+          "params": [
+            "ws_uri"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 47
+        },
+        {
+          "name": "parse_args",
+          "params": [],
+          "returnType": "argparse.Namespace",
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Any",
+            "Dict",
+            "List",
+            "Optional"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "log",
+        "deg",
+        "speed_level_for",
+        "head_command",
+        "head_sequence",
+        "input_optional_float",
+        "input_float",
+        "build_head_4dof_command",
+        "command_has_chassis_control",
+        "send_and_recv",
+        "response_success",
+        "print_scenario_menu",
+        "run_scenario",
+        "main",
+        "parse_args"
+      ],
+      "totalLines": 416,
+      "hasStructuralAnalysis": true
+    },
+    "test_agent_client.py": {
+      "filePath": "test_agent_client.py",
+      "contentHash": "1ba540666f40306dba2c96c5e2d3fe2e4867b921c07b9d5d2aa4c6a9fa97c213",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 51
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        }
+      ],
+      "exports": [
+        "main"
+      ],
+      "totalLines": 60,
+      "hasStructuralAnalysis": true
+    },
+    "test_agent_stop_client.py": {
+      "filePath": "test_agent_stop_client.py",
+      "contentHash": "d388d1f8349639df79011a069ad2b43509c525b127ddc8b428d5c4623e95b4ab",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 36
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "main"
+      ],
+      "totalLines": 45,
+      "hasStructuralAnalysis": true
+    },
+    "test_auto_run.py": {
+      "filePath": "test_auto_run.py",
+      "contentHash": "e2d10e376eb4980729a0662b28911998ec5c832b3608c498355eaef97ac92166",
+      "functions": [
+        {
+          "name": "log",
+          "params": [
+            "msg"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "run_all",
+          "params": [],
+          "exported": true,
+          "lineCount": 63
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "log",
+        "run_all"
+      ],
+      "totalLines": 127,
+      "hasStructuralAnalysis": true
+    },
+    "test_e2e_report.json": {
+      "filePath": "test_e2e_report.json",
+      "contentHash": "945653a3fe4a3f3971a9a3f21e208169ab8782869f49a941922bef6fa6e871b4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 88,
+      "hasStructuralAnalysis": true
+    },
+    "test_e2e_scenarios.py": {
+      "filePath": "test_e2e_scenarios.py",
+      "contentHash": "bafc0e0f414939d168a4bebe2af983cf6d958e4104616dbaa6b2b19dd4fba25e",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 88
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "smart_robot_agent",
+          "specifiers": [
+            "SmartRobotAgent",
+            "robot_state"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "main"
+      ],
+      "totalLines": 135,
+      "hasStructuralAnalysis": true
+    },
+    "test_four_combine_motor.py": {
+      "filePath": "test_four_combine_motor.py",
+      "contentHash": "707d29ef71c59e682cd7be61b877c8253e32ff9f2e1ddca2ad556b1d1301bb2f",
+      "functions": [
+        {
+          "name": "case_yaw_only",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "case_roll_only",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "case_pitch_only",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "case_neck_three_axis",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "case_chassis_only",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "case_full_combo",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "case_negative_chassis",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "case_invalid_speed",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "_collect",
+          "params": [
+            "client",
+            "task_id",
+            "name",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "run_selected",
+          "params": [
+            "client",
+            "names",
+            "timeout"
+          ],
+          "returnType": "List[Dict[str, Any]]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "print_summary",
+          "params": [
+            "results"
+          ],
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [
+        {
+          "name": "UpstreamTestClient",
+          "methods": [
+            "__init__",
+            "_on_result",
+            "next_task_id",
+            "send",
+            "wait_for_final"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 91
+        }
+      ],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Dict",
+            "Any",
+            "List",
+            "Optional"
+          ]
+        }
+      ],
+      "exports": [
+        "UpstreamTestClient",
+        "case_yaw_only",
+        "case_roll_only",
+        "case_pitch_only",
+        "case_neck_three_axis",
+        "case_chassis_only",
+        "case_full_combo",
+        "case_negative_chassis",
+        "case_invalid_speed",
+        "_collect",
+        "run_selected",
+        "print_summary",
+        "main"
+      ],
+      "totalLines": 340,
+      "hasStructuralAnalysis": true
+    },
+    "test_four_waypoint_control.py": {
+      "filePath": "test_four_waypoint_control.py",
+      "contentHash": "44f56dc83c9378c2b4eaac21dc909ef9a729e250ace3825580fbba73b8a78fa7",
+      "functions": [
+        {
+          "name": "case_single_waypoint",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "case_multi_waypoint",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 32
+        },
+        {
+          "name": "case_complex_sequence",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 50
+        },
+        {
+          "name": "case_absolute_pose",
+          "params": [
+            "client",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "_collect",
+          "params": [
+            "client",
+            "task_id",
+            "name",
+            "timeout"
+          ],
+          "returnType": "Dict[str, Any]",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "run_selected",
+          "params": [
+            "client",
+            "names",
+            "timeout"
+          ],
+          "returnType": "List[Dict[str, Any]]",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "print_summary",
+          "params": [
+            "results"
+          ],
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        }
+      ],
+      "classes": [
+        {
+          "name": "UpstreamWaypointTestClient",
+          "methods": [
+            "__init__",
+            "_on_result",
+            "next_task_id",
+            "send_waypoints",
+            "wait_for_final"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 105
+        }
+      ],
+      "imports": [
+        {
+          "source": "argparse",
+          "specifiers": [
+            "argparse"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Dict",
+            "Any",
+            "List",
+            "Optional"
+          ]
+        }
+      ],
+      "exports": [
+        "UpstreamWaypointTestClient",
+        "case_single_waypoint",
+        "case_multi_waypoint",
+        "case_complex_sequence",
+        "case_absolute_pose",
+        "_collect",
+        "run_selected",
+        "print_summary",
+        "main"
+      ],
+      "totalLines": 370,
+      "hasStructuralAnalysis": true
+    },
+    "test_http_43.py": {
+      "filePath": "test_http_43.py",
+      "contentHash": "7e40f5d0a977630123ac8d0a50a95020e85d8a044a7c7e87fc5559030119addb",
+      "functions": [],
+      "classes": [],
+      "imports": [
+        {
+          "source": "openai",
+          "specifiers": [
+            "OpenAI"
+          ]
+        }
+      ],
+      "exports": [],
+      "totalLines": 23,
+      "hasStructuralAnalysis": true
+    },
+    "test_mock_server.py": {
+      "filePath": "test_mock_server.py",
+      "contentHash": "a60b96353af367ee8afba05c95433e210488eddbd87b8bfdfb00ec39b3298ffa",
+      "functions": [
+        {
+          "name": "log",
+          "params": [
+            "msg"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "handle_motor_command",
+          "params": [
+            "task_type",
+            "params"
+          ],
+          "exported": true,
+          "lineCount": 37
+        },
+        {
+          "name": "handler",
+          "params": [
+            "websocket"
+          ],
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        }
+      ],
+      "exports": [
+        "log",
+        "handle_motor_command",
+        "handler",
+        "main"
+      ],
+      "totalLines": 108,
+      "hasStructuralAnalysis": true
+    },
+    "test_model_ws.py": {
+      "filePath": "test_model_ws.py",
+      "contentHash": "4d5f87e4f41839fd5ae98cc43207c5a4e631a7c5d9fd06f6c00c8ef688b8dbb0",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 57
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        }
+      ],
+      "exports": [
+        "main"
+      ],
+      "totalLines": 66,
+      "hasStructuralAnalysis": true
+    },
+    "test_obstacle_avoidance.py": {
+      "filePath": "test_obstacle_avoidance.py",
+      "contentHash": "4a4979ca0f14c5b4c265d4a2f4f266c1e0b017a235dd2fe94437ae0bed28a467",
+      "functions": [
+        {
+          "name": "test_obstacle_avoidance",
+          "params": [],
+          "exported": true,
+          "lineCount": 56
+        },
+        {
+          "name": "test_with_custom_angle",
+          "params": [],
+          "exported": true,
+          "lineCount": 35
+        },
+        {
+          "name": "test_default_params",
+          "params": [],
+          "exported": true,
+          "lineCount": 31
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 43
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        }
+      ],
+      "exports": [
+        "test_obstacle_avoidance",
+        "test_with_custom_angle",
+        "test_default_params",
+        "main"
+      ],
+      "totalLines": 191,
+      "hasStructuralAnalysis": true
+    },
+    "test_results.json": {
+      "filePath": "test_results.json",
+      "contentHash": "f6e9d64d4d7d08161ca444655d7693d92d2d43317e48f42608d4411c86013496",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 113,
+      "hasStructuralAnalysis": true
+    },
+    "test_stop_ws.py": {
+      "filePath": "test_stop_ws.py",
+      "contentHash": "19131079e0bf82a08b89ff1ae01476cf92e63cfb487182930063baade7718729",
+      "functions": [
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 24
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "main"
+      ],
+      "totalLines": 32,
+      "hasStructuralAnalysis": true
+    },
+    "TEST_SUMMARY_4DOF.md": {
+      "filePath": "TEST_SUMMARY_4DOF.md",
+      "contentHash": "f7bc8e441c9dab92918a4ea6abfce41b4f0337473301ca39f5039690c1f4ee6d",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 208,
+      "hasStructuralAnalysis": true
+    },
+    "test_waypoint_integration.sh": {
+      "filePath": "test_waypoint_integration.sh",
+      "contentHash": "9717627952c0239f269fc63cb65092165036fb8cf5b4bce06dda07dd13980dc9",
+      "functions": [
+        {
+          "name": "cleanup",
+          "params": [],
+          "exported": false,
+          "lineCount": 8
+        }
+      ],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 78,
+      "hasStructuralAnalysis": true
+    },
+    "test_websocket_control.py": {
+      "filePath": "test_websocket_control.py",
+      "contentHash": "f5271c6a71dfaf372274f8b4db4a386ce804e66969573182bf6ec12f02f1eb9a",
+      "functions": [
+        {
+          "name": "log",
+          "params": [
+            "msg"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "send_and_recv",
+          "params": [
+            "websocket",
+            "command",
+            "timeout"
+          ],
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "print_scenario_menu",
+          "params": [],
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "input_float",
+          "params": [
+            "prompt",
+            "default"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "input_int",
+          "params": [
+            "prompt",
+            "default"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "build_head_motor_command",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "build_chassis_command",
+          "params": [],
+          "exported": true,
+          "lineCount": 30
+        },
+        {
+          "name": "run_scenario",
+          "params": [
+            "websocket",
+            "scenario"
+          ],
+          "exported": true,
+          "lineCount": 38
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 61
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "log",
+        "send_and_recv",
+        "print_scenario_menu",
+        "input_float",
+        "input_int",
+        "build_head_motor_command",
+        "build_chassis_command",
+        "run_scenario",
+        "main"
+      ],
+      "totalLines": 453,
+      "hasStructuralAnalysis": true
+    },
+    "test_ws_only.py": {
+      "filePath": "test_ws_only.py",
+      "contentHash": "6127490687b0d12cd45247419095fdf21905b38db8a7d4aa57dbd339a1d07bb4",
+      "functions": [
+        {
+          "name": "test_uri",
+          "params": [
+            "uri"
+          ],
+          "exported": true,
+          "lineCount": 12
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "test_uri",
+        "main"
+      ],
+      "totalLines": 26,
+      "hasStructuralAnalysis": true
+    },
+    "test.py": {
+      "filePath": "test.py",
+      "contentHash": "183b311cc1a33b1231632e5d39b9f6cfe0770d2fb91534b5a16d72a819acb684",
+      "functions": [
+        {
+          "name": "log",
+          "params": [
+            "msg"
+          ],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "send_and_recv",
+          "params": [
+            "websocket",
+            "command",
+            "timeout"
+          ],
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "run_keyboard_control",
+          "params": [
+            "ws_uri"
+          ],
+          "exported": true,
+          "lineCount": 146
+        },
+        {
+          "name": "print_scenario_menu",
+          "params": [],
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "input_float",
+          "params": [
+            "prompt",
+            "default"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "input_int",
+          "params": [
+            "prompt",
+            "default"
+          ],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "build_head_motor_command",
+          "params": [],
+          "exported": true,
+          "lineCount": 29
+        },
+        {
+          "name": "build_chassis_command",
+          "params": [],
+          "exported": true,
+          "lineCount": 30
+        },
+        {
+          "name": "run_scenario",
+          "params": [
+            "websocket",
+            "scenario"
+          ],
+          "exported": true,
+          "lineCount": 38
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 71
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "select",
+          "specifiers": [
+            "select"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        },
+        {
+          "source": "termios",
+          "specifiers": [
+            "termios"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "tty",
+          "specifiers": [
+            "tty"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "log",
+        "send_and_recv",
+        "run_keyboard_control",
+        "print_scenario_menu",
+        "input_float",
+        "input_int",
+        "build_head_motor_command",
+        "build_chassis_command",
+        "run_scenario",
+        "main"
+      ],
+      "totalLines": 629,
+      "hasStructuralAnalysis": true
+    },
+    "usb_serial_manager.py": {
+      "filePath": "usb_serial_manager.py",
+      "contentHash": "2798ae5e637c834bbc6cc6abf320d0007cbc64e7571166e4f8b68dad5296c6fc",
+      "functions": [],
+      "classes": [
+        {
+          "name": "SerialManager",
+          "methods": [
+            "__init__",
+            "add_callback",
+            "remove_callback",
+            "connect",
+            "start_receiving",
+            "stop_receiving",
+            "_receive_loop",
+            "_process_received_data",
+            "_handle_received_message",
+            "_handle_task_response",
+            "_find_matching_task_id",
+            "_is_final_result",
+            "send_message",
+            "register_task",
+            "acquire_task_type_lock",
+            "release_task_type_lock",
+            "get_task_responses",
+            "clear_task_responses",
+            "_record_sent_message",
+            "_is_self_sent_message",
+            "_is_agent_response",
+            "_trigger_reconnect",
+            "_reconnect_loop",
+            "is_connected"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 514
+        },
+        {
+          "name": "VirtualSerialPort",
+          "methods": [
+            "__init__",
+            "read",
+            "write",
+            "flush",
+            "close",
+            "_generate_test_data"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 56
+        }
+      ],
+      "imports": [
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Optional",
+            "Callable",
+            "Dict",
+            "Any",
+            "List",
+            "Tuple"
+          ]
+        },
+        {
+          "source": "protocol_parser",
+          "specifiers": [
+            "ProtocolParser",
+            "CommandType",
+            "ParseResult"
+          ]
+        }
+      ],
+      "exports": [
+        "SerialManager",
+        "VirtualSerialPort"
+      ],
+      "totalLines": 587,
+      "hasStructuralAnalysis": true
+    },
+    "VERIFICATION_SUMMARY.md": {
+      "filePath": "VERIFICATION_SUMMARY.md",
+      "contentHash": "f88adbcf757e991cf2aaecc0ec185c9436d5ad29c57327bda05ef350a3c9ae13",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 184,
+      "hasStructuralAnalysis": true
+    },
+    "verify_4dof_test.py": {
+      "filePath": "verify_4dof_test.py",
+      "contentHash": "92e6c2f413529bb44216eba332efd648dd3c7689d367b2841e5216c8ea184f22",
+      "functions": [
+        {
+          "name": "test_scenario_definitions",
+          "params": [],
+          "exported": true,
+          "lineCount": 19
+        },
+        {
+          "name": "test_angle_conversion",
+          "params": [],
+          "exported": true,
+          "lineCount": 24
+        },
+        {
+          "name": "test_command_structure",
+          "params": [],
+          "exported": true,
+          "lineCount": 46
+        },
+        {
+          "name": "test_ros2_coordinate_system",
+          "params": [],
+          "exported": true,
+          "lineCount": 33
+        },
+        {
+          "name": "test_comparison_with_original",
+          "params": [],
+          "exported": true,
+          "lineCount": 24
+        },
+        {
+          "name": "test_json_serialization",
+          "params": [],
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "main",
+          "params": [],
+          "exported": true,
+          "lineCount": 39
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "math",
+          "specifiers": [
+            "math"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "sys",
+          "specifiers": [
+            "sys"
+          ]
+        }
+      ],
+      "exports": [
+        "test_scenario_definitions",
+        "test_angle_conversion",
+        "test_command_structure",
+        "test_ros2_coordinate_system",
+        "test_comparison_with_original",
+        "test_json_serialization",
+        "main"
+      ],
+      "totalLines": 240,
+      "hasStructuralAnalysis": true
+    },
+    "WEBSOCKET_CHANGES.md": {
+      "filePath": "WEBSOCKET_CHANGES.md",
+      "contentHash": "1c4b2bbddc061f08176bc89fcdf56a20ff2f4aee5bbc93f10b99268142d37629",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 210,
+      "hasStructuralAnalysis": true
+    },
+    "websocket_control_client.html": {
+      "filePath": "websocket_control_client.html",
+      "contentHash": "3ccc91f9ec886985ba118486f53b6631dea4cbe87c3b59db1634c007d2825018",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 569,
+      "hasStructuralAnalysis": false
+    },
+    "WEBSOCKET_CONTROL_README.md": {
+      "filePath": "WEBSOCKET_CONTROL_README.md",
+      "contentHash": "634b3683ca4a49d0abfb78ccd66f8077216b723974d3e6c70d27c18f18d9a49f",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 321,
+      "hasStructuralAnalysis": true
+    },
+    "websocket_control_server.py": {
+      "filePath": "websocket_control_server.py",
+      "contentHash": "cc58fcb4f0e41ea8dad8d79f0b86119e5481b532e5450a23344598d0a0e4ed75",
+      "functions": [],
+      "classes": [
+        {
+          "name": "WebSocketControlServer",
+          "methods": [
+            "__init__",
+            "start",
+            "_run_server",
+            "_handle_client",
+            "_handle_message",
+            "stop_async",
+            "stop",
+            "get_stats",
+            "broadcast_message"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 329
+        }
+      ],
+      "imports": [
+        {
+          "source": "asyncio",
+          "specifiers": [
+            "asyncio"
+          ]
+        },
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "datetime"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Dict",
+            "Any",
+            "Optional"
+          ]
+        },
+        {
+          "source": "websockets",
+          "specifiers": [
+            "websockets"
+          ]
+        }
+      ],
+      "exports": [
+        "WebSocketControlServer"
+      ],
+      "totalLines": 344,
+      "hasStructuralAnalysis": true
+    },
+    "websocket_test_panel.html": {
+      "filePath": "websocket_test_panel.html",
+      "contentHash": "ba1c7ec9cce3eff0afc6d9b7dc67c1ee2033dbee4df2fbae2f0da79d4a0b5af5",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 238,
+      "hasStructuralAnalysis": false
+    }
+  }
+}

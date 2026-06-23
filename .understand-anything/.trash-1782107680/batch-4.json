@@ -1,0 +1,604 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 25,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".claude/settings.local.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 9,
+      "nonEmptyLines": 9,
+      "sections": [
+        {
+          "heading": "permissions",
+          "level": 1,
+          "line": 2
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 1
+      }
+    },
+    {
+      "path": "agent.service",
+      "language": "service",
+      "fileCategory": "code",
+      "totalLines": 13,
+      "nonEmptyLines": 11,
+      "metrics": {}
+    },
+    {
+      "path": "camera_rgb_service.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 177,
+      "nonEmptyLines": 136,
+      "functions": [
+        {
+          "name": "main",
+          "startLine": 161,
+          "endLine": 173,
+          "params": [
+            "args"
+          ]
+        }
+      ],
+      "classes": [
+        {
+          "name": "CameraRGBService",
+          "startLine": 15,
+          "endLine": 158,
+          "methods": [
+            "__init__",
+            "_check_image_files",
+            "_load_image",
+            "_create_compressed_image",
+            "get_rgb_images_callback"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "CameraRGBService",
+          "line": 15,
+          "isDefault": false
+        },
+        {
+          "name": "main",
+          "line": 161,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__init__",
+          "callee": "super().__init__",
+          "lineNumber": 33
+        },
+        {
+          "caller": "__init__",
+          "callee": "super",
+          "lineNumber": 33
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.create_service",
+          "lineNumber": 36
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.get_logger().info",
+          "lineNumber": 42
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.get_logger",
+          "lineNumber": 42
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.get_logger().info",
+          "lineNumber": 43
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.get_logger",
+          "lineNumber": 43
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.get_logger().info",
+          "lineNumber": 44
+        },
+        {
+          "caller": "__init__",
+          "callee": "self.get_logger",
+          "lineNumber": 44
+        },
+        {
+          "caller": "__init__",
+          "callee": "os.path.abspath",
+          "lineNumber": 44
+        },
+        {
+          "caller": "__init__",
+          "callee": "self._check_image_files",
+          "lineNumber": 47
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.IMAGE_FILES.items",
+          "lineNumber": 52
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "os.path.join",
+          "lineNumber": 53
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "os.path.exists",
+          "lineNumber": 54
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "missing_files.append",
+          "lineNumber": 55
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger().warning",
+          "lineNumber": 58
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger",
+          "lineNumber": 58
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger().warning",
+          "lineNumber": 60
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger",
+          "lineNumber": 60
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger().warning",
+          "lineNumber": 61
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger",
+          "lineNumber": 61
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger().info",
+          "lineNumber": 63
+        },
+        {
+          "caller": "_check_image_files",
+          "callee": "self.get_logger",
+          "lineNumber": 63
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.IMAGE_FILES.get",
+          "lineNumber": 75
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger().error",
+          "lineNumber": 77
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger",
+          "lineNumber": 77
+        },
+        {
+          "caller": "_load_image",
+          "callee": "os.path.join",
+          "lineNumber": 80
+        },
+        {
+          "caller": "_load_image",
+          "callee": "os.path.exists",
+          "lineNumber": 82
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger().warning",
+          "lineNumber": 83
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger",
+          "lineNumber": 83
+        },
+        {
+          "caller": "_load_image",
+          "callee": "open",
+          "lineNumber": 86
+        },
+        {
+          "caller": "_load_image",
+          "callee": "f.read",
+          "lineNumber": 87
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger().debug",
+          "lineNumber": 89
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger",
+          "lineNumber": 89
+        },
+        {
+          "caller": "_load_image",
+          "callee": "len",
+          "lineNumber": 89
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger().error",
+          "lineNumber": 93
+        },
+        {
+          "caller": "_load_image",
+          "callee": "self.get_logger",
+          "lineNumber": 93
+        },
+        {
+          "caller": "_create_compressed_image",
+          "callee": "self._load_image",
+          "lineNumber": 106
+        },
+        {
+          "caller": "_create_compressed_image",
+          "callee": "CompressedImage",
+          "lineNumber": 109
+        },
+        {
+          "caller": "_create_compressed_image",
+          "callee": "self.get_clock().now().to_msg",
+          "lineNumber": 110
+        },
+        {
+          "caller": "_create_compressed_image",
+          "callee": "self.get_clock().now",
+          "lineNumber": 110
+        },
+        {
+          "caller": "_create_compressed_image",
+          "callee": "self.get_clock",
+          "lineNumber": 110
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().info",
+          "lineNumber": 127
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 127
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "len",
+          "lineNumber": 127
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "valid_camera_ids.append",
+          "lineNumber": 133
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().warning",
+          "lineNumber": 135
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 135
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().error",
+          "lineNumber": 138
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 138
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().info",
+          "lineNumber": 141
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 141
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self._create_compressed_image",
+          "lineNumber": 145
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "response.camera_ids.append",
+          "lineNumber": 146
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "response.rgb_images_compressed.append",
+          "lineNumber": 147
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().debug",
+          "lineNumber": 150
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 150
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "len",
+          "lineNumber": 150
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().warning",
+          "lineNumber": 152
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 152
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger().info",
+          "lineNumber": 154
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "self.get_logger",
+          "lineNumber": 154
+        },
+        {
+          "caller": "get_rgb_images_callback",
+          "callee": "len",
+          "lineNumber": 155
+        },
+        {
+          "caller": "main",
+          "callee": "rclpy.init",
+          "lineNumber": 163
+        },
+        {
+          "caller": "main",
+          "callee": "CameraRGBService",
+          "lineNumber": 165
+        },
+        {
+          "caller": "main",
+          "callee": "rclpy.spin",
+          "lineNumber": 168
+        },
+        {
+          "caller": "main",
+          "callee": "camera_rgb_service.destroy_node",
+          "lineNumber": 172
+        },
+        {
+          "caller": "main",
+          "callee": "rclpy.shutdown",
+          "lineNumber": 173
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 1,
+        "classCount": 1
+      }
+    },
+    {
+      "path": "jqr_ros_msgs/CMakeLists.txt",
+      "language": "txt",
+      "fileCategory": "docs",
+      "totalLines": 66,
+      "nonEmptyLines": 53,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/msg/BatteryLevel.msg",
+      "language": "msg",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 1,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/msg/BoundingBox2D.msg",
+      "language": "msg",
+      "fileCategory": "code",
+      "totalLines": 4,
+      "nonEmptyLines": 4,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/package.xml",
+      "language": "xml",
+      "fileCategory": "config",
+      "totalLines": 28,
+      "nonEmptyLines": 22,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/FaceDelete.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/FaceRecognition.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 8,
+      "nonEmptyLines": 8,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/FaceRegistration.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 7,
+      "nonEmptyLines": 7,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/LaserPointer.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/LaserPointerState.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/MedicineBoxState.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/MedicineBoxSwitch.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/MoveMode.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RealSenseDepthImage.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RealSenseRGBImage.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RgbLightStrip.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 10,
+      "nonEmptyLines": 10,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RgbLightStripState.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 9,
+      "nonEmptyLines": 9,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotRise.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotRiseState.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotTilt.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotTiltState.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/ScreenTilt.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 6,
+      "metrics": {}
+    },
+    {
+      "path": "jqr_ros_msgs/srv/ScreenTiltState.srv",
+      "language": "srv",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    }
+  ]
+}

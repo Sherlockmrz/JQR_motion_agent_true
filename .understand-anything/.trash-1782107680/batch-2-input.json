@@ -1,0 +1,187 @@
+{
+    "projectRoot":  "C:\\Users\\rzma\\Downloads\\JQR_motion_agent_new\\Jrobot_agent",
+    "batchFiles":  [
+                       {
+                           "path":  ".env.example",
+                           "language":  "config",
+                           "sizeLines":  23,
+                           "fileCategory":  "config"
+                       },
+                       {
+                           "path":  "FOUR_WAYPOINT_CONTROL_README.md",
+                           "language":  "markdown",
+                           "sizeLines":  287,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+                           "language":  "markdown",
+                           "sizeLines":  300,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "README.en.md",
+                           "language":  "markdown",
+                           "sizeLines":  25,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "README.md",
+                           "language":  "markdown",
+                           "sizeLines":  55,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "README_4DOF_TEST.md",
+                           "language":  "markdown",
+                           "sizeLines":  170,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "TEST_SUMMARY_4DOF.md",
+                           "language":  "markdown",
+                           "sizeLines":  207,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "VERIFICATION_SUMMARY.md",
+                           "language":  "markdown",
+                           "sizeLines":  183,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "WEBSOCKET_CHANGES.md",
+                           "language":  "markdown",
+                           "sizeLines":  209,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "WEBSOCKET_CONTROL_README.md",
+                           "language":  "markdown",
+                           "sizeLines":  320,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "combine_motor_protocol.json",
+                           "language":  "json",
+                           "sizeLines":  112,
+                           "fileCategory":  "config"
+                       },
+                       {
+                           "path":  "four_combine_motor_protocol.json",
+                           "language":  "json",
+                           "sizeLines":  101,
+                           "fileCategory":  "config"
+                       },
+                       {
+                           "path":  "obstacle_avoidance_protocol.json",
+                           "language":  "json",
+                           "sizeLines":  105,
+                           "fileCategory":  "config"
+                       },
+                       {
+                           "path":  "quick_test_4dof.sh",
+                           "language":  "shell",
+                           "sizeLines":  61,
+                           "fileCategory":  "script"
+                       },
+                       {
+                           "path":  "requirements_websocket.txt",
+                           "language":  "txt",
+                           "sizeLines":  7,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "run_e2e_test.sh",
+                           "language":  "shell",
+                           "sizeLines":  33,
+                           "fileCategory":  "script"
+                       },
+                       {
+                           "path":  "start_agent.sh",
+                           "language":  "shell",
+                           "sizeLines":  27,
+                           "fileCategory":  "script"
+                       },
+                       {
+                           "path":  "start_websocket_test.sh",
+                           "language":  "shell",
+                           "sizeLines":  77,
+                           "fileCategory":  "script"
+                       },
+                       {
+                           "path":  "test_e2e_report.json",
+                           "language":  "json",
+                           "sizeLines":  87,
+                           "fileCategory":  "config"
+                       },
+                       {
+                           "path":  "test_results.json",
+                           "language":  "json",
+                           "sizeLines":  112,
+                           "fileCategory":  "config"
+                       }
+                   ],
+    "batchImportData":  {
+                            ".env.example":  [
+
+                                             ],
+                            "FOUR_WAYPOINT_CONTROL_README.md":  [
+
+                                                                ],
+                            "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md":  [
+
+                                                                     ],
+                            "README.en.md":  [
+
+                                             ],
+                            "README.md":  [
+
+                                          ],
+                            "README_4DOF_TEST.md":  [
+
+                                                    ],
+                            "TEST_SUMMARY_4DOF.md":  [
+
+                                                     ],
+                            "VERIFICATION_SUMMARY.md":  [
+
+                                                        ],
+                            "WEBSOCKET_CHANGES.md":  [
+
+                                                     ],
+                            "WEBSOCKET_CONTROL_README.md":  [
+
+                                                            ],
+                            "combine_motor_protocol.json":  [
+
+                                                            ],
+                            "four_combine_motor_protocol.json":  [
+
+                                                                 ],
+                            "obstacle_avoidance_protocol.json":  [
+
+                                                                 ],
+                            "quick_test_4dof.sh":  [
+
+                                                   ],
+                            "requirements_websocket.txt":  [
+
+                                                           ],
+                            "run_e2e_test.sh":  [
+
+                                                ],
+                            "start_agent.sh":  [
+
+                                               ],
+                            "start_websocket_test.sh":  [
+
+                                                        ],
+                            "test_e2e_report.json":  [
+
+                                                     ],
+                            "test_results.json":  [
+
+                                                  ]
+                        }
+}

@@ -1,0 +1,1456 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 20,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".env.example",
+      "language": "config",
+      "fileCategory": "config",
+      "totalLines": 23,
+      "nonEmptyLines": 18,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "definitionCount": 0
+      }
+    },
+    {
+      "path": "FOUR_WAYPOINT_CONTROL_README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 287,
+      "nonEmptyLines": 238,
+      "sections": [
+        {
+          "heading": "四自由度头颈运控多路点组合电机控制接口文档",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "概述",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "话题定义",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "控制指令话题",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "结果反馈话题",
+          "level": 3,
+          "line": 14
+        },
+        {
+          "heading": "数据格式详解",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "任务头部（固定3字段）",
+          "level": 3,
+          "line": 23
+        },
+        {
+          "heading": "第i个路点（12字段，base = 3 + i*12）",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "位姿模式说明",
+          "level": 3,
+          "line": 46
+        },
+        {
+          "heading": "结果码定义",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "Python Agent 接口使用",
+          "level": 2,
+          "line": 56
+        },
+        {
+          "heading": "基本用法",
+          "level": 3,
+          "line": 58
+        },
+        {
+          "heading": "通过任务类型调用",
+          "level": 3,
+          "line": 105
+        },
+        {
+          "heading": "测试验证",
+          "level": 2,
+          "line": 121
+        },
+        {
+          "heading": "启动 Mock 节点",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "运行测试用例",
+          "level": 3,
+          "line": 137
+        },
+        {
+          "heading": "应用场景示例",
+          "level": 2,
+          "line": 151
+        },
+        {
+          "heading": "场景1: 巡逻扫视",
+          "level": 3,
+          "line": 153
+        },
+        {
+          "heading": "场景2: 检查桌面物品",
+          "level": 3,
+          "line": 168
+        },
+        {
+          "heading": "场景3: 转身寻找",
+          "level": 3,
+          "line": 187
+        },
+        {
+          "heading": "场景4: 复杂导航动作",
+          "level": 3,
+          "line": 200
+        },
+        {
+          "heading": "与单路点接口的对比",
+          "level": 2,
+          "line": 224
+        },
+        {
+          "heading": "注意事项",
+          "level": 2,
+          "line": 235
+        },
+        {
+          "heading": "故障排查",
+          "level": 2,
+          "line": 259
+        },
+        {
+          "heading": "问题1: 超时无反馈",
+          "level": 3,
+          "line": 261
+        },
+        {
+          "heading": "问题2: 执行失败（result=103）",
+          "level": 3,
+          "line": 265
+        },
+        {
+          "heading": "问题3: 拒绝执行（result=104）",
+          "level": 3,
+          "line": 269
+        },
+        {
+          "heading": "问题4: 中途中止（result=102）",
+          "level": 3,
+          "line": 273
+        },
+        {
+          "heading": "版本历史",
+          "level": 2,
+          "line": 277
+        },
+        {
+          "heading": "相关文件",
+          "level": 2,
+          "line": 282
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 30
+      }
+    },
+    {
+      "path": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 300,
+      "nonEmptyLines": 227,
+      "sections": [
+        {
+          "heading": "障碍物绕行协同转向功能实现报告",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "一、功能概述",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "场景描述",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "动作设计",
+          "level": 3,
+          "line": 14
+        },
+        {
+          "heading": "速度特点",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "二、技术实现",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "2.1 代码实现位置",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "2.2 实现逻辑",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "2.3 WebSocket任务分发",
+          "level": 3,
+          "line": 74
+        },
+        {
+          "heading": "三、通信协议",
+          "level": 2,
+          "line": 89
+        },
+        {
+          "heading": "3.1 WebSocket API",
+          "level": 3,
+          "line": 91
+        },
+        {
+          "heading": "3.2 ROS2话题",
+          "level": 3,
+          "line": 112
+        },
+        {
+          "heading": "四、测试验证",
+          "level": 2,
+          "line": 152
+        },
+        {
+          "heading": "4.1 测试文件",
+          "level": 3,
+          "line": 154
+        },
+        {
+          "heading": "4.2 测试场景",
+          "level": 3,
+          "line": 161
+        },
+        {
+          "heading": "4.3 测试命令",
+          "level": 3,
+          "line": 175
+        },
+        {
+          "heading": "五、与现有场景的对比",
+          "level": 2,
+          "line": 190
+        },
+        {
+          "heading": "独特之处",
+          "level": 3,
+          "line": 202
+        },
+        {
+          "heading": "六、实现特点",
+          "level": 2,
+          "line": 209
+        },
+        {
+          "heading": "6.1 设计优势",
+          "level": 3,
+          "line": 211
+        },
+        {
+          "heading": "6.2 技术亮点",
+          "level": 3,
+          "line": 219
+        },
+        {
+          "heading": "七、部署说明",
+          "level": 2,
+          "line": 229
+        },
+        {
+          "heading": "7.1 依赖要求",
+          "level": 3,
+          "line": 231
+        },
+        {
+          "heading": "7.2 配置要求",
+          "level": 3,
+          "line": 238
+        },
+        {
+          "heading": "7.3 使用方式",
+          "level": 3,
+          "line": 242
+        },
+        {
+          "heading": "八、总结",
+          "level": 2,
+          "line": 267
+        },
+        {
+          "heading": "8.1 完成情况",
+          "level": 3,
+          "line": 269
+        },
+        {
+          "heading": "8.2 代码变更",
+          "level": 3,
+          "line": 277
+        },
+        {
+          "heading": "8.3 下一步建议",
+          "level": 3,
+          "line": 289
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 29
+      }
+    },
+    {
+      "path": "README.en.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 25,
+      "nonEmptyLines": 16,
+      "sections": [
+        {
+          "heading": "Jrobot_agent",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Software Architecture",
+          "level": 4,
+          "line": 3
+        },
+        {
+          "heading": "Installation",
+          "level": 4,
+          "line": 7
+        },
+        {
+          "heading": "Instructions",
+          "level": 4,
+          "line": 13
+        },
+        {
+          "heading": "Contribution",
+          "level": 4,
+          "line": 19
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 55,
+      "nonEmptyLines": 37,
+      "sections": [
+        {
+          "heading": "Jrobot_agent",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "介绍",
+          "level": 4,
+          "line": 3
+        },
+        {
+          "heading": "软件版本",
+          "level": 4,
+          "line": 7
+        },
+        {
+          "heading": "安装教程",
+          "level": 4,
+          "line": 38
+        },
+        {
+          "heading": "使用说明",
+          "level": 4,
+          "line": 52
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "README_4DOF_TEST.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 170,
+      "nonEmptyLines": 127,
+      "sections": [
+        {
+          "heading": "4自由度头颈控制测试脚本使用说明",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "概述",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "坐标系说明",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "与原test.py的主要区别",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "测试场景",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "场景1: 用户移动位置时的视线跟踪",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "场景2: 头部电机回归0位",
+          "level": 3,
+          "line": 36
+        },
+        {
+          "heading": "场景3: 左右摆头观察",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "场景10: 4自由度头颈手动控制",
+          "level": 3,
+          "line": 44
+        },
+        {
+          "heading": "使用方法",
+          "level": 2,
+          "line": 48
+        },
+        {
+          "heading": "1. 启动前提条件",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "2. 运行测试脚本",
+          "level": 3,
+          "line": 58
+        },
+        {
+          "heading": "3. 选择测试场景",
+          "level": 3,
+          "line": 65
+        },
+        {
+          "heading": "4. 手动控制示例",
+          "level": 3,
+          "line": 72
+        },
+        {
+          "heading": "验证测试",
+          "level": 2,
+          "line": 82
+        },
+        {
+          "heading": "测试1: 语法检查",
+          "level": 3,
+          "line": 84
+        },
+        {
+          "heading": "测试2: 基本功能测试",
+          "level": 3,
+          "line": 89
+        },
+        {
+          "heading": "测试3: 手动控制测试",
+          "level": 3,
+          "line": 96
+        },
+        {
+          "heading": "接口说明",
+          "level": 2,
+          "line": 104
+        },
+        {
+          "heading": "4自由度控制接口",
+          "level": 3,
+          "line": 106
+        },
+        {
+          "heading": "角度转换",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "注意事项",
+          "level": 2,
+          "line": 132
+        },
+        {
+          "heading": "故障排查",
+          "level": 2,
+          "line": 148
+        },
+        {
+          "heading": "问题1: 无法连接到WebSocket服务器",
+          "level": 3,
+          "line": 150
+        },
+        {
+          "heading": "问题2: 响应超时",
+          "level": 3,
+          "line": 155
+        },
+        {
+          "heading": "问题3: 角度超出限制",
+          "level": 3,
+          "line": 160
+        },
+        {
+          "heading": "开发者信息",
+          "level": 2,
+          "line": 165
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 27
+      }
+    },
+    {
+      "path": "TEST_SUMMARY_4DOF.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 207,
+      "nonEmptyLines": 162,
+      "sections": [
+        {
+          "heading": "4自由度头颈控制脚本 - 测试总结报告",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "项目概述",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "完成的工作",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "1. 核心脚本创建",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "2. 坐标系转换",
+          "level": 3,
+          "line": 14
+        },
+        {
+          "heading": "3. 场景转换",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "场景1: 用户移动位置时的视线跟踪",
+          "level": 4,
+          "line": 22
+        },
+        {
+          "heading": "场景2: 头部电机回归0位",
+          "level": 4,
+          "line": 28
+        },
+        {
+          "heading": "场景3: 左右摆头观察",
+          "level": 4,
+          "line": 34
+        },
+        {
+          "heading": "场景10: 4自由度头颈手动控制",
+          "level": 4,
+          "line": 40
+        },
+        {
+          "heading": "4. 接口适配",
+          "level": 3,
+          "line": 45
+        },
+        {
+          "heading": "4自由度控制接口结构",
+          "level": 4,
+          "line": 47
+        },
+        {
+          "heading": "与原接口的区别",
+          "level": 4,
+          "line": 63
+        },
+        {
+          "heading": "验证测试结果",
+          "level": 2,
+          "line": 68
+        },
+        {
+          "heading": "测试1: 场景定义完整性 ✓",
+          "level": 3,
+          "line": 70
+        },
+        {
+          "heading": "测试2: 角度转换准确性 ✓",
+          "level": 3,
+          "line": 75
+        },
+        {
+          "heading": "测试3: 命令结构正确性 ✓",
+          "level": 3,
+          "line": 80
+        },
+        {
+          "heading": "测试4: ROS2坐标系一致性 ✓",
+          "level": 3,
+          "line": 88
+        },
+        {
+          "heading": "测试5: 与原test.py对比 ✓",
+          "level": 3,
+          "line": 94
+        },
+        {
+          "heading": "测试6: JSON序列化 ✓",
+          "level": 3,
+          "line": 100
+        },
+        {
+          "heading": "文件清单",
+          "level": 2,
+          "line": 105
+        },
+        {
+          "heading": "使用方法",
+          "level": 2,
+          "line": 123
+        },
+        {
+          "heading": "快速开始",
+          "level": 3,
+          "line": 125
+        },
+        {
+          "heading": "验证测试",
+          "level": 3,
+          "line": 139
+        },
+        {
+          "heading": "技术亮点",
+          "level": 2,
+          "line": 147
+        },
+        {
+          "heading": "与原test.py的对比",
+          "level": 2,
+          "line": 155
+        },
+        {
+          "heading": "下一步建议",
+          "level": 2,
+          "line": 166
+        },
+        {
+          "heading": "1. 集成测试",
+          "level": 3,
+          "line": 168
+        },
+        {
+          "heading": "2. 扩展场景",
+          "level": 3,
+          "line": 173
+        },
+        {
+          "heading": "3. 性能优化",
+          "level": 3,
+          "line": 180
+        },
+        {
+          "heading": "4. 文档完善",
+          "level": 3,
+          "line": 185
+        },
+        {
+          "heading": "总结",
+          "level": 2,
+          "line": 190
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 32
+      }
+    },
+    {
+      "path": "VERIFICATION_SUMMARY.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 183,
+      "nonEmptyLines": 146,
+      "sections": [
+        {
+          "heading": "四联多路点组合电机控制接口验证总结",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "📋 任务完成清单",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "✅ 已完成功能",
+          "level": 3,
+          "line": 5
+        },
+        {
+          "heading": "🧪 测试验证结果",
+          "level": 2,
+          "line": 44
+        },
+        {
+          "heading": "测试环境",
+          "level": 3,
+          "line": 46
+        },
+        {
+          "heading": "测试结果",
+          "level": 3,
+          "line": 51
+        },
+        {
+          "heading": "验证项目",
+          "level": 3,
+          "line": 66
+        },
+        {
+          "heading": "📊 接口对比",
+          "level": 2,
+          "line": 81
+        },
+        {
+          "heading": "🎯 核心优势",
+          "level": 2,
+          "line": 92
+        },
+        {
+          "heading": "📁 关键文件清单",
+          "level": 2,
+          "line": 100
+        },
+        {
+          "heading": "🚀 快速开始",
+          "level": 2,
+          "line": 119
+        },
+        {
+          "heading": "启动测试",
+          "level": 3,
+          "line": 121
+        },
+        {
+          "heading": "使用接口",
+          "level": 3,
+          "line": 136
+        },
+        {
+          "heading": "✅ 验证结论",
+          "level": 2,
+          "line": 158
+        },
+        {
+          "heading": "📝 后续建议",
+          "level": 2,
+          "line": 169
+        },
+        {
+          "heading": "📞 联系方式",
+          "level": 2,
+          "line": 177
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 16
+      }
+    },
+    {
+      "path": "WEBSOCKET_CHANGES.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 209,
+      "nonEmptyLines": 168,
+      "sections": [
+        {
+          "heading": "WebSocket控制功能实现总结",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "实现概述",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "新增文件",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "1. `websocket_control_server.py`",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "2. `test_websocket_control.py`",
+          "level": 3,
+          "line": 17
+        },
+        {
+          "heading": "3. `websocket_control_client.html`",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "4. `WEBSOCKET_CONTROL_README.md`",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "5. `start_websocket_test.sh`",
+          "level": 3,
+          "line": 43
+        },
+        {
+          "heading": "6. `requirements_websocket.txt`",
+          "level": 3,
+          "line": 49
+        },
+        {
+          "heading": "修改的文件",
+          "level": 2,
+          "line": 52
+        },
+        {
+          "heading": "`smart_robot_agent.py`",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "导入部分 (第19行)",
+          "level": 4,
+          "line": 56
+        },
+        {
+          "heading": "`__init__` 方法 (第3080-3097行)",
+          "level": 4,
+          "line": 62
+        },
+        {
+          "heading": "`initialize` 方法 (第3165-3171行)",
+          "level": 4,
+          "line": 72
+        },
+        {
+          "heading": "`cleanup` 方法 (第4598-4615行)",
+          "level": 4,
+          "line": 82
+        },
+        {
+          "heading": "新增方法 `get_websocket_stats` (第4598-4610行)",
+          "level": 4,
+          "line": 89
+        },
+        {
+          "heading": "技术架构",
+          "level": 2,
+          "line": 101
+        },
+        {
+          "heading": "并发处理",
+          "level": 3,
+          "line": 103
+        },
+        {
+          "heading": "消息流程",
+          "level": 3,
+          "line": 108
+        },
+        {
+          "heading": "错误处理",
+          "level": 3,
+          "line": 114
+        },
+        {
+          "heading": "测试方法",
+          "level": 2,
+          "line": 120
+        },
+        {
+          "heading": "1. 启动Agent",
+          "level": 3,
+          "line": 122
+        },
+        {
+          "heading": "2. 运行测试脚本",
+          "level": 3,
+          "line": 128
+        },
+        {
+          "heading": "3. 使用HTML客户端",
+          "level": 3,
+          "line": 135
+        },
+        {
+          "heading": "兼容性",
+          "level": 2,
+          "line": 138
+        },
+        {
+          "heading": "配置选项",
+          "level": 2,
+          "line": 145
+        },
+        {
+          "heading": "修改WebSocket端口",
+          "level": 3,
+          "line": 147
+        },
+        {
+          "heading": "限制本地访问",
+          "level": 3,
+          "line": 157
+        },
+        {
+          "heading": "性能影响",
+          "level": 2,
+          "line": 163
+        },
+        {
+          "heading": "未来改进方向",
+          "level": 2,
+          "line": 170
+        },
+        {
+          "heading": "文件清单",
+          "level": 2,
+          "line": 187
+        },
+        {
+          "heading": "总结",
+          "level": 2,
+          "line": 200
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 32
+      }
+    },
+    {
+      "path": "WEBSOCKET_CONTROL_README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 320,
+      "nonEmptyLines": 250,
+      "sections": [
+        {
+          "heading": "WebSocket控制接口使用说明",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "概述",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "架构",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "功能特性",
+          "level": 2,
+          "line": 19
+        },
+        {
+          "heading": "通信协议",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "请求格式",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "响应格式",
+          "level": 3,
+          "line": 41
+        },
+        {
+          "heading": "支持的命令类型",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "导航相关",
+          "level": 4,
+          "line": 54
+        },
+        {
+          "heading": "状态查询",
+          "level": 4,
+          "line": 64
+        },
+        {
+          "heading": "控制命令",
+          "level": 4,
+          "line": 73
+        },
+        {
+          "heading": "其他",
+          "level": 4,
+          "line": 87
+        },
+        {
+          "heading": "使用方法",
+          "level": 2,
+          "line": 91
+        },
+        {
+          "heading": "方法1: 使用测试脚本",
+          "level": 3,
+          "line": 93
+        },
+        {
+          "heading": "方法2: 使用HTML客户端",
+          "level": 3,
+          "line": 104
+        },
+        {
+          "heading": "方法3: 使用Python客户端代码",
+          "level": 3,
+          "line": 110
+        },
+        {
+          "heading": "方法4: 使用JavaScript/Web客户端",
+          "level": 3,
+          "line": 141
+        },
+        {
+          "heading": "配置",
+          "level": 2,
+          "line": 171
+        },
+        {
+          "heading": "修改WebSocket端口",
+          "level": 3,
+          "line": 173
+        },
+        {
+          "heading": "连接远程机器人",
+          "level": 3,
+          "line": 185
+        },
+        {
+          "heading": "示例",
+          "level": 2,
+          "line": 193
+        },
+        {
+          "heading": "示例1: 导航到门口",
+          "level": 3,
+          "line": 195
+        },
+        {
+          "heading": "示例2: 控制RGB灯",
+          "level": 3,
+          "line": 223
+        },
+        {
+          "heading": "示例3: 获取机器人状态",
+          "level": 3,
+          "line": 246
+        },
+        {
+          "heading": "故障排查",
+          "level": 2,
+          "line": 266
+        },
+        {
+          "heading": "无法连接到WebSocket服务器",
+          "level": 3,
+          "line": 268
+        },
+        {
+          "heading": "命令执行失败",
+          "level": 3,
+          "line": 281
+        },
+        {
+          "heading": "响应超时",
+          "level": 3,
+          "line": 288
+        },
+        {
+          "heading": "性能考虑",
+          "level": 2,
+          "line": 296
+        },
+        {
+          "heading": "安全建议",
+          "level": 2,
+          "line": 303
+        },
+        {
+          "heading": "版本历史",
+          "level": 2,
+          "line": 310
+        },
+        {
+          "heading": "技术支持",
+          "level": 2,
+          "line": 318
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 32
+      }
+    },
+    {
+      "path": "combine_motor_protocol.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 112,
+      "nonEmptyLines": 105,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "four_combine_motor_protocol.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 101,
+      "nonEmptyLines": 94,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "obstacle_avoidance_protocol.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 105,
+      "nonEmptyLines": 99,
+      "sections": [
+        {
+          "heading": "protocol_version",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "scenario_name",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "description",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "scenario_detail",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "websocket_api",
+          "level": 1,
+          "line": 16
+        },
+        {
+          "heading": "motor_actions",
+          "level": 1,
+          "line": 31
+        },
+        {
+          "heading": "ros2_topics",
+          "level": 1,
+          "line": 56
+        },
+        {
+          "heading": "result_codes",
+          "level": 1,
+          "line": 83
+        },
+        {
+          "heading": "test_example",
+          "level": 1,
+          "line": 91
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": "quick_test_4dof.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 61,
+      "nonEmptyLines": 53,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "requirements_websocket.txt",
+      "language": "txt",
+      "fileCategory": "docs",
+      "totalLines": 7,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": "run_e2e_test.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 33,
+      "nonEmptyLines": 27,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "start_agent.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 28,
+      "nonEmptyLines": 22,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "start_websocket_test.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 77,
+      "nonEmptyLines": 70,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "test_e2e_report.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 88,
+      "nonEmptyLines": 88,
+      "sections": [
+        {
+          "heading": "test_date",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "test_type",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "passed",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "failed",
+          "level": 1,
+          "line": 5
+        },
+        {
+          "heading": "total",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "all_passed",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "results",
+          "level": 1,
+          "line": 8
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": "test_results.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 113,
+      "nonEmptyLines": 113,
+      "sections": [
+        {
+          "heading": "test_date",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "passed",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "failed",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "total",
+          "level": 1,
+          "line": 5
+        },
+        {
+          "heading": "results",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "motor_scenarios_note",
+          "level": 1,
+          "line": 111
+        },
+        {
+          "heading": "conclusion",
+          "level": 1,
+          "line": 112
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    }
+  ]
+}

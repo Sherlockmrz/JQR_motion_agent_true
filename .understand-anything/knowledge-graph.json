@@ -1,0 +1,4313 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "Jrobot_agent",
+    "languages": [
+      "python",
+      "srv",
+      "markdown",
+      "json",
+      "shell",
+      "txt",
+      "html",
+      "xml",
+      "msg",
+      "rules",
+      "config",
+      "action",
+      "service"
+    ],
+    "frameworks": [
+      "ROS2",
+      "asyncio",
+      "websockets",
+      "serial communication"
+    ],
+    "description": "机器人运动代理与控制服务，包含 ROS2 智能体、WebSocket 控制、串口协议、模型桥接和运动测试脚本。",
+    "analyzedAt": "2026-06-22T05:53:06.639Z",
+    "gitCommitHash": "bcdd71df2cb4c5137c3e58d8f2b93528072279b1"
+  },
+  "nodes": [
+    {
+      "id": "config:.claude/settings.local.json",
+      "type": "config",
+      "name": "settings.local.json",
+      "filePath": ".claude/settings.local.json",
+      "summary": ".claude/settings.local.json 是一个 配置文件，语言/格式为 json，包含 1 个文档章节，约 9 行。",
+      "tags": [
+        "json",
+        "config"
+      ],
+      "complexity": "low",
+      "languageNotes": ".claude/settings.local.json 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "config:.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": ".env.example",
+      "summary": ".env.example 是一个 配置文件，语言/格式为 config，约 23 行。",
+      "tags": [
+        "config"
+      ],
+      "complexity": "low",
+      "languageNotes": ".env.example 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "service:agent.service",
+      "type": "service",
+      "name": "agent.service",
+      "filePath": "agent.service",
+      "summary": "agent.service 是一个 代码文件，语言/格式为 service，约 13 行。",
+      "tags": [
+        "service",
+        "code"
+      ],
+      "complexity": "low",
+      "languageNotes": "agent.service 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:camera_rgb_service.py",
+      "type": "file",
+      "name": "camera_rgb_service.py",
+      "filePath": "camera_rgb_service.py",
+      "summary": "camera_rgb_service.py 是一个 代码文件，语言/格式为 python，包含 1 个类，包含 1 个函数，约 177 行。",
+      "tags": [
+        "python",
+        "code"
+      ],
+      "complexity": "medium",
+      "languageNotes": "camera_rgb_service.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:camera_rgb_service.py:CameraRGBService",
+      "type": "class",
+      "name": "CameraRGBService",
+      "filePath": "camera_rgb_service.py",
+      "summary": "类 CameraRGBService 定义在 camera_rgb_service.py，覆盖第 15-158 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:camera_rgb_service.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "camera_rgb_service.py",
+      "summary": "函数 main 定义在 camera_rgb_service.py，覆盖第 161-173 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "config:combine_motor_protocol.json",
+      "type": "config",
+      "name": "combine_motor_protocol.json",
+      "filePath": "combine_motor_protocol.json",
+      "summary": "combine_motor_protocol.json 是一个 配置文件，语言/格式为 json，约 112 行。",
+      "tags": [
+        "json",
+        "config",
+        "protocol"
+      ],
+      "complexity": "low",
+      "languageNotes": "combine_motor_protocol.json 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:config.py",
+      "type": "file",
+      "name": "config.py",
+      "filePath": "config.py",
+      "summary": "config.py 是一个 代码文件，语言/格式为 python，包含 1 个类，约 76 行。",
+      "tags": [
+        "python",
+        "code"
+      ],
+      "complexity": "low",
+      "languageNotes": "config.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:config.py:AgentConfig",
+      "type": "class",
+      "name": "AgentConfig",
+      "filePath": "config.py",
+      "summary": "类 AgentConfig 定义在 config.py，覆盖第 6-73 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "config:four_combine_motor_protocol.json",
+      "type": "config",
+      "name": "four_combine_motor_protocol.json",
+      "filePath": "four_combine_motor_protocol.json",
+      "summary": "four_combine_motor_protocol.json 是一个 配置文件，语言/格式为 json，约 101 行。",
+      "tags": [
+        "json",
+        "config",
+        "protocol"
+      ],
+      "complexity": "low",
+      "languageNotes": "four_combine_motor_protocol.json 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:FOUR_WAYPOINT_CONTROL_README.md",
+      "type": "document",
+      "name": "FOUR_WAYPOINT_CONTROL_README.md",
+      "filePath": "FOUR_WAYPOINT_CONTROL_README.md",
+      "summary": "FOUR_WAYPOINT_CONTROL_README.md 是一个 文档文件，语言/格式为 markdown，包含 30 个文档章节，约 287 行。",
+      "tags": [
+        "markdown",
+        "docs"
+      ],
+      "complexity": "medium",
+      "languageNotes": "FOUR_WAYPOINT_CONTROL_README.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:jqr_ros_msgs/CMakeLists.txt",
+      "type": "document",
+      "name": "CMakeLists.txt",
+      "filePath": "jqr_ros_msgs/CMakeLists.txt",
+      "summary": "jqr_ros_msgs/CMakeLists.txt 是一个 文档文件，语言/格式为 txt，约 66 行。",
+      "tags": [
+        "txt",
+        "docs",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/CMakeLists.txt 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/msg/BatteryLevel.msg",
+      "type": "file",
+      "name": "BatteryLevel.msg",
+      "filePath": "jqr_ros_msgs/msg/BatteryLevel.msg",
+      "summary": "jqr_ros_msgs/msg/BatteryLevel.msg 是一个 代码文件，语言/格式为 msg，约 0 行。",
+      "tags": [
+        "msg",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/msg/BatteryLevel.msg 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/msg/BoundingBox2D.msg",
+      "type": "file",
+      "name": "BoundingBox2D.msg",
+      "filePath": "jqr_ros_msgs/msg/BoundingBox2D.msg",
+      "summary": "jqr_ros_msgs/msg/BoundingBox2D.msg 是一个 代码文件，语言/格式为 msg，约 3 行。",
+      "tags": [
+        "msg",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/msg/BoundingBox2D.msg 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "config:jqr_ros_msgs/package.xml",
+      "type": "config",
+      "name": "package.xml",
+      "filePath": "jqr_ros_msgs/package.xml",
+      "summary": "jqr_ros_msgs/package.xml 是一个 配置文件，语言/格式为 xml，约 28 行。",
+      "tags": [
+        "xml",
+        "config",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/package.xml 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/FaceDelete.srv",
+      "type": "file",
+      "name": "FaceDelete.srv",
+      "filePath": "jqr_ros_msgs/srv/FaceDelete.srv",
+      "summary": "jqr_ros_msgs/srv/FaceDelete.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/FaceDelete.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/FaceRecognition.srv",
+      "type": "file",
+      "name": "FaceRecognition.srv",
+      "filePath": "jqr_ros_msgs/srv/FaceRecognition.srv",
+      "summary": "jqr_ros_msgs/srv/FaceRecognition.srv 是一个 代码文件，语言/格式为 srv，约 7 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/FaceRecognition.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/FaceRegistration.srv",
+      "type": "file",
+      "name": "FaceRegistration.srv",
+      "filePath": "jqr_ros_msgs/srv/FaceRegistration.srv",
+      "summary": "jqr_ros_msgs/srv/FaceRegistration.srv 是一个 代码文件，语言/格式为 srv，约 6 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/FaceRegistration.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/LaserPointer.srv",
+      "type": "file",
+      "name": "LaserPointer.srv",
+      "filePath": "jqr_ros_msgs/srv/LaserPointer.srv",
+      "summary": "jqr_ros_msgs/srv/LaserPointer.srv 是一个 代码文件，语言/格式为 srv，约 4 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/LaserPointer.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/LaserPointerState.srv",
+      "type": "file",
+      "name": "LaserPointerState.srv",
+      "filePath": "jqr_ros_msgs/srv/LaserPointerState.srv",
+      "summary": "jqr_ros_msgs/srv/LaserPointerState.srv 是一个 代码文件，语言/格式为 srv，约 4 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/LaserPointerState.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/MedicineBoxState.srv",
+      "type": "file",
+      "name": "MedicineBoxState.srv",
+      "filePath": "jqr_ros_msgs/srv/MedicineBoxState.srv",
+      "summary": "jqr_ros_msgs/srv/MedicineBoxState.srv 是一个 代码文件，语言/格式为 srv，约 4 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/MedicineBoxState.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/MedicineBoxSwitch.srv",
+      "type": "file",
+      "name": "MedicineBoxSwitch.srv",
+      "filePath": "jqr_ros_msgs/srv/MedicineBoxSwitch.srv",
+      "summary": "jqr_ros_msgs/srv/MedicineBoxSwitch.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/MedicineBoxSwitch.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/MoveMode.srv",
+      "type": "file",
+      "name": "MoveMode.srv",
+      "filePath": "jqr_ros_msgs/srv/MoveMode.srv",
+      "summary": "jqr_ros_msgs/srv/MoveMode.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/MoveMode.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RealSenseDepthImage.srv",
+      "type": "file",
+      "name": "RealSenseDepthImage.srv",
+      "filePath": "jqr_ros_msgs/srv/RealSenseDepthImage.srv",
+      "summary": "jqr_ros_msgs/srv/RealSenseDepthImage.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RealSenseDepthImage.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RealSenseRGBImage.srv",
+      "type": "file",
+      "name": "RealSenseRGBImage.srv",
+      "filePath": "jqr_ros_msgs/srv/RealSenseRGBImage.srv",
+      "summary": "jqr_ros_msgs/srv/RealSenseRGBImage.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RealSenseRGBImage.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RgbLightStrip.srv",
+      "type": "file",
+      "name": "RgbLightStrip.srv",
+      "filePath": "jqr_ros_msgs/srv/RgbLightStrip.srv",
+      "summary": "jqr_ros_msgs/srv/RgbLightStrip.srv 是一个 代码文件，语言/格式为 srv，约 9 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RgbLightStrip.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RgbLightStripState.srv",
+      "type": "file",
+      "name": "RgbLightStripState.srv",
+      "filePath": "jqr_ros_msgs/srv/RgbLightStripState.srv",
+      "summary": "jqr_ros_msgs/srv/RgbLightStripState.srv 是一个 代码文件，语言/格式为 srv，约 8 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RgbLightStripState.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RobotRise.srv",
+      "type": "file",
+      "name": "RobotRise.srv",
+      "filePath": "jqr_ros_msgs/srv/RobotRise.srv",
+      "summary": "jqr_ros_msgs/srv/RobotRise.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RobotRise.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RobotRiseState.srv",
+      "type": "file",
+      "name": "RobotRiseState.srv",
+      "filePath": "jqr_ros_msgs/srv/RobotRiseState.srv",
+      "summary": "jqr_ros_msgs/srv/RobotRiseState.srv 是一个 代码文件，语言/格式为 srv，约 4 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RobotRiseState.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RobotTilt.srv",
+      "type": "file",
+      "name": "RobotTilt.srv",
+      "filePath": "jqr_ros_msgs/srv/RobotTilt.srv",
+      "summary": "jqr_ros_msgs/srv/RobotTilt.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RobotTilt.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/RobotTiltState.srv",
+      "type": "file",
+      "name": "RobotTiltState.srv",
+      "filePath": "jqr_ros_msgs/srv/RobotTiltState.srv",
+      "summary": "jqr_ros_msgs/srv/RobotTiltState.srv 是一个 代码文件，语言/格式为 srv，约 4 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/RobotTiltState.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/ScreenTilt.srv",
+      "type": "file",
+      "name": "ScreenTilt.srv",
+      "filePath": "jqr_ros_msgs/srv/ScreenTilt.srv",
+      "summary": "jqr_ros_msgs/srv/ScreenTilt.srv 是一个 代码文件，语言/格式为 srv，约 5 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/ScreenTilt.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:jqr_ros_msgs/srv/ScreenTiltState.srv",
+      "type": "file",
+      "name": "ScreenTiltState.srv",
+      "filePath": "jqr_ros_msgs/srv/ScreenTiltState.srv",
+      "summary": "jqr_ros_msgs/srv/ScreenTiltState.srv 是一个 代码文件，语言/格式为 srv，约 4 行。",
+      "tags": [
+        "srv",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "jqr_ros_msgs/srv/ScreenTiltState.srv 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:local_model_bridge.py",
+      "type": "file",
+      "name": "local_model_bridge.py",
+      "filePath": "local_model_bridge.py",
+      "summary": "local_model_bridge.py 是一个 代码文件，语言/格式为 python，包含 3 个函数，约 173 行。",
+      "tags": [
+        "python",
+        "code"
+      ],
+      "complexity": "medium",
+      "languageNotes": "local_model_bridge.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:local_model_bridge.py:call_http_llm",
+      "type": "function",
+      "name": "call_http_llm",
+      "filePath": "local_model_bridge.py",
+      "summary": "函数 call_http_llm 定义在 local_model_bridge.py，覆盖第 20-40 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:local_model_bridge.py:handle_client",
+      "type": "function",
+      "name": "handle_client",
+      "filePath": "local_model_bridge.py",
+      "summary": "函数 handle_client 定义在 local_model_bridge.py，覆盖第 43-155 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:local_model_bridge.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "local_model_bridge.py",
+      "summary": "函数 main 定义在 local_model_bridge.py，覆盖第 158-170 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:mock_four_motor_node.py",
+      "type": "file",
+      "name": "mock_four_motor_node.py",
+      "filePath": "mock_four_motor_node.py",
+      "summary": "mock_four_motor_node.py 是一个 代码文件，语言/格式为 python，包含 1 个类，包含 2 个函数，约 229 行。",
+      "tags": [
+        "python",
+        "code",
+        "mock"
+      ],
+      "complexity": "medium",
+      "languageNotes": "mock_four_motor_node.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:mock_four_motor_node.py:MockFourMotorNode",
+      "type": "class",
+      "name": "MockFourMotorNode",
+      "filePath": "mock_four_motor_node.py",
+      "summary": "类 MockFourMotorNode 定义在 mock_four_motor_node.py，覆盖第 61-199 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:mock_four_motor_node.py:rad2deg",
+      "type": "function",
+      "name": "rad2deg",
+      "filePath": "mock_four_motor_node.py",
+      "summary": "函数 rad2deg 定义在 mock_four_motor_node.py，覆盖第 57-58 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:mock_four_motor_node.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "mock_four_motor_node.py",
+      "summary": "函数 main 定义在 mock_four_motor_node.py，覆盖第 202-225 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:mock_four_waypoint_node.py",
+      "type": "file",
+      "name": "mock_four_waypoint_node.py",
+      "filePath": "mock_four_waypoint_node.py",
+      "summary": "mock_four_waypoint_node.py 是一个 代码文件，语言/格式为 python，包含 1 个类，包含 2 个函数，约 300 行。",
+      "tags": [
+        "python",
+        "code",
+        "mock"
+      ],
+      "complexity": "medium",
+      "languageNotes": "mock_four_waypoint_node.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:mock_four_waypoint_node.py:MockFourWaypointNode",
+      "type": "class",
+      "name": "MockFourWaypointNode",
+      "filePath": "mock_four_waypoint_node.py",
+      "summary": "类 MockFourWaypointNode 定义在 mock_four_waypoint_node.py，覆盖第 70-269 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:mock_four_waypoint_node.py:rad2deg",
+      "type": "function",
+      "name": "rad2deg",
+      "filePath": "mock_four_waypoint_node.py",
+      "summary": "函数 rad2deg 定义在 mock_four_waypoint_node.py，覆盖第 66-67 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:mock_four_waypoint_node.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "mock_four_waypoint_node.py",
+      "summary": "函数 main 定义在 mock_four_waypoint_node.py，覆盖第 272-295 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:mock_motor_node.py",
+      "type": "file",
+      "name": "mock_motor_node.py",
+      "filePath": "mock_motor_node.py",
+      "summary": "mock_motor_node.py 是一个 代码文件，语言/格式为 python，包含 1 个类，包含 1 个函数，约 217 行。",
+      "tags": [
+        "python",
+        "code",
+        "mock"
+      ],
+      "complexity": "medium",
+      "languageNotes": "mock_motor_node.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:mock_motor_node.py:MockMotorNode",
+      "type": "class",
+      "name": "MockMotorNode",
+      "filePath": "mock_motor_node.py",
+      "summary": "类 MockMotorNode 定义在 mock_motor_node.py，覆盖第 48-191 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:mock_motor_node.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "mock_motor_node.py",
+      "summary": "函数 main 定义在 mock_motor_node.py，覆盖第 194-213 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:nav2_msgs/action/NavigateToPose.action",
+      "type": "file",
+      "name": "NavigateToPose.action",
+      "filePath": "nav2_msgs/action/NavigateToPose.action",
+      "summary": "nav2_msgs/action/NavigateToPose.action 是一个 代码文件，语言/格式为 action，约 12 行。",
+      "tags": [
+        "action",
+        "code",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "nav2_msgs/action/NavigateToPose.action 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:nav2_msgs/CMakeLists.txt",
+      "type": "document",
+      "name": "CMakeLists.txt",
+      "filePath": "nav2_msgs/CMakeLists.txt",
+      "summary": "nav2_msgs/CMakeLists.txt 是一个 文档文件，语言/格式为 txt，约 21 行。",
+      "tags": [
+        "txt",
+        "docs",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "nav2_msgs/CMakeLists.txt 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "config:nav2_msgs/package.xml",
+      "type": "config",
+      "name": "package.xml",
+      "filePath": "nav2_msgs/package.xml",
+      "summary": "nav2_msgs/package.xml 是一个 配置文件，语言/格式为 xml，约 28 行。",
+      "tags": [
+        "xml",
+        "config",
+        "ros2"
+      ],
+      "complexity": "low",
+      "languageNotes": "nav2_msgs/package.xml 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+      "type": "document",
+      "name": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+      "filePath": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+      "summary": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md 是一个 文档文件，语言/格式为 markdown，包含 29 个文档章节，约 300 行。",
+      "tags": [
+        "markdown",
+        "docs"
+      ],
+      "complexity": "medium",
+      "languageNotes": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "config:obstacle_avoidance_protocol.json",
+      "type": "config",
+      "name": "obstacle_avoidance_protocol.json",
+      "filePath": "obstacle_avoidance_protocol.json",
+      "summary": "obstacle_avoidance_protocol.json 是一个 配置文件，语言/格式为 json，包含 9 个文档章节，约 105 行。",
+      "tags": [
+        "json",
+        "config",
+        "protocol"
+      ],
+      "complexity": "low",
+      "languageNotes": "obstacle_avoidance_protocol.json 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:protocol_parser.py",
+      "type": "file",
+      "name": "protocol_parser.py",
+      "filePath": "protocol_parser.py",
+      "summary": "protocol_parser.py 是一个 代码文件，语言/格式为 python，包含 5 个类，约 265 行。",
+      "tags": [
+        "python",
+        "code",
+        "protocol"
+      ],
+      "complexity": "medium",
+      "languageNotes": "protocol_parser.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:protocol_parser.py:CommandType",
+      "type": "class",
+      "name": "CommandType",
+      "filePath": "protocol_parser.py",
+      "summary": "类 CommandType 定义在 protocol_parser.py，覆盖第 12-17 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:protocol_parser.py:ParserState",
+      "type": "class",
+      "name": "ParserState",
+      "filePath": "protocol_parser.py",
+      "summary": "类 ParserState 定义在 protocol_parser.py，覆盖第 19-27 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:protocol_parser.py:ParseResult",
+      "type": "class",
+      "name": "ParseResult",
+      "filePath": "protocol_parser.py",
+      "summary": "类 ParseResult 定义在 protocol_parser.py，覆盖第 29-37 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:protocol_parser.py:FrameData",
+      "type": "class",
+      "name": "FrameData",
+      "filePath": "protocol_parser.py",
+      "summary": "类 FrameData 定义在 protocol_parser.py，覆盖第 39-52 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:protocol_parser.py:ProtocolParser",
+      "type": "class",
+      "name": "ProtocolParser",
+      "filePath": "protocol_parser.py",
+      "summary": "类 ProtocolParser 定义在 protocol_parser.py，覆盖第 54-266 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "file:quick_test_4dof.sh",
+      "type": "file",
+      "name": "quick_test_4dof.sh",
+      "filePath": "quick_test_4dof.sh",
+      "summary": "quick_test_4dof.sh 是一个 脚本文件，语言/格式为 shell，约 61 行。",
+      "tags": [
+        "shell",
+        "script",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "quick_test_4dof.sh 在本项目中属于 脚本文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:README_4DOF_TEST.md",
+      "type": "document",
+      "name": "README_4DOF_TEST.md",
+      "filePath": "README_4DOF_TEST.md",
+      "summary": "README_4DOF_TEST.md 是一个 文档文件，语言/格式为 markdown，包含 27 个文档章节，约 170 行。",
+      "tags": [
+        "markdown",
+        "docs",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "README_4DOF_TEST.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:README.en.md",
+      "type": "document",
+      "name": "README.en.md",
+      "filePath": "README.en.md",
+      "summary": "README.en.md 是一个 文档文件，语言/格式为 markdown，包含 5 个文档章节，约 25 行。",
+      "tags": [
+        "markdown",
+        "docs"
+      ],
+      "complexity": "low",
+      "languageNotes": "README.en.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "README.md 是一个 文档文件，语言/格式为 markdown，包含 5 个文档章节，约 55 行。",
+      "tags": [
+        "markdown",
+        "docs"
+      ],
+      "complexity": "low",
+      "languageNotes": "README.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:requirements_websocket.txt",
+      "type": "document",
+      "name": "requirements_websocket.txt",
+      "filePath": "requirements_websocket.txt",
+      "summary": "requirements_websocket.txt 是一个 文档文件，语言/格式为 txt，约 7 行。",
+      "tags": [
+        "txt",
+        "docs",
+        "websocket"
+      ],
+      "complexity": "low",
+      "languageNotes": "requirements_websocket.txt 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:rk.rules",
+      "type": "file",
+      "name": "rk.rules",
+      "filePath": "rk.rules",
+      "summary": "rk.rules 是一个 代码文件，语言/格式为 rules，约 1 行。",
+      "tags": [
+        "rules",
+        "code"
+      ],
+      "complexity": "low",
+      "languageNotes": "rk.rules 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:run_e2e_test.sh",
+      "type": "file",
+      "name": "run_e2e_test.sh",
+      "filePath": "run_e2e_test.sh",
+      "summary": "run_e2e_test.sh 是一个 脚本文件，语言/格式为 shell，约 33 行。",
+      "tags": [
+        "shell",
+        "script",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "run_e2e_test.sh 在本项目中属于 脚本文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:smart_robot_agent.py",
+      "type": "file",
+      "name": "smart_robot_agent.py",
+      "filePath": "smart_robot_agent.py",
+      "summary": "smart_robot_agent.py 是一个 代码文件，语言/格式为 python，包含 12 个类，包含 12 个函数，约 6421 行。",
+      "tags": [
+        "python",
+        "code"
+      ],
+      "complexity": "high",
+      "languageNotes": "smart_robot_agent.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:smart_robot_agent.py:ResultCode",
+      "type": "class",
+      "name": "ResultCode",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 ResultCode 定义在 smart_robot_agent.py，覆盖第 37-42 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:MotorResultCode",
+      "type": "class",
+      "name": "MotorResultCode",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 MotorResultCode 定义在 smart_robot_agent.py，覆盖第 44-50 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:MedicineBoxStatus",
+      "type": "class",
+      "name": "MedicineBoxStatus",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 MedicineBoxStatus 定义在 smart_robot_agent.py，覆盖第 52-56 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:CallbackGroupType",
+      "type": "class",
+      "name": "CallbackGroupType",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 CallbackGroupType 定义在 smart_robot_agent.py，覆盖第 58-62 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:RobotStateManager",
+      "type": "class",
+      "name": "RobotStateManager",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 RobotStateManager 定义在 smart_robot_agent.py，覆盖第 124-215 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:Thought",
+      "type": "class",
+      "name": "Thought",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 Thought 定义在 smart_robot_agent.py，覆盖第 488-496 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:AgentThought",
+      "type": "class",
+      "name": "AgentThought",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 AgentThought 定义在 smart_robot_agent.py，覆盖第 498-513 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:Observation",
+      "type": "class",
+      "name": "Observation",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 Observation 定义在 smart_robot_agent.py，覆盖第 515-524 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:AgentMemory",
+      "type": "class",
+      "name": "AgentMemory",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 AgentMemory 定义在 smart_robot_agent.py，覆盖第 526-591 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:ROS2Interface",
+      "type": "class",
+      "name": "ROS2Interface",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 ROS2Interface 定义在 smart_robot_agent.py，覆盖第 597-4382 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:USBCoordinateManager",
+      "type": "class",
+      "name": "USBCoordinateManager",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 USBCoordinateManager 定义在 smart_robot_agent.py，覆盖第 4429-4555 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:smart_robot_agent.py:SmartRobotAgent",
+      "type": "class",
+      "name": "SmartRobotAgent",
+      "filePath": "smart_robot_agent.py",
+      "summary": "类 SmartRobotAgent 定义在 smart_robot_agent.py，覆盖第 4662-6371 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:parse_ros2_response",
+      "type": "function",
+      "name": "parse_ros2_response",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 parse_ros2_response 定义在 smart_robot_agent.py，覆盖第 283-364 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:fix_asm_json_format",
+      "type": "function",
+      "name": "fix_asm_json_format",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 fix_asm_json_format 定义在 smart_robot_agent.py，覆盖第 366-430 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:get_db_connection",
+      "type": "function",
+      "name": "get_db_connection",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 get_db_connection 定义在 smart_robot_agent.py，覆盖第 437-447 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:init_database",
+      "type": "function",
+      "name": "init_database",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 init_database 定义在 smart_robot_agent.py，覆盖第 449-464 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:save_to_history",
+      "type": "function",
+      "name": "save_to_history",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 save_to_history 定义在 smart_robot_agent.py，覆盖第 466-478 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:battery_callback",
+      "type": "function",
+      "name": "battery_callback",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 battery_callback 定义在 smart_robot_agent.py，覆盖第 4384-4420 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:stop_following",
+      "type": "function",
+      "name": "stop_following",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 stop_following 定义在 smart_robot_agent.py，覆盖第 4560-4564 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:stop_navigation",
+      "type": "function",
+      "name": "stop_navigation",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 stop_navigation 定义在 smart_robot_agent.py，覆盖第 4566-4570 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:notify_navigation_model_stop_following",
+      "type": "function",
+      "name": "notify_navigation_model_stop_following",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 notify_navigation_model_stop_following 定义在 smart_robot_agent.py，覆盖第 4572-4575 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:stop_follow",
+      "type": "function",
+      "name": "stop_follow",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 stop_follow 定义在 smart_robot_agent.py，覆盖第 4577-4616 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:stop_navigate",
+      "type": "function",
+      "name": "stop_navigate",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 stop_navigate 定义在 smart_robot_agent.py，覆盖第 4618-4656 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:smart_robot_agent.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "smart_robot_agent.py",
+      "summary": "函数 main 定义在 smart_robot_agent.py，覆盖第 6377-6412 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:start_agent.sh",
+      "type": "file",
+      "name": "start_agent.sh",
+      "filePath": "start_agent.sh",
+      "summary": "start_agent.sh 是一个 脚本文件，语言/格式为 shell，约 27 行。",
+      "tags": [
+        "shell",
+        "script"
+      ],
+      "complexity": "low",
+      "languageNotes": "start_agent.sh 在本项目中属于 脚本文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:start_websocket_test.sh",
+      "type": "file",
+      "name": "start_websocket_test.sh",
+      "filePath": "start_websocket_test.sh",
+      "summary": "start_websocket_test.sh 是一个 脚本文件，语言/格式为 shell，约 77 行。",
+      "tags": [
+        "shell",
+        "script",
+        "test",
+        "websocket"
+      ],
+      "complexity": "low",
+      "languageNotes": "start_websocket_test.sh 在本项目中属于 脚本文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:test_4dof_head_control.py",
+      "type": "file",
+      "name": "test_4dof_head_control.py",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "test_4dof_head_control.py 是一个 代码文件，语言/格式为 python，包含 15 个函数，约 415 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "test_4dof_head_control.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_4dof_head_control.py:log",
+      "type": "function",
+      "name": "log",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 log 定义在 test_4dof_head_control.py，覆盖第 27-28 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:deg",
+      "type": "function",
+      "name": "deg",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 deg 定义在 test_4dof_head_control.py，覆盖第 31-32 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:speed_level_for",
+      "type": "function",
+      "name": "speed_level_for",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 speed_level_for 定义在 test_4dof_head_control.py，覆盖第 35-41 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:head_command",
+      "type": "function",
+      "name": "head_command",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 head_command 定义在 test_4dof_head_control.py，覆盖第 44-69 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:head_sequence",
+      "type": "function",
+      "name": "head_sequence",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 head_sequence 定义在 test_4dof_head_control.py，覆盖第 72-81 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:input_optional_float",
+      "type": "function",
+      "name": "input_optional_float",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 input_optional_float 定义在 test_4dof_head_control.py，覆盖第 212-221 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:input_float",
+      "type": "function",
+      "name": "input_float",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 input_float 定义在 test_4dof_head_control.py，覆盖第 224-232 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:build_head_4dof_command",
+      "type": "function",
+      "name": "build_head_4dof_command",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 build_head_4dof_command 定义在 test_4dof_head_control.py，覆盖第 235-256 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:command_has_chassis_control",
+      "type": "function",
+      "name": "command_has_chassis_control",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 command_has_chassis_control 定义在 test_4dof_head_control.py，覆盖第 259-271 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:send_and_recv",
+      "type": "function",
+      "name": "send_and_recv",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 send_and_recv 定义在 test_4dof_head_control.py，覆盖第 274-288 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:response_success",
+      "type": "function",
+      "name": "response_success",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 response_success 定义在 test_4dof_head_control.py，覆盖第 291-297 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:print_scenario_menu",
+      "type": "function",
+      "name": "print_scenario_menu",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 print_scenario_menu 定义在 test_4dof_head_control.py，覆盖第 300-314 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:run_scenario",
+      "type": "function",
+      "name": "run_scenario",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 run_scenario 定义在 test_4dof_head_control.py，覆盖第 317-349 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 main 定义在 test_4dof_head_control.py，覆盖第 352-398 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_4dof_head_control.py:parse_args",
+      "type": "function",
+      "name": "parse_args",
+      "filePath": "test_4dof_head_control.py",
+      "summary": "函数 parse_args 定义在 test_4dof_head_control.py，覆盖第 401-404 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_agent_client.py",
+      "type": "file",
+      "name": "test_agent_client.py",
+      "filePath": "test_agent_client.py",
+      "summary": "test_agent_client.py 是一个 代码文件，语言/格式为 python，包含 1 个函数，约 59 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_agent_client.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_agent_client.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_agent_client.py",
+      "summary": "函数 main 定义在 test_agent_client.py，覆盖第 8-58 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_agent_stop_client.py",
+      "type": "file",
+      "name": "test_agent_stop_client.py",
+      "filePath": "test_agent_stop_client.py",
+      "summary": "test_agent_stop_client.py 是一个 代码文件，语言/格式为 python，包含 1 个函数，约 44 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_agent_stop_client.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_agent_stop_client.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_agent_stop_client.py",
+      "summary": "函数 main 定义在 test_agent_stop_client.py，覆盖第 7-42 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_auto_run.py",
+      "type": "file",
+      "name": "test_auto_run.py",
+      "filePath": "test_auto_run.py",
+      "summary": "test_auto_run.py 是一个 代码文件，语言/格式为 python，包含 2 个函数，约 126 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_auto_run.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_auto_run.py:log",
+      "type": "function",
+      "name": "log",
+      "filePath": "test_auto_run.py",
+      "summary": "函数 log 定义在 test_auto_run.py，覆盖第 17-18 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_auto_run.py:run_all",
+      "type": "function",
+      "name": "run_all",
+      "filePath": "test_auto_run.py",
+      "summary": "函数 run_all 定义在 test_auto_run.py，覆盖第 60-122 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "config:test_e2e_report.json",
+      "type": "config",
+      "name": "test_e2e_report.json",
+      "filePath": "test_e2e_report.json",
+      "summary": "test_e2e_report.json 是一个 配置文件，语言/格式为 json，包含 7 个文档章节，约 87 行。",
+      "tags": [
+        "json",
+        "config",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_e2e_report.json 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:test_e2e_scenarios.py",
+      "type": "file",
+      "name": "test_e2e_scenarios.py",
+      "filePath": "test_e2e_scenarios.py",
+      "summary": "test_e2e_scenarios.py 是一个 代码文件，语言/格式为 python，包含 1 个函数，约 134 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_e2e_scenarios.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_e2e_scenarios.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_e2e_scenarios.py",
+      "summary": "函数 main 定义在 test_e2e_scenarios.py，覆盖第 42-129 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_four_combine_motor.py",
+      "type": "file",
+      "name": "test_four_combine_motor.py",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "test_four_combine_motor.py 是一个 代码文件，语言/格式为 python，包含 1 个类，包含 12 个函数，约 339 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "test_four_combine_motor.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:test_four_combine_motor.py:UpstreamTestClient",
+      "type": "class",
+      "name": "UpstreamTestClient",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "类 UpstreamTestClient 定义在 test_four_combine_motor.py，覆盖第 60-150 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_yaw_only",
+      "type": "function",
+      "name": "case_yaw_only",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_yaw_only 定义在 test_four_combine_motor.py，覆盖第 155-163 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_roll_only",
+      "type": "function",
+      "name": "case_roll_only",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_roll_only 定义在 test_four_combine_motor.py，覆盖第 166-174 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_pitch_only",
+      "type": "function",
+      "name": "case_pitch_only",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_pitch_only 定义在 test_four_combine_motor.py，覆盖第 177-185 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_neck_three_axis",
+      "type": "function",
+      "name": "case_neck_three_axis",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_neck_three_axis 定义在 test_four_combine_motor.py，覆盖第 188-198 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_chassis_only",
+      "type": "function",
+      "name": "case_chassis_only",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_chassis_only 定义在 test_four_combine_motor.py，覆盖第 201-210 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_full_combo",
+      "type": "function",
+      "name": "case_full_combo",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_full_combo 定义在 test_four_combine_motor.py，覆盖第 213-225 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_negative_chassis",
+      "type": "function",
+      "name": "case_negative_chassis",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_negative_chassis 定义在 test_four_combine_motor.py，覆盖第 228-237 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:case_invalid_speed",
+      "type": "function",
+      "name": "case_invalid_speed",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 case_invalid_speed 定义在 test_four_combine_motor.py，覆盖第 240-248 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:_collect",
+      "type": "function",
+      "name": "_collect",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 _collect 定义在 test_four_combine_motor.py，覆盖第 251-264 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:run_selected",
+      "type": "function",
+      "name": "run_selected",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 run_selected 定义在 test_four_combine_motor.py，覆盖第 279-288 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:print_summary",
+      "type": "function",
+      "name": "print_summary",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 print_summary 定义在 test_four_combine_motor.py，覆盖第 291-304 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_combine_motor.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_four_combine_motor.py",
+      "summary": "函数 main 定义在 test_four_combine_motor.py，覆盖第 307-335 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_four_waypoint_control.py",
+      "type": "file",
+      "name": "test_four_waypoint_control.py",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "test_four_waypoint_control.py 是一个 代码文件，语言/格式为 python，包含 1 个类，包含 8 个函数，约 369 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "test_four_waypoint_control.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:test_four_waypoint_control.py:UpstreamWaypointTestClient",
+      "type": "class",
+      "name": "UpstreamWaypointTestClient",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "类 UpstreamWaypointTestClient 定义在 test_four_waypoint_control.py，覆盖第 49-153 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:case_single_waypoint",
+      "type": "function",
+      "name": "case_single_waypoint",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 case_single_waypoint 定义在 test_four_waypoint_control.py，覆盖第 158-170 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:case_multi_waypoint",
+      "type": "function",
+      "name": "case_multi_waypoint",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 case_multi_waypoint 定义在 test_four_waypoint_control.py，覆盖第 173-204 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:case_complex_sequence",
+      "type": "function",
+      "name": "case_complex_sequence",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 case_complex_sequence 定义在 test_four_waypoint_control.py，覆盖第 207-256 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:case_absolute_pose",
+      "type": "function",
+      "name": "case_absolute_pose",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 case_absolute_pose 定义在 test_four_waypoint_control.py，覆盖第 259-281 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:_collect",
+      "type": "function",
+      "name": "_collect",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 _collect 定义在 test_four_waypoint_control.py，覆盖第 284-297 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:run_selected",
+      "type": "function",
+      "name": "run_selected",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 run_selected 定义在 test_four_waypoint_control.py，覆盖第 308-317 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:print_summary",
+      "type": "function",
+      "name": "print_summary",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 print_summary 定义在 test_four_waypoint_control.py，覆盖第 320-333 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_four_waypoint_control.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_four_waypoint_control.py",
+      "summary": "函数 main 定义在 test_four_waypoint_control.py，覆盖第 336-364 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_http_43.py",
+      "type": "file",
+      "name": "test_http_43.py",
+      "filePath": "test_http_43.py",
+      "summary": "test_http_43.py 是一个 代码文件，语言/格式为 python，约 22 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_http_43.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:test_mock_server.py",
+      "type": "file",
+      "name": "test_mock_server.py",
+      "filePath": "test_mock_server.py",
+      "summary": "test_mock_server.py 是一个 代码文件，语言/格式为 python，包含 4 个函数，约 107 行。",
+      "tags": [
+        "python",
+        "code",
+        "test",
+        "mock"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_mock_server.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_mock_server.py:log",
+      "type": "function",
+      "name": "log",
+      "filePath": "test_mock_server.py",
+      "summary": "函数 log 定义在 test_mock_server.py，覆盖第 13-14 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_mock_server.py:handle_motor_command",
+      "type": "function",
+      "name": "handle_motor_command",
+      "filePath": "test_mock_server.py",
+      "summary": "函数 handle_motor_command 定义在 test_mock_server.py，覆盖第 29-65 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_mock_server.py:handler",
+      "type": "function",
+      "name": "handler",
+      "filePath": "test_mock_server.py",
+      "summary": "函数 handler 定义在 test_mock_server.py，覆盖第 68-90 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_mock_server.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_mock_server.py",
+      "summary": "函数 main 定义在 test_mock_server.py，覆盖第 93-103 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_model_ws.py",
+      "type": "file",
+      "name": "test_model_ws.py",
+      "filePath": "test_model_ws.py",
+      "summary": "test_model_ws.py 是一个 代码文件，语言/格式为 python，包含 1 个函数，约 65 行。",
+      "tags": [
+        "python",
+        "code",
+        "test",
+        "websocket"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_model_ws.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_model_ws.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_model_ws.py",
+      "summary": "函数 main 定义在 test_model_ws.py，覆盖第 8-64 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_obstacle_avoidance.py",
+      "type": "file",
+      "name": "test_obstacle_avoidance.py",
+      "filePath": "test_obstacle_avoidance.py",
+      "summary": "test_obstacle_avoidance.py 是一个 代码文件，语言/格式为 python，包含 4 个函数，约 190 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "test_obstacle_avoidance.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_obstacle_avoidance.py:test_obstacle_avoidance",
+      "type": "function",
+      "name": "test_obstacle_avoidance",
+      "filePath": "test_obstacle_avoidance.py",
+      "summary": "函数 test_obstacle_avoidance 定义在 test_obstacle_avoidance.py，覆盖第 16-71 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_obstacle_avoidance.py:test_with_custom_angle",
+      "type": "function",
+      "name": "test_with_custom_angle",
+      "filePath": "test_obstacle_avoidance.py",
+      "summary": "函数 test_with_custom_angle 定义在 test_obstacle_avoidance.py，覆盖第 74-108 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_obstacle_avoidance.py:test_default_params",
+      "type": "function",
+      "name": "test_default_params",
+      "filePath": "test_obstacle_avoidance.py",
+      "summary": "函数 test_default_params 定义在 test_obstacle_avoidance.py，覆盖第 111-141 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_obstacle_avoidance.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_obstacle_avoidance.py",
+      "summary": "函数 main 定义在 test_obstacle_avoidance.py，覆盖第 144-186 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "config:test_results.json",
+      "type": "config",
+      "name": "test_results.json",
+      "filePath": "test_results.json",
+      "summary": "test_results.json 是一个 配置文件，语言/格式为 json，包含 7 个文档章节，约 112 行。",
+      "tags": [
+        "json",
+        "config",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_results.json 在本项目中属于 配置文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:test_stop_ws.py",
+      "type": "file",
+      "name": "test_stop_ws.py",
+      "filePath": "test_stop_ws.py",
+      "summary": "test_stop_ws.py 是一个 代码文件，语言/格式为 python，包含 1 个函数，约 31 行。",
+      "tags": [
+        "python",
+        "code",
+        "test",
+        "websocket"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_stop_ws.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_stop_ws.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_stop_ws.py",
+      "summary": "函数 main 定义在 test_stop_ws.py，覆盖第 7-30 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "document:TEST_SUMMARY_4DOF.md",
+      "type": "document",
+      "name": "TEST_SUMMARY_4DOF.md",
+      "filePath": "TEST_SUMMARY_4DOF.md",
+      "summary": "TEST_SUMMARY_4DOF.md 是一个 文档文件，语言/格式为 markdown，包含 32 个文档章节，约 207 行。",
+      "tags": [
+        "markdown",
+        "docs",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "TEST_SUMMARY_4DOF.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:test_waypoint_integration.sh",
+      "type": "file",
+      "name": "test_waypoint_integration.sh",
+      "filePath": "test_waypoint_integration.sh",
+      "summary": "test_waypoint_integration.sh 是一个 脚本文件，语言/格式为 shell，包含 1 个函数，约 77 行。",
+      "tags": [
+        "shell",
+        "script",
+        "test"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_waypoint_integration.sh 在本项目中属于 脚本文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_waypoint_integration.sh:cleanup",
+      "type": "function",
+      "name": "cleanup",
+      "filePath": "test_waypoint_integration.sh",
+      "summary": "函数 cleanup 定义在 test_waypoint_integration.sh，覆盖第 45-52 行。",
+      "tags": [
+        "function",
+        "shell"
+      ]
+    },
+    {
+      "id": "file:test_websocket_control.py",
+      "type": "file",
+      "name": "test_websocket_control.py",
+      "filePath": "test_websocket_control.py",
+      "summary": "test_websocket_control.py 是一个 代码文件，语言/格式为 python，包含 9 个函数，约 452 行。",
+      "tags": [
+        "python",
+        "code",
+        "test",
+        "websocket"
+      ],
+      "complexity": "medium",
+      "languageNotes": "test_websocket_control.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_websocket_control.py:log",
+      "type": "function",
+      "name": "log",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 log 定义在 test_websocket_control.py，覆盖第 16-17 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:send_and_recv",
+      "type": "function",
+      "name": "send_and_recv",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 send_and_recv 定义在 test_websocket_control.py，覆盖第 20-34 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:print_scenario_menu",
+      "type": "function",
+      "name": "print_scenario_menu",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 print_scenario_menu 定义在 test_websocket_control.py，覆盖第 238-253 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:input_float",
+      "type": "function",
+      "name": "input_float",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 input_float 定义在 test_websocket_control.py，覆盖第 256-265 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:input_int",
+      "type": "function",
+      "name": "input_int",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 input_int 定义在 test_websocket_control.py，覆盖第 268-277 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:build_head_motor_command",
+      "type": "function",
+      "name": "build_head_motor_command",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 build_head_motor_command 定义在 test_websocket_control.py，覆盖第 280-308 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:build_chassis_command",
+      "type": "function",
+      "name": "build_chassis_command",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 build_chassis_command 定义在 test_websocket_control.py，覆盖第 311-340 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:run_scenario",
+      "type": "function",
+      "name": "run_scenario",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 run_scenario 定义在 test_websocket_control.py，覆盖第 343-380 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_websocket_control.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_websocket_control.py",
+      "summary": "函数 main 定义在 test_websocket_control.py，覆盖第 383-443 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test_ws_only.py",
+      "type": "file",
+      "name": "test_ws_only.py",
+      "filePath": "test_ws_only.py",
+      "summary": "test_ws_only.py 是一个 代码文件，语言/格式为 python，包含 2 个函数，约 25 行。",
+      "tags": [
+        "python",
+        "code",
+        "test",
+        "websocket"
+      ],
+      "complexity": "low",
+      "languageNotes": "test_ws_only.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test_ws_only.py:test_uri",
+      "type": "function",
+      "name": "test_uri",
+      "filePath": "test_ws_only.py",
+      "summary": "函数 test_uri 定义在 test_ws_only.py，覆盖第 9-20 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test_ws_only.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test_ws_only.py",
+      "summary": "函数 main 定义在 test_ws_only.py，覆盖第 22-24 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:test.py",
+      "type": "file",
+      "name": "test.py",
+      "filePath": "test.py",
+      "summary": "test.py 是一个 代码文件，语言/格式为 python，包含 10 个函数，约 628 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "high",
+      "languageNotes": "test.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:test.py:log",
+      "type": "function",
+      "name": "log",
+      "filePath": "test.py",
+      "summary": "函数 log 定义在 test.py，覆盖第 22-23 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:send_and_recv",
+      "type": "function",
+      "name": "send_and_recv",
+      "filePath": "test.py",
+      "summary": "函数 send_and_recv 定义在 test.py，覆盖第 26-40 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:run_keyboard_control",
+      "type": "function",
+      "name": "run_keyboard_control",
+      "filePath": "test.py",
+      "summary": "函数 run_keyboard_control 定义在 test.py，覆盖第 255-400 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:print_scenario_menu",
+      "type": "function",
+      "name": "print_scenario_menu",
+      "filePath": "test.py",
+      "summary": "函数 print_scenario_menu 定义在 test.py，覆盖第 403-419 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:input_float",
+      "type": "function",
+      "name": "input_float",
+      "filePath": "test.py",
+      "summary": "函数 input_float 定义在 test.py，覆盖第 422-431 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:input_int",
+      "type": "function",
+      "name": "input_int",
+      "filePath": "test.py",
+      "summary": "函数 input_int 定义在 test.py，覆盖第 434-443 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:build_head_motor_command",
+      "type": "function",
+      "name": "build_head_motor_command",
+      "filePath": "test.py",
+      "summary": "函数 build_head_motor_command 定义在 test.py，覆盖第 446-474 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:build_chassis_command",
+      "type": "function",
+      "name": "build_chassis_command",
+      "filePath": "test.py",
+      "summary": "函数 build_chassis_command 定义在 test.py，覆盖第 477-506 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:run_scenario",
+      "type": "function",
+      "name": "run_scenario",
+      "filePath": "test.py",
+      "summary": "函数 run_scenario 定义在 test.py，覆盖第 509-546 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:test.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "test.py",
+      "summary": "函数 main 定义在 test.py，覆盖第 549-619 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "file:usb_serial_manager.py",
+      "type": "file",
+      "name": "usb_serial_manager.py",
+      "filePath": "usb_serial_manager.py",
+      "summary": "usb_serial_manager.py 是一个 代码文件，语言/格式为 python，包含 2 个类，约 586 行。",
+      "tags": [
+        "python",
+        "code",
+        "protocol"
+      ],
+      "complexity": "high",
+      "languageNotes": "usb_serial_manager.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:usb_serial_manager.py:SerialManager",
+      "type": "class",
+      "name": "SerialManager",
+      "filePath": "usb_serial_manager.py",
+      "summary": "类 SerialManager 定义在 usb_serial_manager.py，覆盖第 14-527 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "class:usb_serial_manager.py:VirtualSerialPort",
+      "type": "class",
+      "name": "VirtualSerialPort",
+      "filePath": "usb_serial_manager.py",
+      "summary": "类 VirtualSerialPort 定义在 usb_serial_manager.py，覆盖第 532-587 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "document:VERIFICATION_SUMMARY.md",
+      "type": "document",
+      "name": "VERIFICATION_SUMMARY.md",
+      "filePath": "VERIFICATION_SUMMARY.md",
+      "summary": "VERIFICATION_SUMMARY.md 是一个 文档文件，语言/格式为 markdown，包含 16 个文档章节，约 183 行。",
+      "tags": [
+        "markdown",
+        "docs"
+      ],
+      "complexity": "medium",
+      "languageNotes": "VERIFICATION_SUMMARY.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:verify_4dof_test.py",
+      "type": "file",
+      "name": "verify_4dof_test.py",
+      "filePath": "verify_4dof_test.py",
+      "summary": "verify_4dof_test.py 是一个 代码文件，语言/格式为 python，包含 7 个函数，约 239 行。",
+      "tags": [
+        "python",
+        "code",
+        "test"
+      ],
+      "complexity": "medium",
+      "languageNotes": "verify_4dof_test.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "function:verify_4dof_test.py:test_scenario_definitions",
+      "type": "function",
+      "name": "test_scenario_definitions",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 test_scenario_definitions 定义在 verify_4dof_test.py，覆盖第 16-34 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:verify_4dof_test.py:test_angle_conversion",
+      "type": "function",
+      "name": "test_angle_conversion",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 test_angle_conversion 定义在 verify_4dof_test.py，覆盖第 37-60 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:verify_4dof_test.py:test_command_structure",
+      "type": "function",
+      "name": "test_command_structure",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 test_command_structure 定义在 verify_4dof_test.py，覆盖第 63-108 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:verify_4dof_test.py:test_ros2_coordinate_system",
+      "type": "function",
+      "name": "test_ros2_coordinate_system",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 test_ros2_coordinate_system 定义在 verify_4dof_test.py，覆盖第 111-143 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:verify_4dof_test.py:test_comparison_with_original",
+      "type": "function",
+      "name": "test_comparison_with_original",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 test_comparison_with_original 定义在 verify_4dof_test.py，覆盖第 146-169 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:verify_4dof_test.py:test_json_serialization",
+      "type": "function",
+      "name": "test_json_serialization",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 test_json_serialization 定义在 verify_4dof_test.py，覆盖第 172-194 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "function:verify_4dof_test.py:main",
+      "type": "function",
+      "name": "main",
+      "filePath": "verify_4dof_test.py",
+      "summary": "函数 main 定义在 verify_4dof_test.py，覆盖第 197-235 行。",
+      "tags": [
+        "function",
+        "python"
+      ]
+    },
+    {
+      "id": "document:WEBSOCKET_CHANGES.md",
+      "type": "document",
+      "name": "WEBSOCKET_CHANGES.md",
+      "filePath": "WEBSOCKET_CHANGES.md",
+      "summary": "WEBSOCKET_CHANGES.md 是一个 文档文件，语言/格式为 markdown，包含 32 个文档章节，约 209 行。",
+      "tags": [
+        "markdown",
+        "docs",
+        "websocket"
+      ],
+      "complexity": "medium",
+      "languageNotes": "WEBSOCKET_CHANGES.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:websocket_control_client.html",
+      "type": "file",
+      "name": "websocket_control_client.html",
+      "filePath": "websocket_control_client.html",
+      "summary": "websocket_control_client.html 是一个 界面标记文件，语言/格式为 html，约 568 行。",
+      "tags": [
+        "html",
+        "markup",
+        "websocket"
+      ],
+      "complexity": "high",
+      "languageNotes": "websocket_control_client.html 在本项目中属于 界面标记文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "document:WEBSOCKET_CONTROL_README.md",
+      "type": "document",
+      "name": "WEBSOCKET_CONTROL_README.md",
+      "filePath": "WEBSOCKET_CONTROL_README.md",
+      "summary": "WEBSOCKET_CONTROL_README.md 是一个 文档文件，语言/格式为 markdown，包含 32 个文档章节，约 320 行。",
+      "tags": [
+        "markdown",
+        "docs",
+        "websocket"
+      ],
+      "complexity": "medium",
+      "languageNotes": "WEBSOCKET_CONTROL_README.md 在本项目中属于 文档文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "file:websocket_control_server.py",
+      "type": "file",
+      "name": "websocket_control_server.py",
+      "filePath": "websocket_control_server.py",
+      "summary": "websocket_control_server.py 是一个 代码文件，语言/格式为 python，包含 1 个类，约 343 行。",
+      "tags": [
+        "python",
+        "code",
+        "websocket"
+      ],
+      "complexity": "medium",
+      "languageNotes": "websocket_control_server.py 在本项目中属于 代码文件，用于支撑机器人控制、测试或部署流程。"
+    },
+    {
+      "id": "class:websocket_control_server.py:WebSocketControlServer",
+      "type": "class",
+      "name": "WebSocketControlServer",
+      "filePath": "websocket_control_server.py",
+      "summary": "类 WebSocketControlServer 定义在 websocket_control_server.py，覆盖第 15-343 行。",
+      "tags": [
+        "class",
+        "python"
+      ]
+    },
+    {
+      "id": "file:websocket_test_panel.html",
+      "type": "file",
+      "name": "websocket_test_panel.html",
+      "filePath": "websocket_test_panel.html",
+      "summary": "websocket_test_panel.html 是一个 界面标记文件，语言/格式为 html，约 237 行。",
+      "tags": [
+        "html",
+        "markup",
+        "test",
+        "websocket"
+      ],
+      "complexity": "medium",
+      "languageNotes": "websocket_test_panel.html 在本项目中属于 界面标记文件，用于支撑机器人控制、测试或部署流程。"
+    }
+  ],
+  "edges": [
+    {
+      "id": "contains:file:camera_rgb_service.py->class:camera_rgb_service.py:CameraRGBService",
+      "source": "file:camera_rgb_service.py",
+      "target": "class:camera_rgb_service.py:CameraRGBService",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:camera_rgb_service.py->function:camera_rgb_service.py:main",
+      "source": "file:camera_rgb_service.py",
+      "target": "function:camera_rgb_service.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:config.py->class:config.py:AgentConfig",
+      "source": "file:config.py",
+      "target": "class:config.py:AgentConfig",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:local_model_bridge.py->function:local_model_bridge.py:call_http_llm",
+      "source": "file:local_model_bridge.py",
+      "target": "function:local_model_bridge.py:call_http_llm",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:local_model_bridge.py->function:local_model_bridge.py:handle_client",
+      "source": "file:local_model_bridge.py",
+      "target": "function:local_model_bridge.py:handle_client",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:local_model_bridge.py->function:local_model_bridge.py:main",
+      "source": "file:local_model_bridge.py",
+      "target": "function:local_model_bridge.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:mock_four_motor_node.py->class:mock_four_motor_node.py:MockFourMotorNode",
+      "source": "file:mock_four_motor_node.py",
+      "target": "class:mock_four_motor_node.py:MockFourMotorNode",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:mock_four_motor_node.py->function:mock_four_motor_node.py:rad2deg",
+      "source": "file:mock_four_motor_node.py",
+      "target": "function:mock_four_motor_node.py:rad2deg",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:mock_four_motor_node.py->function:mock_four_motor_node.py:main",
+      "source": "file:mock_four_motor_node.py",
+      "target": "function:mock_four_motor_node.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:mock_four_waypoint_node.py->class:mock_four_waypoint_node.py:MockFourWaypointNode",
+      "source": "file:mock_four_waypoint_node.py",
+      "target": "class:mock_four_waypoint_node.py:MockFourWaypointNode",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:mock_four_waypoint_node.py->function:mock_four_waypoint_node.py:rad2deg",
+      "source": "file:mock_four_waypoint_node.py",
+      "target": "function:mock_four_waypoint_node.py:rad2deg",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:mock_four_waypoint_node.py->function:mock_four_waypoint_node.py:main",
+      "source": "file:mock_four_waypoint_node.py",
+      "target": "function:mock_four_waypoint_node.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:mock_motor_node.py->class:mock_motor_node.py:MockMotorNode",
+      "source": "file:mock_motor_node.py",
+      "target": "class:mock_motor_node.py:MockMotorNode",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:mock_motor_node.py->function:mock_motor_node.py:main",
+      "source": "file:mock_motor_node.py",
+      "target": "function:mock_motor_node.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:protocol_parser.py->class:protocol_parser.py:CommandType",
+      "source": "file:protocol_parser.py",
+      "target": "class:protocol_parser.py:CommandType",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:protocol_parser.py->class:protocol_parser.py:ParserState",
+      "source": "file:protocol_parser.py",
+      "target": "class:protocol_parser.py:ParserState",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:protocol_parser.py->class:protocol_parser.py:ParseResult",
+      "source": "file:protocol_parser.py",
+      "target": "class:protocol_parser.py:ParseResult",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:protocol_parser.py->class:protocol_parser.py:FrameData",
+      "source": "file:protocol_parser.py",
+      "target": "class:protocol_parser.py:FrameData",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:protocol_parser.py->class:protocol_parser.py:ProtocolParser",
+      "source": "file:protocol_parser.py",
+      "target": "class:protocol_parser.py:ProtocolParser",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:ResultCode",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:ResultCode",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:MotorResultCode",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:MotorResultCode",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:MedicineBoxStatus",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:MedicineBoxStatus",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:CallbackGroupType",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:CallbackGroupType",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:RobotStateManager",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:RobotStateManager",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:Thought",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:Thought",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:AgentThought",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:AgentThought",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:Observation",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:Observation",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:AgentMemory",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:AgentMemory",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:ROS2Interface",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:ROS2Interface",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:USBCoordinateManager",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:USBCoordinateManager",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->class:smart_robot_agent.py:SmartRobotAgent",
+      "source": "file:smart_robot_agent.py",
+      "target": "class:smart_robot_agent.py:SmartRobotAgent",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:parse_ros2_response",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:parse_ros2_response",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:fix_asm_json_format",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:fix_asm_json_format",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:get_db_connection",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:get_db_connection",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:init_database",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:init_database",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:save_to_history",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:save_to_history",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:battery_callback",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:battery_callback",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:stop_following",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:stop_following",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:stop_navigation",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:stop_navigation",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:notify_navigation_model_stop_following",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:notify_navigation_model_stop_following",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:stop_follow",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:stop_follow",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:stop_navigate",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:stop_navigate",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:smart_robot_agent.py->function:smart_robot_agent.py:main",
+      "source": "file:smart_robot_agent.py",
+      "target": "function:smart_robot_agent.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:log",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:log",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:deg",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:deg",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:speed_level_for",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:speed_level_for",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:head_command",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:head_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:head_sequence",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:head_sequence",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:input_optional_float",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:input_optional_float",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:input_float",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:input_float",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:build_head_4dof_command",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:build_head_4dof_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:command_has_chassis_control",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:command_has_chassis_control",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:send_and_recv",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:send_and_recv",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:response_success",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:response_success",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:print_scenario_menu",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:print_scenario_menu",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:run_scenario",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:run_scenario",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:main",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_4dof_head_control.py->function:test_4dof_head_control.py:parse_args",
+      "source": "file:test_4dof_head_control.py",
+      "target": "function:test_4dof_head_control.py:parse_args",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_agent_client.py->function:test_agent_client.py:main",
+      "source": "file:test_agent_client.py",
+      "target": "function:test_agent_client.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_agent_stop_client.py->function:test_agent_stop_client.py:main",
+      "source": "file:test_agent_stop_client.py",
+      "target": "function:test_agent_stop_client.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_auto_run.py->function:test_auto_run.py:log",
+      "source": "file:test_auto_run.py",
+      "target": "function:test_auto_run.py:log",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_auto_run.py->function:test_auto_run.py:run_all",
+      "source": "file:test_auto_run.py",
+      "target": "function:test_auto_run.py:run_all",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_e2e_scenarios.py->function:test_e2e_scenarios.py:main",
+      "source": "file:test_e2e_scenarios.py",
+      "target": "function:test_e2e_scenarios.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->class:test_four_combine_motor.py:UpstreamTestClient",
+      "source": "file:test_four_combine_motor.py",
+      "target": "class:test_four_combine_motor.py:UpstreamTestClient",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_yaw_only",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_yaw_only",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_roll_only",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_roll_only",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_pitch_only",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_pitch_only",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_neck_three_axis",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_neck_three_axis",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_chassis_only",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_chassis_only",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_full_combo",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_full_combo",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_negative_chassis",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_negative_chassis",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:case_invalid_speed",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:case_invalid_speed",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:_collect",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:run_selected",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:run_selected",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:print_summary",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:print_summary",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_combine_motor.py->function:test_four_combine_motor.py:main",
+      "source": "file:test_four_combine_motor.py",
+      "target": "function:test_four_combine_motor.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->class:test_four_waypoint_control.py:UpstreamWaypointTestClient",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "class:test_four_waypoint_control.py:UpstreamWaypointTestClient",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:case_single_waypoint",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:case_single_waypoint",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:case_multi_waypoint",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:case_multi_waypoint",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:case_complex_sequence",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:case_complex_sequence",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:case_absolute_pose",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:case_absolute_pose",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:_collect",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:_collect",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:run_selected",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:run_selected",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:print_summary",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:print_summary",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_four_waypoint_control.py->function:test_four_waypoint_control.py:main",
+      "source": "file:test_four_waypoint_control.py",
+      "target": "function:test_four_waypoint_control.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_mock_server.py->function:test_mock_server.py:log",
+      "source": "file:test_mock_server.py",
+      "target": "function:test_mock_server.py:log",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_mock_server.py->function:test_mock_server.py:handle_motor_command",
+      "source": "file:test_mock_server.py",
+      "target": "function:test_mock_server.py:handle_motor_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_mock_server.py->function:test_mock_server.py:handler",
+      "source": "file:test_mock_server.py",
+      "target": "function:test_mock_server.py:handler",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_mock_server.py->function:test_mock_server.py:main",
+      "source": "file:test_mock_server.py",
+      "target": "function:test_mock_server.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_model_ws.py->function:test_model_ws.py:main",
+      "source": "file:test_model_ws.py",
+      "target": "function:test_model_ws.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_obstacle_avoidance.py->function:test_obstacle_avoidance.py:test_obstacle_avoidance",
+      "source": "file:test_obstacle_avoidance.py",
+      "target": "function:test_obstacle_avoidance.py:test_obstacle_avoidance",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_obstacle_avoidance.py->function:test_obstacle_avoidance.py:test_with_custom_angle",
+      "source": "file:test_obstacle_avoidance.py",
+      "target": "function:test_obstacle_avoidance.py:test_with_custom_angle",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_obstacle_avoidance.py->function:test_obstacle_avoidance.py:test_default_params",
+      "source": "file:test_obstacle_avoidance.py",
+      "target": "function:test_obstacle_avoidance.py:test_default_params",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_obstacle_avoidance.py->function:test_obstacle_avoidance.py:main",
+      "source": "file:test_obstacle_avoidance.py",
+      "target": "function:test_obstacle_avoidance.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_stop_ws.py->function:test_stop_ws.py:main",
+      "source": "file:test_stop_ws.py",
+      "target": "function:test_stop_ws.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_waypoint_integration.sh->function:test_waypoint_integration.sh:cleanup",
+      "source": "file:test_waypoint_integration.sh",
+      "target": "function:test_waypoint_integration.sh:cleanup",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:log",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:log",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:send_and_recv",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:send_and_recv",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:print_scenario_menu",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:print_scenario_menu",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:input_float",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:input_float",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:input_int",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:input_int",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:build_head_motor_command",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:build_head_motor_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:build_chassis_command",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:build_chassis_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:run_scenario",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:run_scenario",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_websocket_control.py->function:test_websocket_control.py:main",
+      "source": "file:test_websocket_control.py",
+      "target": "function:test_websocket_control.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_ws_only.py->function:test_ws_only.py:test_uri",
+      "source": "file:test_ws_only.py",
+      "target": "function:test_ws_only.py:test_uri",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test_ws_only.py->function:test_ws_only.py:main",
+      "source": "file:test_ws_only.py",
+      "target": "function:test_ws_only.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:log",
+      "source": "file:test.py",
+      "target": "function:test.py:log",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:send_and_recv",
+      "source": "file:test.py",
+      "target": "function:test.py:send_and_recv",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:run_keyboard_control",
+      "source": "file:test.py",
+      "target": "function:test.py:run_keyboard_control",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:print_scenario_menu",
+      "source": "file:test.py",
+      "target": "function:test.py:print_scenario_menu",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:input_float",
+      "source": "file:test.py",
+      "target": "function:test.py:input_float",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:input_int",
+      "source": "file:test.py",
+      "target": "function:test.py:input_int",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:build_head_motor_command",
+      "source": "file:test.py",
+      "target": "function:test.py:build_head_motor_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:build_chassis_command",
+      "source": "file:test.py",
+      "target": "function:test.py:build_chassis_command",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:run_scenario",
+      "source": "file:test.py",
+      "target": "function:test.py:run_scenario",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:test.py->function:test.py:main",
+      "source": "file:test.py",
+      "target": "function:test.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:usb_serial_manager.py->class:usb_serial_manager.py:SerialManager",
+      "source": "file:usb_serial_manager.py",
+      "target": "class:usb_serial_manager.py:SerialManager",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:usb_serial_manager.py->class:usb_serial_manager.py:VirtualSerialPort",
+      "source": "file:usb_serial_manager.py",
+      "target": "class:usb_serial_manager.py:VirtualSerialPort",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:test_scenario_definitions",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:test_scenario_definitions",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:test_angle_conversion",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:test_angle_conversion",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:test_command_structure",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:test_command_structure",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:test_ros2_coordinate_system",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:test_ros2_coordinate_system",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:test_comparison_with_original",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:test_comparison_with_original",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:test_json_serialization",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:test_json_serialization",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:verify_4dof_test.py->function:verify_4dof_test.py:main",
+      "source": "file:verify_4dof_test.py",
+      "target": "function:verify_4dof_test.py:main",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含函数"
+    },
+    {
+      "id": "contains:file:websocket_control_server.py->class:websocket_control_server.py:WebSocketControlServer",
+      "source": "file:websocket_control_server.py",
+      "target": "class:websocket_control_server.py:WebSocketControlServer",
+      "type": "contains",
+      "weight": 1,
+      "label": "包含类"
+    },
+    {
+      "id": "imports:file:smart_robot_agent.py->file:config.py",
+      "source": "file:smart_robot_agent.py",
+      "target": "file:config.py",
+      "type": "imports",
+      "weight": 0.7,
+      "label": "导入"
+    },
+    {
+      "id": "imports:file:smart_robot_agent.py->file:websocket_control_server.py",
+      "source": "file:smart_robot_agent.py",
+      "target": "file:websocket_control_server.py",
+      "type": "imports",
+      "weight": 0.7,
+      "label": "导入"
+    },
+    {
+      "id": "imports:file:test_e2e_scenarios.py->file:smart_robot_agent.py",
+      "source": "file:test_e2e_scenarios.py",
+      "target": "file:smart_robot_agent.py",
+      "type": "imports",
+      "weight": 0.7,
+      "label": "导入"
+    },
+    {
+      "id": "imports:file:usb_serial_manager.py->file:protocol_parser.py",
+      "source": "file:usb_serial_manager.py",
+      "target": "file:protocol_parser.py",
+      "type": "imports",
+      "weight": 0.7,
+      "label": "导入"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:init_database->function:smart_robot_agent.py:get_db_connection",
+      "source": "function:smart_robot_agent.py:init_database",
+      "target": "function:smart_robot_agent.py:get_db_connection",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:save_to_history->function:smart_robot_agent.py:get_db_connection",
+      "source": "function:smart_robot_agent.py:save_to_history",
+      "target": "function:smart_robot_agent.py:get_db_connection",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:stop_follow->function:smart_robot_agent.py:stop_following",
+      "source": "function:smart_robot_agent.py:stop_follow",
+      "target": "function:smart_robot_agent.py:stop_following",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:stop_follow->function:smart_robot_agent.py:notify_navigation_model_stop_following",
+      "source": "function:smart_robot_agent.py:stop_follow",
+      "target": "function:smart_robot_agent.py:notify_navigation_model_stop_following",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:stop_navigate->function:smart_robot_agent.py:stop_navigation",
+      "source": "function:smart_robot_agent.py:stop_navigate",
+      "target": "function:smart_robot_agent.py:stop_navigation",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:main->function:smart_robot_agent.py:init_database",
+      "source": "function:smart_robot_agent.py:main",
+      "target": "function:smart_robot_agent.py:init_database",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:smart_robot_agent.py:main->function:smart_robot_agent.py:fix_asm_json_format",
+      "source": "function:smart_robot_agent.py:main",
+      "target": "function:smart_robot_agent.py:fix_asm_json_format",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:local_model_bridge.py:handle_client->function:local_model_bridge.py:call_http_llm",
+      "source": "function:local_model_bridge.py:handle_client",
+      "target": "function:local_model_bridge.py:call_http_llm",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:head_command->function:test_4dof_head_control.py:deg",
+      "source": "function:test_4dof_head_control.py:head_command",
+      "target": "function:test_4dof_head_control.py:deg",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:head_command->function:test_4dof_head_control.py:speed_level_for",
+      "source": "function:test_4dof_head_control.py:head_command",
+      "target": "function:test_4dof_head_control.py:speed_level_for",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:build_head_4dof_command->function:test_4dof_head_control.py:input_optional_float",
+      "source": "function:test_4dof_head_control.py:build_head_4dof_command",
+      "target": "function:test_4dof_head_control.py:input_optional_float",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:build_head_4dof_command->function:test_4dof_head_control.py:input_float",
+      "source": "function:test_4dof_head_control.py:build_head_4dof_command",
+      "target": "function:test_4dof_head_control.py:input_float",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:build_head_4dof_command->function:test_4dof_head_control.py:head_command",
+      "source": "function:test_4dof_head_control.py:build_head_4dof_command",
+      "target": "function:test_4dof_head_control.py:head_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:send_and_recv->function:test_4dof_head_control.py:log",
+      "source": "function:test_4dof_head_control.py:send_and_recv",
+      "target": "function:test_4dof_head_control.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:run_scenario->function:test_4dof_head_control.py:build_head_4dof_command",
+      "source": "function:test_4dof_head_control.py:run_scenario",
+      "target": "function:test_4dof_head_control.py:build_head_4dof_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:run_scenario->function:test_4dof_head_control.py:log",
+      "source": "function:test_4dof_head_control.py:run_scenario",
+      "target": "function:test_4dof_head_control.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:run_scenario->function:test_4dof_head_control.py:command_has_chassis_control",
+      "source": "function:test_4dof_head_control.py:run_scenario",
+      "target": "function:test_4dof_head_control.py:command_has_chassis_control",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:run_scenario->function:test_4dof_head_control.py:send_and_recv",
+      "source": "function:test_4dof_head_control.py:run_scenario",
+      "target": "function:test_4dof_head_control.py:send_and_recv",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:run_scenario->function:test_4dof_head_control.py:response_success",
+      "source": "function:test_4dof_head_control.py:run_scenario",
+      "target": "function:test_4dof_head_control.py:response_success",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:main->function:test_4dof_head_control.py:print_scenario_menu",
+      "source": "function:test_4dof_head_control.py:main",
+      "target": "function:test_4dof_head_control.py:print_scenario_menu",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:main->function:test_4dof_head_control.py:log",
+      "source": "function:test_4dof_head_control.py:main",
+      "target": "function:test_4dof_head_control.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_4dof_head_control.py:main->function:test_4dof_head_control.py:run_scenario",
+      "source": "function:test_4dof_head_control.py:main",
+      "target": "function:test_4dof_head_control.py:run_scenario",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_auto_run.py:run_all->function:test_auto_run.py:log",
+      "source": "function:test_auto_run.py:run_all",
+      "target": "function:test_auto_run.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_yaw_only->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_yaw_only",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_roll_only->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_roll_only",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_pitch_only->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_pitch_only",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_neck_three_axis->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_neck_three_axis",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_chassis_only->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_chassis_only",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_full_combo->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_full_combo",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_negative_chassis->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_negative_chassis",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:case_invalid_speed->function:test_four_combine_motor.py:_collect",
+      "source": "function:test_four_combine_motor.py:case_invalid_speed",
+      "target": "function:test_four_combine_motor.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:main->function:test_four_combine_motor.py:run_selected",
+      "source": "function:test_four_combine_motor.py:main",
+      "target": "function:test_four_combine_motor.py:run_selected",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_combine_motor.py:main->function:test_four_combine_motor.py:print_summary",
+      "source": "function:test_four_combine_motor.py:main",
+      "target": "function:test_four_combine_motor.py:print_summary",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_waypoint_control.py:case_single_waypoint->function:test_four_waypoint_control.py:_collect",
+      "source": "function:test_four_waypoint_control.py:case_single_waypoint",
+      "target": "function:test_four_waypoint_control.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_waypoint_control.py:case_multi_waypoint->function:test_four_waypoint_control.py:_collect",
+      "source": "function:test_four_waypoint_control.py:case_multi_waypoint",
+      "target": "function:test_four_waypoint_control.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_waypoint_control.py:case_complex_sequence->function:test_four_waypoint_control.py:_collect",
+      "source": "function:test_four_waypoint_control.py:case_complex_sequence",
+      "target": "function:test_four_waypoint_control.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_waypoint_control.py:case_absolute_pose->function:test_four_waypoint_control.py:_collect",
+      "source": "function:test_four_waypoint_control.py:case_absolute_pose",
+      "target": "function:test_four_waypoint_control.py:_collect",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_waypoint_control.py:main->function:test_four_waypoint_control.py:run_selected",
+      "source": "function:test_four_waypoint_control.py:main",
+      "target": "function:test_four_waypoint_control.py:run_selected",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_four_waypoint_control.py:main->function:test_four_waypoint_control.py:print_summary",
+      "source": "function:test_four_waypoint_control.py:main",
+      "target": "function:test_four_waypoint_control.py:print_summary",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_mock_server.py:handle_motor_command->function:test_mock_server.py:log",
+      "source": "function:test_mock_server.py:handle_motor_command",
+      "target": "function:test_mock_server.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_mock_server.py:handler->function:test_mock_server.py:log",
+      "source": "function:test_mock_server.py:handler",
+      "target": "function:test_mock_server.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_mock_server.py:handler->function:test_mock_server.py:handle_motor_command",
+      "source": "function:test_mock_server.py:handler",
+      "target": "function:test_mock_server.py:handle_motor_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_mock_server.py:main->function:test_mock_server.py:log",
+      "source": "function:test_mock_server.py:main",
+      "target": "function:test_mock_server.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_obstacle_avoidance.py:main->function:test_obstacle_avoidance.py:test_obstacle_avoidance",
+      "source": "function:test_obstacle_avoidance.py:main",
+      "target": "function:test_obstacle_avoidance.py:test_obstacle_avoidance",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_obstacle_avoidance.py:main->function:test_obstacle_avoidance.py:test_with_custom_angle",
+      "source": "function:test_obstacle_avoidance.py:main",
+      "target": "function:test_obstacle_avoidance.py:test_with_custom_angle",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_obstacle_avoidance.py:main->function:test_obstacle_avoidance.py:test_default_params",
+      "source": "function:test_obstacle_avoidance.py:main",
+      "target": "function:test_obstacle_avoidance.py:test_default_params",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:send_and_recv->function:test_websocket_control.py:log",
+      "source": "function:test_websocket_control.py:send_and_recv",
+      "target": "function:test_websocket_control.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:build_head_motor_command->function:test_websocket_control.py:input_float",
+      "source": "function:test_websocket_control.py:build_head_motor_command",
+      "target": "function:test_websocket_control.py:input_float",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:build_head_motor_command->function:test_websocket_control.py:input_int",
+      "source": "function:test_websocket_control.py:build_head_motor_command",
+      "target": "function:test_websocket_control.py:input_int",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:build_chassis_command->function:test_websocket_control.py:input_float",
+      "source": "function:test_websocket_control.py:build_chassis_command",
+      "target": "function:test_websocket_control.py:input_float",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:build_chassis_command->function:test_websocket_control.py:input_int",
+      "source": "function:test_websocket_control.py:build_chassis_command",
+      "target": "function:test_websocket_control.py:input_int",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:run_scenario->function:test_websocket_control.py:build_head_motor_command",
+      "source": "function:test_websocket_control.py:run_scenario",
+      "target": "function:test_websocket_control.py:build_head_motor_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:run_scenario->function:test_websocket_control.py:build_chassis_command",
+      "source": "function:test_websocket_control.py:run_scenario",
+      "target": "function:test_websocket_control.py:build_chassis_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:run_scenario->function:test_websocket_control.py:log",
+      "source": "function:test_websocket_control.py:run_scenario",
+      "target": "function:test_websocket_control.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:run_scenario->function:test_websocket_control.py:send_and_recv",
+      "source": "function:test_websocket_control.py:run_scenario",
+      "target": "function:test_websocket_control.py:send_and_recv",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:main->function:test_websocket_control.py:print_scenario_menu",
+      "source": "function:test_websocket_control.py:main",
+      "target": "function:test_websocket_control.py:print_scenario_menu",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:main->function:test_websocket_control.py:log",
+      "source": "function:test_websocket_control.py:main",
+      "target": "function:test_websocket_control.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_websocket_control.py:main->function:test_websocket_control.py:run_scenario",
+      "source": "function:test_websocket_control.py:main",
+      "target": "function:test_websocket_control.py:run_scenario",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test_ws_only.py:main->function:test_ws_only.py:test_uri",
+      "source": "function:test_ws_only.py:main",
+      "target": "function:test_ws_only.py:test_uri",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:send_and_recv->function:test.py:log",
+      "source": "function:test.py:send_and_recv",
+      "target": "function:test.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:run_keyboard_control->function:test.py:log",
+      "source": "function:test.py:run_keyboard_control",
+      "target": "function:test.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:build_head_motor_command->function:test.py:input_float",
+      "source": "function:test.py:build_head_motor_command",
+      "target": "function:test.py:input_float",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:build_head_motor_command->function:test.py:input_int",
+      "source": "function:test.py:build_head_motor_command",
+      "target": "function:test.py:input_int",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:build_chassis_command->function:test.py:input_float",
+      "source": "function:test.py:build_chassis_command",
+      "target": "function:test.py:input_float",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:build_chassis_command->function:test.py:input_int",
+      "source": "function:test.py:build_chassis_command",
+      "target": "function:test.py:input_int",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:run_scenario->function:test.py:build_head_motor_command",
+      "source": "function:test.py:run_scenario",
+      "target": "function:test.py:build_head_motor_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:run_scenario->function:test.py:build_chassis_command",
+      "source": "function:test.py:run_scenario",
+      "target": "function:test.py:build_chassis_command",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:run_scenario->function:test.py:log",
+      "source": "function:test.py:run_scenario",
+      "target": "function:test.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:run_scenario->function:test.py:send_and_recv",
+      "source": "function:test.py:run_scenario",
+      "target": "function:test.py:send_and_recv",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:main->function:test.py:print_scenario_menu",
+      "source": "function:test.py:main",
+      "target": "function:test.py:print_scenario_menu",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:main->function:test.py:log",
+      "source": "function:test.py:main",
+      "target": "function:test.py:log",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:main->function:test.py:run_keyboard_control",
+      "source": "function:test.py:main",
+      "target": "function:test.py:run_keyboard_control",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    },
+    {
+      "id": "calls:function:test.py:main->function:test.py:run_scenario",
+      "source": "function:test.py:main",
+      "target": "function:test.py:run_scenario",
+      "type": "calls",
+      "weight": 0.8,
+      "label": "调用"
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:core-agent",
+      "name": "核心智能体与 ROS2 接口",
+      "description": "智能体主流程、配置、ROS2 动作/服务调用和系统服务入口。",
+      "nodeIds": [
+        "service:agent.service",
+        "file:config.py",
+        "file:smart_robot_agent.py"
+      ]
+    },
+    {
+      "id": "layer:websocket-control",
+      "name": "WebSocket 控制与模型桥接",
+      "description": "WebSocket 控制服务、浏览器控制面板、本地模型桥接和相关验证入口。",
+      "nodeIds": [
+        "file:local_model_bridge.py",
+        "document:requirements_websocket.txt",
+        "file:start_websocket_test.sh",
+        "file:test_model_ws.py",
+        "file:test_stop_ws.py",
+        "file:test_websocket_control.py",
+        "file:test_ws_only.py",
+        "document:WEBSOCKET_CHANGES.md",
+        "file:websocket_control_client.html",
+        "document:WEBSOCKET_CONTROL_README.md",
+        "file:websocket_control_server.py",
+        "file:websocket_test_panel.html"
+      ]
+    },
+    {
+      "id": "layer:serial-protocol",
+      "name": "串口与协议解析",
+      "description": "USB 串口管理、运动控制协议解析、协议 JSON 和设备规则。",
+      "nodeIds": [
+        "config:combine_motor_protocol.json",
+        "config:four_combine_motor_protocol.json",
+        "config:obstacle_avoidance_protocol.json",
+        "file:protocol_parser.py",
+        "file:rk.rules",
+        "file:usb_serial_manager.py"
+      ]
+    },
+    {
+      "id": "layer:ros-message-definitions",
+      "name": "ROS 消息与服务定义",
+      "description": "自定义 ROS2 msg/srv/action 定义及其包配置。",
+      "nodeIds": [
+        "document:jqr_ros_msgs/CMakeLists.txt",
+        "file:jqr_ros_msgs/msg/BatteryLevel.msg",
+        "file:jqr_ros_msgs/msg/BoundingBox2D.msg",
+        "config:jqr_ros_msgs/package.xml",
+        "file:jqr_ros_msgs/srv/FaceDelete.srv",
+        "file:jqr_ros_msgs/srv/FaceRecognition.srv",
+        "file:jqr_ros_msgs/srv/FaceRegistration.srv",
+        "file:jqr_ros_msgs/srv/LaserPointer.srv",
+        "file:jqr_ros_msgs/srv/LaserPointerState.srv",
+        "file:jqr_ros_msgs/srv/MedicineBoxState.srv",
+        "file:jqr_ros_msgs/srv/MedicineBoxSwitch.srv",
+        "file:jqr_ros_msgs/srv/MoveMode.srv",
+        "file:jqr_ros_msgs/srv/RealSenseDepthImage.srv",
+        "file:jqr_ros_msgs/srv/RealSenseRGBImage.srv",
+        "file:jqr_ros_msgs/srv/RgbLightStrip.srv",
+        "file:jqr_ros_msgs/srv/RgbLightStripState.srv",
+        "file:jqr_ros_msgs/srv/RobotRise.srv",
+        "file:jqr_ros_msgs/srv/RobotRiseState.srv",
+        "file:jqr_ros_msgs/srv/RobotTilt.srv",
+        "file:jqr_ros_msgs/srv/RobotTiltState.srv",
+        "file:jqr_ros_msgs/srv/ScreenTilt.srv",
+        "file:jqr_ros_msgs/srv/ScreenTiltState.srv",
+        "file:nav2_msgs/action/NavigateToPose.action",
+        "document:nav2_msgs/CMakeLists.txt",
+        "config:nav2_msgs/package.xml"
+      ]
+    },
+    {
+      "id": "layer:test-and-mock",
+      "name": "测试与模拟节点",
+      "description": "端到端测试、运动控制测试、mock 节点和验证脚本。",
+      "nodeIds": [
+        "file:mock_four_motor_node.py",
+        "file:mock_four_waypoint_node.py",
+        "file:mock_motor_node.py",
+        "file:quick_test_4dof.sh",
+        "document:README_4DOF_TEST.md",
+        "file:run_e2e_test.sh",
+        "file:test_4dof_head_control.py",
+        "file:test_agent_client.py",
+        "file:test_agent_stop_client.py",
+        "file:test_auto_run.py",
+        "config:test_e2e_report.json",
+        "file:test_e2e_scenarios.py",
+        "file:test_four_combine_motor.py",
+        "file:test_four_waypoint_control.py",
+        "file:test_http_43.py",
+        "file:test_mock_server.py",
+        "file:test_obstacle_avoidance.py",
+        "config:test_results.json",
+        "document:TEST_SUMMARY_4DOF.md",
+        "file:test_waypoint_integration.sh",
+        "file:test.py",
+        "file:verify_4dof_test.py"
+      ]
+    },
+    {
+      "id": "layer:docs-and-scripts",
+      "name": "文档、配置与运行脚本",
+      "description": "README、变更记录、测试报告、启动脚本和辅助配置。",
+      "nodeIds": [
+        "config:.claude/settings.local.json",
+        "config:.env.example",
+        "document:FOUR_WAYPOINT_CONTROL_README.md",
+        "document:OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+        "document:README.en.md",
+        "document:README.md",
+        "file:start_agent.sh",
+        "document:VERIFICATION_SUMMARY.md"
+      ]
+    },
+    {
+      "id": "layer:supporting-files",
+      "name": "辅助文件",
+      "description": "无法归入主功能层的项目支持文件。",
+      "nodeIds": [
+        "file:camera_rgb_service.py"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "项目入口与整体目标",
+      "description": "从 README 和 smart_robot_agent.py 开始，了解机器人运动代理的启动方式、版本背景和主控制流程。",
+      "nodeIds": [
+        "document:README.md",
+        "file:smart_robot_agent.py"
+      ],
+      "languageLesson": "先读入口文件和 README，有助于把 ROS2、串口和 WebSocket 控制放到同一张系统图里理解。"
+    },
+    {
+      "order": 2,
+      "title": "控制通道",
+      "description": "查看 WebSocket 控制服务、本地模型桥接和控制面板，理解外部指令如何进入机器人控制层。",
+      "nodeIds": [
+        "file:websocket_control_server.py",
+        "file:local_model_bridge.py",
+        "file:websocket_control_client.html"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "串口协议链路",
+      "description": "沿着协议解析器和 USB 串口管理器理解运动指令如何被编码、解析和发送到设备。",
+      "nodeIds": [
+        "file:protocol_parser.py",
+        "file:usb_serial_manager.py",
+        "config:combine_motor_protocol.json"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "ROS 消息服务边界",
+      "description": "查看 jqr_ros_msgs 与 nav2_msgs 下的消息、服务和 action 定义，理解系统和 ROS2 生态的接口边界。",
+      "nodeIds": [
+        "file:jqr_ros_msgs/srv/MoveMode.srv",
+        "file:nav2_msgs/action/NavigateToPose.action",
+        "config:jqr_ros_msgs/package.xml"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "测试与模拟验证",
+      "description": "最后浏览 mock 节点和测试脚本，理解 4DOF、航点、避障和停止指令等场景如何被验证。",
+      "nodeIds": [
+        "file:mock_four_motor_node.py",
+        "file:test_stop_ws.py",
+        "file:test_four_waypoint_control.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,495 @@
+{
+  "scriptCompleted": true,
+  "files": [
+    {
+      "path": ".claude/settings.local.json",
+      "language": "json",
+      "sizeLines": 9,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".env.example",
+      "language": "config",
+      "sizeLines": 23,
+      "fileCategory": "config"
+    },
+    {
+      "path": "agent.service",
+      "language": "service",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "camera_rgb_service.py",
+      "language": "python",
+      "sizeLines": 177,
+      "fileCategory": "code"
+    },
+    {
+      "path": "combine_motor_protocol.json",
+      "language": "json",
+      "sizeLines": 112,
+      "fileCategory": "config"
+    },
+    {
+      "path": "config.py",
+      "language": "python",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "four_combine_motor_protocol.json",
+      "language": "json",
+      "sizeLines": 101,
+      "fileCategory": "config"
+    },
+    {
+      "path": "FOUR_WAYPOINT_CONTROL_README.md",
+      "language": "markdown",
+      "sizeLines": 287,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "jqr_ros_msgs/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 66,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "jqr_ros_msgs/msg/BatteryLevel.msg",
+      "language": "msg",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/msg/BoundingBox2D.msg",
+      "language": "msg",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/package.xml",
+      "language": "xml",
+      "sizeLines": 28,
+      "fileCategory": "config"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/FaceDelete.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/FaceRecognition.srv",
+      "language": "srv",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/FaceRegistration.srv",
+      "language": "srv",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/LaserPointer.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/LaserPointerState.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/MedicineBoxState.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/MedicineBoxSwitch.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/MoveMode.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RealSenseDepthImage.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RealSenseRGBImage.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RgbLightStrip.srv",
+      "language": "srv",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RgbLightStripState.srv",
+      "language": "srv",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotRise.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotRiseState.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotTilt.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/RobotTiltState.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/ScreenTilt.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "jqr_ros_msgs/srv/ScreenTiltState.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "local_model_bridge.py",
+      "language": "python",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "mock_four_motor_node.py",
+      "language": "python",
+      "sizeLines": 229,
+      "fileCategory": "code"
+    },
+    {
+      "path": "mock_four_waypoint_node.py",
+      "language": "python",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "mock_motor_node.py",
+      "language": "python",
+      "sizeLines": 217,
+      "fileCategory": "code"
+    },
+    {
+      "path": "nav2_msgs/action/NavigateToPose.action",
+      "language": "action",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "nav2_msgs/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 21,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "nav2_msgs/package.xml",
+      "language": "xml",
+      "sizeLines": 28,
+      "fileCategory": "config"
+    },
+    {
+      "path": "OBSTACLE_AVOIDANCE_IMPLEMENTATION.md",
+      "language": "markdown",
+      "sizeLines": 300,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "obstacle_avoidance_protocol.json",
+      "language": "json",
+      "sizeLines": 105,
+      "fileCategory": "config"
+    },
+    {
+      "path": "protocol_parser.py",
+      "language": "python",
+      "sizeLines": 265,
+      "fileCategory": "code"
+    },
+    {
+      "path": "quick_test_4dof.sh",
+      "language": "shell",
+      "sizeLines": 61,
+      "fileCategory": "script"
+    },
+    {
+      "path": "README_4DOF_TEST.md",
+      "language": "markdown",
+      "sizeLines": 170,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "README.en.md",
+      "language": "markdown",
+      "sizeLines": 25,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 55,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "requirements_websocket.txt",
+      "language": "txt",
+      "sizeLines": 7,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "rk.rules",
+      "language": "rules",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "run_e2e_test.sh",
+      "language": "shell",
+      "sizeLines": 33,
+      "fileCategory": "script"
+    },
+    {
+      "path": "smart_robot_agent.py",
+      "language": "python",
+      "sizeLines": 6421,
+      "fileCategory": "code"
+    },
+    {
+      "path": "start_agent.sh",
+      "language": "shell",
+      "sizeLines": 27,
+      "fileCategory": "script"
+    },
+    {
+      "path": "start_websocket_test.sh",
+      "language": "shell",
+      "sizeLines": 77,
+      "fileCategory": "script"
+    },
+    {
+      "path": "test_4dof_head_control.py",
+      "language": "python",
+      "sizeLines": 415,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_agent_client.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_agent_stop_client.py",
+      "language": "python",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_auto_run.py",
+      "language": "python",
+      "sizeLines": 126,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_e2e_report.json",
+      "language": "json",
+      "sizeLines": 87,
+      "fileCategory": "config"
+    },
+    {
+      "path": "test_e2e_scenarios.py",
+      "language": "python",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_four_combine_motor.py",
+      "language": "python",
+      "sizeLines": 339,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_four_waypoint_control.py",
+      "language": "python",
+      "sizeLines": 369,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_http_43.py",
+      "language": "python",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_mock_server.py",
+      "language": "python",
+      "sizeLines": 107,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_model_ws.py",
+      "language": "python",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_obstacle_avoidance.py",
+      "language": "python",
+      "sizeLines": 190,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_results.json",
+      "language": "json",
+      "sizeLines": 112,
+      "fileCategory": "config"
+    },
+    {
+      "path": "test_stop_ws.py",
+      "language": "python",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "TEST_SUMMARY_4DOF.md",
+      "language": "markdown",
+      "sizeLines": 207,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "test_waypoint_integration.sh",
+      "language": "shell",
+      "sizeLines": 77,
+      "fileCategory": "script"
+    },
+    {
+      "path": "test_websocket_control.py",
+      "language": "python",
+      "sizeLines": 452,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test_ws_only.py",
+      "language": "python",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test.py",
+      "language": "python",
+      "sizeLines": 628,
+      "fileCategory": "code"
+    },
+    {
+      "path": "usb_serial_manager.py",
+      "language": "python",
+      "sizeLines": 586,
+      "fileCategory": "code"
+    },
+    {
+      "path": "VERIFICATION_SUMMARY.md",
+      "language": "markdown",
+      "sizeLines": 183,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "verify_4dof_test.py",
+      "language": "python",
+      "sizeLines": 239,
+      "fileCategory": "code"
+    },
+    {
+      "path": "WEBSOCKET_CHANGES.md",
+      "language": "markdown",
+      "sizeLines": 209,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "websocket_control_client.html",
+      "language": "html",
+      "sizeLines": 568,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "WEBSOCKET_CONTROL_README.md",
+      "language": "markdown",
+      "sizeLines": 320,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "websocket_control_server.py",
+      "language": "python",
+      "sizeLines": 343,
+      "fileCategory": "code"
+    },
+    {
+      "path": "websocket_test_panel.html",
+      "language": "html",
+      "sizeLines": 237,
+      "fileCategory": "markup"
+    }
+  ],
+  "totalFiles": 77,
+  "filteredByIgnore": 12,
+  "estimatedComplexity": "moderate",
+  "stats": {
+    "filesScanned": 77,
+    "byCategory": {
+      "config": 9,
+      "code": 49,
+      "docs": 12,
+      "script": 5,
+      "markup": 2
+    },
+    "byLanguage": {
+      "json": 6,
+      "config": 1,
+      "service": 1,
+      "python": 26,
+      "markdown": 9,
+      "txt": 3,
+      "msg": 2,
+      "xml": 2,
+      "srv": 18,
+      "action": 1,
+      "shell": 5,
+      "rules": 1,
+      "html": 2
+    }
+  }
+}

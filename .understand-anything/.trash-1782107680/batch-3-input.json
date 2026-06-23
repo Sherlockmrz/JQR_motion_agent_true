@@ -1,0 +1,34 @@
+{
+    "projectRoot":  "C:\\Users\\rzma\\Downloads\\JQR_motion_agent_new\\Jrobot_agent",
+    "batchFiles":  [
+                       {
+                           "path":  "test_waypoint_integration.sh",
+                           "language":  "shell",
+                           "sizeLines":  77,
+                           "fileCategory":  "script"
+                       },
+                       {
+                           "path":  "websocket_control_client.html",
+                           "language":  "html",
+                           "sizeLines":  568,
+                           "fileCategory":  "markup"
+                       },
+                       {
+                           "path":  "websocket_test_panel.html",
+                           "language":  "html",
+                           "sizeLines":  237,
+                           "fileCategory":  "markup"
+                       }
+                   ],
+    "batchImportData":  {
+                            "test_waypoint_integration.sh":  [
+
+                                                             ],
+                            "websocket_control_client.html":  [
+
+                                                              ],
+                            "websocket_test_panel.html":  [
+
+                                                          ]
+                        }
+}

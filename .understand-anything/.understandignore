@@ -1,0 +1,18 @@
+# .understandignore - patterns for files/dirs to exclude from analysis
+# Syntax: same as .gitignore (globs, # comments, ! negation, trailing / for dirs)
+#
+# Built-in defaults are always excluded unless negated by the analyzer:
+# node_modules/, .git/, dist/, build/, __pycache__/, *.lock, binary assets, etc.
+#
+# Uncomment project-specific patterns below if you want to exclude them later.
+
+.understand-anything/
+*.db
+
+# --- Test and example file patterns ---
+
+# *.test.*
+# *.spec.*
+# test/
+# tests/
+# examples/

@@ -1,0 +1,44 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "test_waypoint_integration.sh",
+      "language": "shell",
+      "fileCategory": "script",
+      "totalLines": 77,
+      "nonEmptyLines": 66,
+      "functions": [
+        {
+          "name": "cleanup",
+          "startLine": 45,
+          "endLine": 52,
+          "params": []
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "websocket_control_client.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 568,
+      "nonEmptyLines": 482,
+      "metrics": {}
+    },
+    {
+      "path": "websocket_test_panel.html",
+      "language": "html",
+      "fileCategory": "markup",
+      "totalLines": 237,
+      "nonEmptyLines": 224,
+      "metrics": {}
+    }
+  ]
+}

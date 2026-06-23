@@ -1,0 +1,44 @@
+{
+    "projectRoot":  "C:\\Users\\rzma\\Downloads\\JQR_motion_agent_new\\Jrobot_agent",
+    "batchFiles":  [
+                       {
+                           "path":  "config.py",
+                           "language":  "python",
+                           "sizeLines":  76,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "smart_robot_agent.py",
+                           "language":  "python",
+                           "sizeLines":  6421,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_e2e_scenarios.py",
+                           "language":  "python",
+                           "sizeLines":  134,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "websocket_control_server.py",
+                           "language":  "python",
+                           "sizeLines":  343,
+                           "fileCategory":  "code"
+                       }
+                   ],
+    "batchImportData":  {
+                            "config.py":  [
+
+                                          ],
+                            "smart_robot_agent.py":  [
+                                                         "config.py",
+                                                         "websocket_control_server.py"
+                                                     ],
+                            "test_e2e_scenarios.py":  [
+                                                          "smart_robot_agent.py"
+                                                      ],
+                            "websocket_control_server.py":  [
+
+                                                            ]
+                        }
+}

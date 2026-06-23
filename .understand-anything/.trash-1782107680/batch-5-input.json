@@ -1,0 +1,232 @@
+{
+    "projectRoot":  "C:\\Users\\rzma\\Downloads\\JQR_motion_agent_new\\Jrobot_agent",
+    "batchFiles":  [
+                       {
+                           "path":  "local_model_bridge.py",
+                           "language":  "python",
+                           "sizeLines":  173,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "mock_four_motor_node.py",
+                           "language":  "python",
+                           "sizeLines":  229,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "mock_four_waypoint_node.py",
+                           "language":  "python",
+                           "sizeLines":  300,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "mock_motor_node.py",
+                           "language":  "python",
+                           "sizeLines":  217,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "nav2_msgs/action/NavigateToPose.action",
+                           "language":  "action",
+                           "sizeLines":  12,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "nav2_msgs/CMakeLists.txt",
+                           "language":  "txt",
+                           "sizeLines":  21,
+                           "fileCategory":  "docs"
+                       },
+                       {
+                           "path":  "nav2_msgs/package.xml",
+                           "language":  "xml",
+                           "sizeLines":  28,
+                           "fileCategory":  "config"
+                       },
+                       {
+                           "path":  "protocol_parser.py",
+                           "language":  "python",
+                           "sizeLines":  265,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "rk.rules",
+                           "language":  "rules",
+                           "sizeLines":  1,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_4dof_head_control.py",
+                           "language":  "python",
+                           "sizeLines":  415,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_agent_client.py",
+                           "language":  "python",
+                           "sizeLines":  59,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_agent_stop_client.py",
+                           "language":  "python",
+                           "sizeLines":  44,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_auto_run.py",
+                           "language":  "python",
+                           "sizeLines":  126,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_four_combine_motor.py",
+                           "language":  "python",
+                           "sizeLines":  339,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_four_waypoint_control.py",
+                           "language":  "python",
+                           "sizeLines":  369,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_http_43.py",
+                           "language":  "python",
+                           "sizeLines":  22,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_mock_server.py",
+                           "language":  "python",
+                           "sizeLines":  107,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_model_ws.py",
+                           "language":  "python",
+                           "sizeLines":  65,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_obstacle_avoidance.py",
+                           "language":  "python",
+                           "sizeLines":  190,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_stop_ws.py",
+                           "language":  "python",
+                           "sizeLines":  31,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_websocket_control.py",
+                           "language":  "python",
+                           "sizeLines":  452,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test_ws_only.py",
+                           "language":  "python",
+                           "sizeLines":  25,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "test.py",
+                           "language":  "python",
+                           "sizeLines":  628,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "usb_serial_manager.py",
+                           "language":  "python",
+                           "sizeLines":  586,
+                           "fileCategory":  "code"
+                       },
+                       {
+                           "path":  "verify_4dof_test.py",
+                           "language":  "python",
+                           "sizeLines":  239,
+                           "fileCategory":  "code"
+                       }
+                   ],
+    "batchImportData":  {
+                            "local_model_bridge.py":  [
+
+                                                      ],
+                            "mock_four_motor_node.py":  [
+
+                                                        ],
+                            "mock_four_waypoint_node.py":  [
+
+                                                           ],
+                            "mock_motor_node.py":  [
+
+                                                   ],
+                            "nav2_msgs/action/NavigateToPose.action":  [
+
+                                                                       ],
+                            "nav2_msgs/CMakeLists.txt":  [
+
+                                                         ],
+                            "nav2_msgs/package.xml":  [
+
+                                                      ],
+                            "protocol_parser.py":  [
+
+                                                   ],
+                            "rk.rules":  [
+
+                                         ],
+                            "test_4dof_head_control.py":  [
+
+                                                          ],
+                            "test_agent_client.py":  [
+
+                                                     ],
+                            "test_agent_stop_client.py":  [
+
+                                                          ],
+                            "test_auto_run.py":  [
+
+                                                 ],
+                            "test_four_combine_motor.py":  [
+
+                                                           ],
+                            "test_four_waypoint_control.py":  [
+
+                                                              ],
+                            "test_http_43.py":  [
+
+                                                ],
+                            "test_mock_server.py":  [
+
+                                                    ],
+                            "test_model_ws.py":  [
+
+                                                 ],
+                            "test_obstacle_avoidance.py":  [
+
+                                                           ],
+                            "test_stop_ws.py":  [
+
+                                                ],
+                            "test_websocket_control.py":  [
+
+                                                          ],
+                            "test_ws_only.py":  [
+
+                                                ],
+                            "test.py":  [
+
+                                        ],
+                            "usb_serial_manager.py":  [
+                                                          "protocol_parser.py"
+                                                      ],
+                            "verify_4dof_test.py":  [
+
+                                                    ]
+                        }
+}
